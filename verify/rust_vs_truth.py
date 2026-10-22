@@ -1,6 +1,6 @@
 """Compare relic4-scan's month Parquet files with relic4 truth (DuckDB), row by row.
 
-  uv run --project <relic4> python verify/rust_vs_truth.py OUT_DIR [--sample-index FILE N]
+  uv run --project <agent-relic-v4> python verify/rust_vs_truth.py OUT_DIR [--sample-index FILE N]
 
 --sample-index writes the same 125-file sample as verify/understand.py (seed 7) as a scan index, then exits.
 Otherwise: every (s, h, idx) in OUT_DIR/*.parquet must exist in truth with equal fields; sources must be a

@@ -1,6 +1,6 @@
 """Re-derive truth rows from real files with the server's own parse_chunk, compare field by field with truth.
 
-  uv run --project <relic4> python verify/understand.py [N files per kind]
+  uv run --project <agent-relic-v4> python verify/understand.py [N files per kind]
 
 Reads only: the sample files, ~/jsonl-truth/.live/state.db (offsets), ~/relic4-scratch/truth/*.duckdb.
 Copy-independent fields must match exactly; engine / sid / ts may differ when another copy of the same bytes

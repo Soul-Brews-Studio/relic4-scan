@@ -1,7 +1,7 @@
 """Incremental == cold. Scratch home from real transcripts -> run (cut short) -> mutate -> run -> run again,
 then compare with ONE cold parse of the final home.
 
-  uv run --project <relic4> python verify/incremental.py BIN N
+  uv run --project <agent-relic-v4> python verify/incremental.py BIN N
 
 Pass when:
   1. every row of the cold parse is in the incremental months, every field equal, its sources included

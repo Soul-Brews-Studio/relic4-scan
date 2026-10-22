@@ -1,6 +1,8 @@
-# relic4-scan (lab)
+# relic4-scan
 
 One Rust binary. It finds every AI-agent transcript on a machine and writes **one Parquet file per Bangkok month** in the relic4 truth schema. The design is in RESEARCH.md, the lessons from relic v1–v3 in LEARNED.md, and the exact output rules, traced and verified, in OUTPUT-CHAIN.md.
+
+Grown in the agent-relic-v4 lab (`lab/relic4-scan` on branch `lab-rust-scan`, history kept). [agent-relic-v4](https://github.com/Soul-Brews-Studio/agent-relic-v4) is the reader: it turns these month files into truth, meta, vectors and search. The verify scripts need its Python environment: `uv run --project <agent-relic-v4> python verify/…`.
 
 ```
 cargo build --release
