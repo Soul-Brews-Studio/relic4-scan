@@ -35,6 +35,9 @@ const SKIP_IN_HOME: &[&str] = &["plugins", "cache", "shell-snapshots", "statsig"
 /// The agent a directory name stands for, if it is an agent home.
 pub fn agent_kind(name: &str) -> Option<&'static str> {
     let n = name.to_lowercase();
+    if n.starts_with(".omx-runs") {
+        return Some("omx-ops"); // omx run logs, not conversation (relic v1 sources.ts:122)
+    }
     let dotted = [(".claude", "claude"), (".codex", "codex"), (".omp", "omp"), (".omx", "omx"), (".thclaws", "thclaws"),
                   (".gemini", "gemini")];
     for (p, k) in dotted {
@@ -52,10 +55,27 @@ pub fn agent_kind(name: &str) -> Option<&'static str> {
     None
 }
 
+/// Where a home's files came from: this account's own agent, or a copy (mirrors go stale, rescues are frozen).
+pub fn origin(path: &str) -> &'static str {
+    let p = path.to_lowercase();
+    if p.contains("mirror") {
+        "mirror"
+    } else if p.contains("rescue") || p.contains("_bak") || p.contains("backup") || p.contains("bak/") || p.ends_with("bak") {
+        "rescue"
+    } else if p.contains("/_archive/") || p.contains("/archive/") {
+        "archive"
+    } else if p.contains("/downloads/") || p.contains("/documents/") && !p.ends_with("/documents/codex") {
+        "copy"
+    } else {
+        "own"
+    }
+}
+
 #[derive(Serialize, Clone)]
 pub struct Home {
     pub path: String,
     pub kind: String,
+    pub origin: String,
     pub files: u64,
     pub bytes: u64,
     pub dup_files: u64,
@@ -257,7 +277,7 @@ pub fn run(roots: &[String], depth: usize, threads: usize, exclude: &[String]) -
     let mut out = Vec::new();
     for (path, kind) in &homes {
         let mut h = Home {
-            path: path.to_string_lossy().to_string(), kind: kind.to_string(), files: 0, bytes: 0, dup_files: 0,
+            path: path.to_string_lossy().to_string(), kind: kind.to_string(), origin: origin(&path.to_string_lossy()).to_string(), files: 0, bytes: 0, dup_files: 0,
             newest: None, main: 0, subagent: 0, workflow_agent: 0,
         };
         let mut newest = 0i64;

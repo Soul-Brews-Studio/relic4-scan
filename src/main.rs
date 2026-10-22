@@ -76,9 +76,9 @@ fn main() {
                 r.homes.iter().fold((0, 0, 0), |a, h| (a.0 + h.files, a.1 + h.bytes, a.2 + h.dup_files));
             if let Some(p) = &index {
                 let mut f = std::io::BufWriter::new(std::fs::File::create(p).expect("create index"));
-                writeln!(f, "path\thome\tkind\ttier\tsize\tmtime_ms\tdev\tino").unwrap();
+                writeln!(f, "path\thome\tkind\torigin\ttier\tsize\tmtime_ms\tdev\tino").unwrap();
                 for e in &r.files {
-                    writeln!(f, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", e.path, e.home, e.kind, scan::tier(&e.path), e.size, e.mtime, e.dev, e.ino).unwrap();
+                    writeln!(f, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", e.path, e.home, e.kind, scan::origin(&e.home), scan::tier(&e.path), e.size, e.mtime, e.dev, e.ino).unwrap();
                 }
             }
             if json {
@@ -92,16 +92,23 @@ fn main() {
             let mut homes = r.homes.clone();
             homes.sort_by(|a, b| b.bytes.cmp(&a.bytes));
             let w = homes.iter().map(|h| tilde(&h.path).chars().count()).max().unwrap_or(4).clamp(4, 90);
-            println!("{:<w$}  {:<7} {:>8} {:>8} {:>7} {:>7} {:>7} {:>6}  {}", "HOME", "KIND", "FILES", "GB", "MAIN", "SUB", "WF",
+            println!("{:<w$}  {:<7} {:<7} {:>8} {:>8} {:>7} {:>7} {:>7} {:>6}  {}", "HOME", "KIND", "ORIGIN", "FILES", "GB", "MAIN", "SUB", "WF",
                      "DUP", "NEWEST (BKK)");
             for h in homes.iter().filter(|h| h.files > 0 || h.dup_files > 0) {
                 let mut p = tilde(&h.path);
                 if p.chars().count() > w {
                     p = format!("…{}", p.chars().skip(p.chars().count() - w + 1).collect::<String>());
                 }
-                println!("{:<w$}  {:<7} {:>8} {:>8} {:>7} {:>7} {:>7} {:>6}  {}", p, h.kind, num(h.files), gb(h.bytes), num(h.main),
+                println!("{:<w$}  {:<7} {:<7} {:>8} {:>8} {:>7} {:>7} {:>7} {:>6}  {}", p, h.kind, h.origin, num(h.files), gb(h.bytes), num(h.main),
                          num(h.subagent), num(h.workflow_agent), num(h.dup_files), h.newest.clone().unwrap_or_default());
             }
+            let mut by: std::collections::BTreeMap<&str, (u64, u64)> = Default::default();
+            for h in &homes {
+                let e = by.entry(h.origin.as_str()).or_default();
+                e.0 += h.files;
+                e.1 += h.bytes;
+            }
+            eprintln!("by origin: {}", by.iter().map(|(k, (f, b))| format!("{k} {} files {} GB", num(*f), gb(*b))).collect::<Vec<_>>().join(" · "));
             let empty = homes.iter().filter(|h| h.files == 0 && h.dup_files == 0).count();
             eprintln!("{} homes ({} with no .jsonl) · {} files · {} GB · {} duplicate inodes folded · homes found in {:.2}s · files indexed in {:.2}s{}",
                       homes.len(), empty, num(files), gb(bytes), num(dups), r.secs_homes, r.secs_files,
