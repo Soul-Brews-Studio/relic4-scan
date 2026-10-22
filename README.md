@@ -4,22 +4,41 @@ One Rust binary, `relic-scan` (this repo is still named relic4-scan). It finds e
 
 Grown in the agent-relic-v4 lab (`lab/relic4-scan` on branch `lab-rust-scan`, history kept). [agent-relic-v4](https://github.com/Soul-Brews-Studio/agent-relic-v4) is the reader: it turns these month files into truth, meta, vectors and search. The verify scripts need its Python environment: `uv run --project <agent-relic-v4> python verify/…`.
 
-**Install and run, one command each.** `install.sh` finds cargo, even when it is not on PATH, and installs to `~/.local/bin`. The repo is private, so cargo fetches it through the git CLI and your gh login.
+## Use it
+**Install.** One command. It needs Rust 1.89 or newer and a gh login, because the repo is private and cargo fetches it through the git CLI. `install.sh` finds cargo even when it is not on PATH, builds in about 30 s and installs to `~/.local/bin/relic-scan`.
 ```
 gh api repos/Soul-Brews-Studio/relic4-scan/contents/install.sh -H 'Accept: application/vnd.github.raw' | sh
-relic-scan up --kind claude      # scan + parse + meta + map into ~/.relic-scan, then http://127.0.0.1:8787/map and /tree
 ```
-To install a branch instead of `main`, pipe to `REF=<branch> sh` rather than `sh`.
-`up` is `run` followed by `serve`; run it again later and only new bytes are read (about 10 s). `relic-scan serve` serves what is already there.
+To install a branch instead of `main`, pipe to `REF=<branch> sh`. Run the same line again to upgrade.
 
+**Run.**
 ```
-cargo build --release
-./target/release/relic-scan run --out months/                       # incremental: scan + parse only new bytes + meta
-./target/release/relic-scan run --kind claude --out claude/            # Claude homes only (own --out)
-./target/release/relic-scan map --out months/                       # months/meta/map.html: session star map + query (offline page)
-./target/release/relic-scan meta --out months/                      # meta alone: months/meta/{files,sessions}.parquet
-./target/release/relic-scan scan [--full] --index index.tsv        # phase 1 alone: find homes, index files
-./target/release/relic-scan parse --index index.tsv --out months/   # phase 2 alone, cold: months/YYYY-MM.parquet
+relic-scan                         # the logo, what is indexed already, and the commands below
+relic-scan up --kind claude        # index Claude transcripts into ~/.relic-scan/claude, then serve http://127.0.0.1:8787
+relic-scan tui --kind claude       # the same data in the terminal
+```
+The first run reads everything: on m5 that is 83,673 files and 67.6 GB in about 45 s. After that a run reads only new bytes and takes about 10 s, most of it spent walking the homes. Without `--kind`, every agent is indexed into `~/.relic-scan`.
+
+| command | what it does |
+|---|---|
+| `relic-scan up [--kind K] [--port 8787]` | `run`, then `serve` |
+| `relic-scan run [--kind K] [--out DIR]` | Scan, parse only new bytes, then write meta, map and paths. It ends with a summary card. |
+| `relic-scan serve [--kind K]` | Serves `/map`, `/tree` and `/paths` on 127.0.0.1 only. The page is read on every request, so a `run` in another shell shows up on reload. |
+| `relic-scan tui [--kind K]` | The terminal browser (below). |
+| `relic-scan meta` / `map` | Rebuild only the meta tables, or only the page. |
+| `relic-scan scan [--full] [--index F]` / `parse --index F --out DIR` | The two phases alone, for debugging and benchmarks. |
+
+**Defaults and safety:**
+- **`--out`:** defaults to `~/.relic-scan`. With `--kind` and no `--out` it is `~/.relic-scan/<kind>`, so a kind-only run never shares its state with a run over every agent. `serve`, `tui`, `meta` and `map` take the same `--kind` to find it.
+- **One writer:** a run takes a lock on `OUT/.lock`. A second `run`, `meta` or `map` on the same directory stops with a message instead of racing the first.
+- **Crash safety:** month files, meta tables and `_state.tsv` are written to a temporary file, fsynced, then renamed. The state goes last, so a crash costs a re-read, never a lost or doubled row.
+- **Peak memory:** files are read in 32 MiB chunks (`RELIC_SCAN_CHUNK` bytes to change it). The biggest files are parsed side by side, so reading them whole used to hold gigabytes at once.
+- **Local only:** the server binds 127.0.0.1, and the page makes no network calls.
+
+**Build from a checkout instead:**
+```
+cargo build --release && cargo test --release
+./target/release/relic-scan up --kind claude
 ```
 
 ## run (incremental)
@@ -96,8 +115,10 @@ The last step of `run`, or `relic-scan meta --out DIR` on its own. It reads the 
 
 | file | one row per | columns |
 |---|---|---|
-| `DIR/meta/files.parquet` | file in the state | agent, path, home, size, lines, last_ms, file_sid, base, tier, engine, proj, parent_sid, cat, n_rows, text_rows, first_ts, last_ts |
-| `DIR/meta/sessions.parquet` | file name (base, tier), copies folded | base, tier, sid, parent_sid, engine, proj, cat, probe, first_ts, last_ts, last_ms, copies, machines, agents, size, n_rows, text_rows, text_msgs, months |
+| `DIR/meta/files.parquet` | file in the state | agent, path, home, size, lines, last_ms, file_sid, base, tier, engine, proj, parent_sid, cat, n_rows, text_rows, first_ts, last_ts, plus rows by type |
+| `DIR/meta/sessions.parquet` | file name (base, tier), copies folded | base, tier, sid, parent_sid, engine, proj, cat, probe, first_ts, last_ts, last_ms, copies, machines, agents, size, n_rows, text_rows, text_msgs, months, plus rows by type |
+
+Rows by type are six columns: user_text, assistant_text, thinking, tool_calls, tool_results and tool_errors. Errors are results that failed, so they are also counted in tool_results.
 
 - **Location:** the tables sit in `meta/`, not next to the months, because `relic4 truth import --from-scan` reads every `DIR/*.parquet` as a month.
 - **Incremental:** each month's per-file and per-session counts are cached in `meta/cache/YYYY-MM.tsv`. A month is aggregated again only when its Parquet file changed (size or mtime).
@@ -125,23 +146,58 @@ The same walk that finds the homes collects the loose files, so they add no extr
 | cold (no cache) | 86,905 | 45,094 | every row and column equal | **1.9 s** (Python: truth import 19.9 s + meta 2.5 s) |
 | after an incremental `run` (2026-10 rewritten) | 86,905 | 45,094 | every row and column equal | **0.9 s** (1 month aggregated again) |
 
-## map and tree
-`relic-scan serve` (or `up`) serves the page on 127.0.0.1 only: `/map` is the star map and `/tree` the tree. As a file, `map.html?view=tree` opens the tree. Both views share the query box, the side panel and the hash, so a query carries over when you switch.
+## Views: map, tree, paths and the TUI
+`serve` (or `up`) serves one page on 127.0.0.1 with three views. A tab bar switches between them; map and tree share the query box, the side panel and the URL hash, so a query carries over. The theme button cycles auto, dark and light; auto follows the system. In tree and paths only the page scrolls; the side panel sits beside it, never inside it.
 
-**Tree:** jsonl home → repo → session → satellites. Every level shows the sessions, the rows, a bar of rows by type (user, assistant, thinking, tool calls, tool results) and the last activity. A session is listed under every home that holds a copy of it. A query result of up to 400 sessions opens itself down to the repos.
+`run` rebuilds the page (`DIR/meta/map.html`, about 4 MB for 43,006 sessions, data inlined) and `DIR/meta/paths.json`. `relic-scan map` rebuilds both alone in 0.2 s. Opened as a file, `map.html?view=tree` shows the tree. The paths view loads `/paths.json`, so it needs the server.
 
-`run` ends with it; `relic-scan map --out DIR` rebuilds it alone in 0.1 s. `--out` defaults to `~/.relic-scan` for run, meta, map, serve and up. It writes `DIR/meta/map.html`, a single offline page (3.6 MB for 43,006 sessions) with the data inlined. It makes no network calls; open the file, or serve it on 127.0.0.1.
-
-- **Ring:** the Bangkok month the session started. The oldest month is innermost; a brighter ring marks the start of a year.
+**/map, the star map:**
+- **Ring:** the Bangkok month the session started. The oldest month is innermost; a stronger ring marks the start of a year.
 - **Sector:** the repo. Wider sectors have more sessions; repos with fewer than 12 sessions share one sector.
-- **Star:** a main session, sized by log(rows). Subagents and workflow agents orbit their parent, which is found by the `<uuid>/subagents/` folder they sit in. 99% of them have a parent.
+- **Star:** a main session, sized by log(rows). Subagents and workflow agents orbit their parent, found by the `<uuid>/subagents/` folder they sit in. 99% of them have a parent.
+- **Colour:** by tier, repo, age, the share of tool rows, or thinking.
 - **Query:** plain words match repo, project or sid. Filters:
   - `repo:` `proj:` `sid:` `home:` `tier:main|sub|wf`
   - `month:2026-07` `after:2026-09-01` `before:`
-  - `rows>1000` `text` `msgs` `copies`
+  - `rows>1000` `text` `msgs` `copies` `user` `asst` `think` `calls` `results` `errors` `tools`, e.g. `think>0 errors>=20`
   - `-` before a term negates it, `"..."` quotes a value, and all terms must match (AND).
-  - The query is kept in the URL hash, so a link reopens the same view.
-- **Panel:** the counts, top repos and jsonl homes of the current match, each clickable to narrow the query. Clicking a star shows that session: sid, repo, times, rows, copies, homes, satellites, and buttons to copy the sid or a `claude --resume` line.
+- **Panel:** totals, rows by type, top repos and jsonl homes of the current match, each clickable to narrow the query. Clicking a star shows that session: sid, repo, times, rows by type, copies, homes, satellites, and buttons to copy the sid or a `claude --resume` line.
+
+**/tree:** jsonl home → repo → session → satellites. Each level shows sessions, rows, a bar of rows by type and the last activity. A session is listed under every home that holds a copy. A result of up to 400 sessions opens itself down to the repos.
+
+**/paths:** every `.jsonl` the scan saw, as a folder tree. Chains of single folders fold into one row, and `~` stands for your home. Each folder shows files, rows, size and a status bar:
+- **indexed:** parsed into the months.
+- **skipped:** in an agent home, but the content sniff says it is not a transcript (workflow journals, prompt logs, omx logs).
+- **vault:** in an oracle's ψ vault, listed only.
+- **loose:** anywhere else under the roots, listed only.
+
+Query words match the path. Filters: `is:indexed|skipped|vault|loose`, `verdict:not-transcript`, `name:agent-`, `mb>100`, `size>1e9`, `rows>10000`, `rows=0`, `after:` and `before:` (modified, Bangkok time). A small result opens every folder it touches. Clicking a file shows its status, verdict, size, rows and modified time, with a button to copy its path.
+
+**`relic-scan tui`:** the same data in the terminal, with four views on the number keys:
+
+| key | view |
+|---|---|
+| `1` | overview: totals, rows by type, sessions per month by tier |
+| `2` | repos: sessions (main / sub / workflow), rows, thinking, errors, last activity. Enter lists the repo's sessions. |
+| `3` | sessions, newest first. Enter opens one; `c` copies `claude --resume <sid>`. |
+| `4` | paths: folders holding `.jsonl`, with indexed / skipped / other. Enter lists the folder's files; Enter on a file copies its path. |
+
+Other keys:
+- `/` filters the list (words, AND) and `Esc` clears the filter.
+- `↑↓`, `j k`, `g G` and `PgUp PgDn` move.
+- `⌫` goes back and `q` quits.
+
+It sets no background colour, so it reads the same on dark and light terminals. Colour in the CLI output appears only on a terminal and is off with `NO_COLOR`.
+
+## Tests
+`cargo test` runs 11 tests in under a second, with no other repo needed:
+- the path rules: tier, repo (cat), project, parent and home;
+- `splitlines` and the jt cut of a last line;
+- the message key and the meta cache line;
+- **chunked reading:** chunk sizes from 1 byte to 4 KB give the same rows as a whole-file read;
+- **incremental == cold:** a file grown three times, once cut mid-line, gives the same month file as one cold parse.
+
+The full-corpus proofs (`verify/*.py`) compare against agent-relic-v4 and need its Python environment. In addition, a 4,023-file fixture (7.1 GB, including the 24 biggest files) gave every month, `files.parquet`, `sessions.parquet` and `jsonl.parquet` equal to the previous binary's. Peak RSS fell from 5.81 GB to 3.72 GB at the same speed.
 
 ## Not yet
 - **A quarantine month** for impossible dates.
