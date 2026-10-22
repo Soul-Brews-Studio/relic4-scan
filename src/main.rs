@@ -1,14 +1,21 @@
-//! relic4-scan — one binary that finds every AI-agent transcript on this machine and (next phases) parses it
+//! relic-scan — one binary that finds every AI-agent transcript on this machine and (next phases) parses it
 //! into one file per Bangkok month. See RESEARCH.md for the design and its sources.
 //!
-//!   relic4-scan scan [--root DIR]... [--depth 8] [--json] [--index index.tsv]
+//!   relic-scan scan [--root DIR]... [--depth 8] [--json] [--index index.tsv]
 //!       phase 1: find every agent home (.claude, .claude_bak, .claude2, .codex …) and index its .jsonl files
-//!   relic4-scan parse --index index.tsv --out DIR [--agent user@host] [--threads N] [--jt-compat]
+//!   relic-scan parse --index index.tsv --out DIR [--agent user@host] [--threads N] [--jt-compat]
 //!       phase 2: parse every indexed file in parallel -> DIR/YYYY-MM.parquet, one file per Bangkok month
-//!   relic4-scan run --out DIR [--full] [--root DIR]... [--agent user@host]
-//!       incremental: scan, diff against DIR/_state.tsv, parse only new bytes, rewrite only touched months
+//!   relic-scan run --out DIR [--full] [--root DIR]... [--agent user@host]
+//!       incremental: scan, diff against DIR/_state.tsv, parse only new bytes, rewrite only touched months,
+//!       then meta (below)
+//!   relic-scan map --out DIR
+//!       DIR/meta/{sessions,files}.parquet -> DIR/meta/map.html (session star map + query, one offline page)
+//!   relic-scan meta --out DIR [--agent user@host]
+//!       DIR/YYYY-MM.parquet + DIR/_state.tsv -> DIR/meta/files.parquet + DIR/meta/sessions.parquet
 
 mod engine;
+mod map;
+mod meta;
 mod parse;
 mod scan;
 mod sniff;
@@ -75,6 +82,29 @@ enum Cmd {
         /// only files whose path contains this text (repeatable)
         #[arg(long)]
         only: Vec<String>,
+        /// only homes of this kind: claude, codex, omp, omx, thclaws, gemini, pi (repeatable); loose .jsonl are kept
+        /// when their content says the same agent. Use its own --out: other kinds are not touched in the state.
+        #[arg(long)]
+        kind: Vec<String>,
+    },
+    /// The month files + _state.tsv -> meta/files.parquet + meta/sessions.parquet (`run` does this as its last step)
+    Meta {
+        /// the directory `run` wrote
+        #[arg(long)]
+        out: String,
+        /// the --agent `run` used (default: user@host)
+        #[arg(long)]
+        agent: Option<String>,
+        #[arg(long, default_value_t = 0)]
+        threads: usize,
+    },
+    /// meta/sessions.parquet + meta/files.parquet -> meta/map.html: every session as a star, queryable in the browser
+    Map {
+        /// the directory `run` wrote
+        #[arg(long)]
+        out: String,
+        #[arg(long)]
+        agent: Option<String>,
     },
     /// Parse every indexed file -> one Parquet file per Bangkok month (truth schema, copies folded)
     Parse {
@@ -139,13 +169,17 @@ fn default_agent() -> String {
 fn main() {
     let cli = Cli::parse();
     match cli.cmd {
-        Cmd::Run { out, roots, depth, threads, exclude, full, agent, jt_compat, only } => {
+        Cmd::Run { out, roots, depth, threads, exclude, full, agent, jt_compat, only, kind } => {
             let t0 = std::time::Instant::now();
             let outp = std::path::Path::new(&out);
             std::fs::create_dir_all(outp).unwrap();
             let roots = if roots.is_empty() { vec!["~".to_string(), "/opt/Code".to_string()] } else { roots };
             let agent = agent.unwrap_or_else(default_agent);
-            let r = scan::run(&roots, depth, threads, &exclude, false);
+            let mut r = scan::run(&roots, depth, threads, &exclude, false);
+            if !kind.is_empty() {
+                r.files.retain(|f| kind.contains(&f.kind));
+                r.loose.retain(|f| kind.iter().any(|k| *k == f.agent));
+            }
             let t_scan = t0.elapsed().as_secs_f64();
             let mut st = state::load(outp);
             let (mut new, mut grown, mut rewritten, mut unchanged) = (0u64, 0u64, 0u64, 0u64);
@@ -186,8 +220,11 @@ fn main() {
                     jobs.push(parse::Job { path: f.path.clone(), size: f.size, verdict: f.verdict.clone(), ctx });
                 }
             }
-            let gone = st.keys().filter(|k| !seen.contains(*k) && (only.is_empty() || only.iter().any(|o| k.contains(o.as_str())))).count();
-            if only.is_empty() {
+            let filtered = !only.is_empty() || !kind.is_empty();
+            let gone = if !kind.is_empty() { 0 } else {
+                st.keys().filter(|k| !seen.contains(*k) && (only.is_empty() || only.iter().any(|o| k.contains(o.as_str())))).count()
+            };
+            if !filtered {
                 st.retain(|k, _| seen.contains(k));
             }
             let bytes: u64 = jobs.iter().map(|j| j.size.saturating_sub(j.ctx.offset)).sum();
@@ -203,7 +240,22 @@ fn main() {
                 st.insert(p, state::FileState { dev, ino, size, ctx: c, prefix_len: plen, prefix_hash: ph });
             }
             state::save(outp, &st);
+            meta::jsonl(outp, &r, &st);
+            meta::build(outp, &agent, &st, threads);
+            map::build(outp, &agent);
             eprintln!("run: done in {:.1}s · state {} files -> {}/_state.tsv", t0.elapsed().as_secs_f64(), num(st.len() as u64), out);
+        }
+        Cmd::Map { out, agent } => {
+            map::build(std::path::Path::new(&out), &agent.unwrap_or_else(default_agent));
+        }
+        Cmd::Meta { out, agent, threads } => {
+            let outp = std::path::Path::new(&out);
+            let st = state::load(outp);
+            if st.is_empty() {
+                eprintln!("meta: no {out}/_state.tsv (run `relic-scan run --out {out}` first)");
+                std::process::exit(1);
+            }
+            meta::build(outp, &agent.unwrap_or_else(default_agent), &st, threads);
         }
         Cmd::Parse { index, out, agent, threads, jt_compat, only, keep_parts, all } => {
             let agent = agent.unwrap_or_else(default_agent);
@@ -267,6 +319,15 @@ fn main() {
                       if full { "full (content)" } else { "light (names + paths)" }, num(ch), num(em),
                       if full { "empty sessions" } else { "unknown shape" }, num(nt));
             eprintln!("by origin: {}", by.iter().map(|(k, (f, b))| format!("{k} {} files {} GB", num(*f), gb(*b))).collect::<Vec<_>>().join(" · "));
+            let in_vault = r.loose.iter().filter(|f| f.kind == "vault").count();
+            let vaults: std::collections::BTreeSet<&str> = r.loose.iter().filter(|f| f.kind == "vault").map(|f| f.home.as_str()).collect();
+            let mut lv: std::collections::BTreeMap<&str, u64> = Default::default();
+            for f in &r.loose {
+                *lv.entry(f.verdict.as_str()).or_default() += 1;
+            }
+            eprintln!("loose .jsonl (outside every home, not parsed): {} · in ψ vaults {} ({} vaults) · elsewhere {} · {}",
+                      num(r.loose.len() as u64), num(in_vault as u64), vaults.len(), num((r.loose.len() - in_vault) as u64),
+                      lv.iter().map(|(k, v)| format!("{k} {}", num(*v))).collect::<Vec<_>>().join(" · "));
             let empty = homes.iter().filter(|h| h.files == 0 && h.dup_files == 0).count();
             eprintln!("{} homes ({} with no .jsonl) · {} files · {} GB · {} duplicate inodes folded · homes found in {:.2}s · files indexed in {:.2}s{}",
                       homes.len(), empty, num(files), gb(bytes), num(dups), r.secs_homes, r.secs_files,

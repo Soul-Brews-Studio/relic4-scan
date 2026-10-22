@@ -1,4 +1,4 @@
-//! Phase 1, `relic4-scan scan`: find every agent home under the roots, then index every .jsonl inside them.
+//! Phase 1, `relic-scan scan`: find every agent home under the roots, then index every .jsonl inside them.
 //!
 //! A home is a directory whose NAME says it holds agent transcripts, whatever the copy was called:
 //!   .claude .claude2 .claude_bak .claudebak .claude-old …   (any `.claude*`)
@@ -13,6 +13,10 @@
 //!
 //! Then every *.jsonl under each home is listed with size, mtime and (dev, inode). One inode reachable twice
 //! (a symlinked or hard-linked copy) counts once: the first home in sorted order keeps it, like jt does.
+//!
+//! The same walk also keeps every *.jsonl it passes OUTSIDE the homes ("loose"): in an oracle's ψ vault, in a
+//! repo, anywhere under the roots. They are not parsed into months; they are listed in meta/jsonl.parquet with
+//! a verdict, so every .jsonl on the machine is accounted for in one pass.
 
 use std::collections::HashSet;
 use std::os::unix::fs::MetadataExt;
@@ -162,15 +166,17 @@ fn shape_root(p: &Path) -> Option<(PathBuf, &'static str)> {
 }
 
 /// Every home under the roots, sorted by path: named homes, then shape homes not inside a named one.
-pub fn find_homes(roots: &[String], depth: usize, threads: usize, exclude: &[String]) -> Vec<(PathBuf, &'static str)> {
+/// Also returns every *.jsonl the walk passed outside the named homes (shape homes are filtered out later).
+pub fn find_homes(roots: &[String], depth: usize, threads: usize, exclude: &[String]) -> (Vec<(PathBuf, &'static str)>, Vec<PathBuf>) {
     let found: Arc<Mutex<Vec<(PathBuf, &'static str)>>> = Arc::default();
     let shaped: Arc<Mutex<Vec<(PathBuf, &'static str)>>> = Arc::default();
+    let loose: Arc<Mutex<Vec<PathBuf>>> = Arc::default();
     for r in roots {
         let root = expand(r);
         if !root.is_dir() {
             continue;
         }
-        let (f, sh) = (found.clone(), shaped.clone());
+        let (f, sh, lo) = (found.clone(), shaped.clone(), loose.clone());
         let ex: Vec<String> = exclude.to_vec();
         walker(&root, Some(depth), threads)
             .filter_entry(move |e| {
@@ -183,7 +189,7 @@ pub fn find_homes(roots: &[String], depth: usize, threads: usize, exclude: &[Str
             })
             .build_parallel()
             .run(|| {
-                let (f, sh) = (f.clone(), sh.clone());
+                let (f, sh, lo) = (f.clone(), sh.clone(), lo.clone());
                 Box::new(move |res| {
                     let Ok(e) = res else { return WalkState::Continue };
                     if e.depth() == 0 {
@@ -198,6 +204,7 @@ pub fn find_homes(roots: &[String], depth: usize, threads: usize, exclude: &[Str
                         if let Some(h) = shape_root(e.path()) {
                             sh.lock().unwrap().push(h);
                         }
+                        lo.lock().unwrap().push(e.path().to_path_buf());
                     }
                     WalkState::Continue
                 })
@@ -217,7 +224,15 @@ pub fn find_homes(roots: &[String], depth: usize, threads: usize, exclude: &[Str
     v.extend(outer);
     v.sort();
     v.dedup_by(|a, b| a.0 == b.0);
-    v
+    let mut lo = std::mem::take(&mut *loose.lock().unwrap());
+    lo.sort();
+    lo.dedup();
+    (v, lo)
+}
+
+/// The ψ vault a path sits in: the path up to and including its last `ψ` folder.
+pub fn vault_of(path: &str) -> Option<&str> {
+    path.rfind("/ψ/").map(|i| &path[..i + "/ψ".len()])
 }
 
 /// Every *.jsonl under one home (no depth limit).
@@ -271,13 +286,15 @@ fn list_home(home: &Path, kind: &'static str, threads: usize, by_shape: bool) ->
 pub struct ScanResult {
     pub homes: Vec<Home>,
     pub files: Vec<FileEntry>,
+    /// every *.jsonl outside the homes: home = its ψ vault ("" when none), kind = "vault" | "other"
+    pub loose: Vec<FileEntry>,
     pub secs_homes: f64,
     pub secs_files: f64,
 }
 
 pub fn run(roots: &[String], depth: usize, threads: usize, exclude: &[String], full: bool) -> ScanResult {
     let t0 = Instant::now();
-    let homes = find_homes(roots, depth, threads, exclude);
+    let (homes, loose_paths) = find_homes(roots, depth, threads, exclude);
     let secs_homes = t0.elapsed().as_secs_f64();
     let t1 = Instant::now();
     let mut seen: HashSet<(u64, u64)> = HashSet::new();
@@ -325,7 +342,31 @@ pub fn run(roots: &[String], depth: usize, threads: usize, exclude: &[String], f
         }
         out.push(h);
     }
-    ScanResult { homes: out, files, secs_homes, secs_files: t1.elapsed().as_secs_f64() }
+    // loose: not under a kept home, not an inode a home already holds; a dead link or a folder named *.jsonl drops
+    let kept: Vec<String> = out.iter().map(|h| format!("{}/", h.path)).collect();
+    let mut loose = vec![];
+    // the inodes kept homes hold (a dropped shape home's files are loose again)
+    let mut held: HashSet<(u64, u64)> = files.iter().map(|f| (f.dev, f.ino)).collect();
+    for p in loose_paths {
+        let ps = p.to_string_lossy().to_string();
+        if kept.iter().any(|k| ps.starts_with(k.as_str())) {
+            continue;
+        }
+        let Ok(md) = std::fs::metadata(&p) else { continue };
+        if !md.is_file() || !held.insert((md.dev(), md.ino())) {
+            continue;
+        }
+        let mtime = md.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map(|d| d.as_millis() as i64).unwrap_or(0);
+        let vault = vault_of(&ps).map(str::to_string);
+        loose.push(FileEntry {
+            kind: if vault.is_some() { "vault".into() } else { "other".into() }, home: vault.unwrap_or_default(), path: ps,
+            agent: String::new(), verdict: String::new(), size: md.len(), mtime, dev: md.dev(), ino: md.ino(),
+        });
+    }
+    // loose files are few (12k on m5 vs 91k in homes): always read their first lines, even in the light scan, so a
+    // transcript that sits outside every home is named, not guessed
+    sniff_all(&mut loose, threads, true);
+    ScanResult { homes: out, files, loose, secs_homes, secs_files: t1.elapsed().as_secs_f64() }
 }
 
 /// Content verdict for every file, in parallel (64 KB read + parse per file).

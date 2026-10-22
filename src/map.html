@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>relic-scan · session star map</title>
+<style>
+  :root { --bg: #05070d; --ink: #d9dde8; --dim: #7c8496; --line: #1c2333; --panel: rgba(10, 13, 22, .92);
+          --main: #ffe6a8; --sub: #7fd3ff; --wf: #b89cff; --hit: #ff7a59; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+               font: 13px/1.45 ui-monospace, "SF Mono", Menlo, monospace; overflow: hidden; }
+  canvas { position: fixed; inset: 0; display: block; cursor: crosshair; }
+  #bar { position: fixed; left: 14px; top: 12px; right: 374px; display: flex; gap: 10px; align-items: center; }
+  #q { flex: 1; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px;
+       padding: 9px 12px; font: inherit; outline: none; }
+  #q:focus { border-color: #3a4766; }
+  #count { color: var(--dim); white-space: nowrap; }
+  #legend { position: fixed; left: 14px; bottom: 12px; display: flex; gap: 14px; color: var(--dim); align-items: center; flex-wrap: wrap; }
+  #legend b { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+  #legend button { background: none; border: 1px solid var(--line); color: var(--dim); border-radius: 4px; padding: 3px 8px; font: inherit; cursor: pointer; }
+  #legend button.on { color: var(--ink); border-color: #3a4766; }
+  #panel { overflow-x: hidden; position: fixed; top: 0; right: 0; bottom: 0; width: 360px; background: var(--panel); border-left: 1px solid var(--line);
+           padding: 14px 16px; overflow-y: auto; }
+  #panel h2 { font-size: 13px; margin: 14px 0 6px; color: var(--dim); font-weight: normal; text-transform: uppercase; letter-spacing: .06em; }
+  #panel h2:first-child { margin-top: 0; }
+  .kv { display: grid; grid-template-columns: 92px 1fr; gap: 2px 10px; }
+  .kv span:nth-child(odd) { color: var(--dim); }
+  .kv span { overflow-wrap: anywhere; }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; overflow-wrap: anywhere; padding: 2px 4px; border-radius: 3px; cursor: pointer; }
+  .row:hover { background: #141a29; }
+  .row .n { color: var(--dim); text-align: right; }
+  .bar { height: 3px; background: #2a3550; margin: 0 4px 3px; border-radius: 2px; }
+  .bar i { display: block; height: 100%; background: #6b7fb0; border-radius: 2px; }
+  .muted { color: var(--dim); }
+  .btn { background: #111727; border: 1px solid var(--line); color: var(--ink); border-radius: 4px; padding: 4px 8px; font: inherit; cursor: pointer; margin: 6px 6px 0 0; }
+  .btn:hover { border-color: #3a4766; }
+  code { color: #c9d4ff; }
+  #tip { position: fixed; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 5px;
+         padding: 6px 9px; display: none; max-width: 340px; }
+  .help { color: var(--dim); font-size: 12px; }
+  .help code { color: var(--ink); }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="bar"><input id="q" spellcheck="false" autocomplete="off"
+  placeholder="query: words · repo:neo · tier:main · home:mirror · month:2026-07 · rows>1000 · think>0 · errors>=20 · -tier:wf"><span id="count"></span></div>
+<div id="legend"></div>
+<div id="panel"></div>
+<div id="tip"></div>
+<script>
+const D = /*DATA*/null;
+const S = D.s, N = S.sid.length, BKK = 7 * 3600;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = n => n.toLocaleString("en-US");
+const TIER = ["main", "subagent", "workflow-agent"];
+// rows by type: [key in the data, label, colour]; errors are a subset of results
+const TYPES = [["user", "user text", "#ffd166"], ["asst", "assistant text", "#ffe6a8"], ["think", "thinking", "#ff9ec7"],
+               ["calls", "tool calls", "#7fd3ff"], ["results", "tool results", "#5aa9e6"], ["errors", "tool errors", "#ff7a59"]];
+const TYPE_KEYS = new Set(TYPES.map(t => t[0]).concat(["rows", "text", "msgs", "copies", "tools"]));
+const tools = k => S.calls[k] + S.results[k];
+const COLOR = ["#ffe6a8", "#7fd3ff", "#b89cff"];
+const cat = k => S.cat[k] < 0 ? "(none)" : D.cats[S.cat[k]];
+const proj = k => S.proj[k] < 0 ? "" : D.projs[S.proj[k]];
+const bkk = t => t == null ? "—" : new Date((t + BKK) * 1000).toISOString().slice(0, 16).replace("T", " ");
+
+// ---------- layout: ring = month, sector = repo, satellites orbit their parent ----------
+function hash(str, salt) {
+  let h = 2166136261 ^ salt;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  // murmur3 finaliser: without it, sequential ids (agent-…01, …02) land on a straight line
+  h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+const monthIdx = t => { const d = new Date((t + BKK) * 1000); return d.getUTCFullYear() * 12 + d.getUTCMonth(); };
+const mLabel = m => `${Math.floor(m / 12)}-${String(m % 12 + 1).padStart(2, "0")}`;
+let m0 = Infinity, m1 = -Infinity;
+for (let k = 0; k < N; k++) if (S.t0[k] != null) { const m = monthIdx(S.t0[k]); m0 = Math.min(m0, m); m1 = Math.max(m1, m); }
+const R0 = 140, DR = 64, RINGS = m1 - m0 + 1, ROUT = R0 + RINGS * DR;
+const radius = t => {
+  if (t == null) return ROUT + 46;
+  const m = monthIdx(t), y = Math.floor(m / 12), mo = m % 12;
+  const a = Date.UTC(y, mo, 1) / 1000 - BKK, b = Date.UTC(y, mo + 1, 1) / 1000 - BKK;
+  return R0 + (m - m0 + (t - a) / (b - a)) * DR;
+};
+// sectors: repos sorted by sessions, width ~ sessions^0.8; repos under SMALL sessions share one sector
+const SMALL = 12, OTHER = -2;
+const perCat = new Map();
+for (let k = 0; k < N; k++) perCat.set(S.cat[k], (perCat.get(S.cat[k]) || 0) + 1);
+const secOf = new Map([...perCat].map(([c, n]) => [c, n < SMALL ? OTHER : c]));
+const perSec = new Map();
+for (const [c, n] of perCat) perSec.set(secOf.get(c), (perSec.get(secOf.get(c)) || 0) + n);
+const cats = [...perSec.entries()].sort((a, b) => (a[0] === OTHER) - (b[0] === OTHER) || b[1] - a[1]);
+const GAP = 0.006, total = cats.reduce((a, [, n]) => a + n ** 0.8, 0);
+const sector = new Map();
+let a0 = -Math.PI / 2 + 0.02;
+for (const [c, n] of cats) {
+  const w = (n ** 0.8 / total) * (2 * Math.PI - 0.04 - GAP * cats.length);
+  sector.set(c, [a0, w, n]); a0 += w + GAP;
+}
+const smallRepos = [...perCat].filter(([, n]) => n < SMALL).length;
+const secName = c => c === OTHER ? `${smallRepos} small repos` : c < 0 ? "(none)" : D.cats[c];
+const X = new Float32Array(N), Y = new Float32Array(N), SIZE = new Float32Array(N);
+const kids = Array.from({ length: N }, () => []);
+for (let pass = 0; pass < 2; pass++) for (let k = 0; k < N; k++) {
+  const sat = S.tier[k] > 0 && S.parent[k] >= 0;
+  if ((pass === 0) === sat) continue;
+  const lr = Math.log10(1 + S.rows[k]);
+  if (sat) {
+    const p = S.parent[k], o = 2.5 + 7 * hash(S.sid[k], 7), a = 2 * Math.PI * hash(S.sid[k], 3);
+    X[k] = X[p] + o * Math.cos(a); Y[k] = Y[p] + o * Math.sin(a);
+    SIZE[k] = 0.45 + 0.3 * lr; kids[p].push(k);
+  } else {
+    const [s0, w] = sector.get(secOf.get(S.cat[k])), a = s0 + w * (0.06 + 0.88 * hash(S.sid[k], 1)), r = radius(S.t0[k]);
+    X[k] = r * Math.cos(a); Y[k] = r * Math.sin(a);
+    SIZE[k] = S.tier[k] === 0 ? 0.8 + 0.75 * lr : 0.5 + 0.35 * lr;
+  }
+}
+
+// ---------- query ----------
+const match = new Uint8Array(N).fill(1);
+let active = false;
+const TIERS = { main: 0, sub: 1, subagent: 1, wf: 2, workflow: 2, "workflow-agent": 2 };
+function test(k, key, op, val) {
+  const v = val.toLowerCase();
+  switch (key) {
+    case "tier": return S.tier[k] === TIERS[v];
+    case "repo": case "cat": return cat(k).toLowerCase().includes(v);
+    case "proj": return proj(k).toLowerCase().includes(v);
+    case "sid": return S.sid[k].toLowerCase().startsWith(v);
+    case "home": return S.homes[k].some(h => (D.homes[h].path + " " + D.homes[h].origin).toLowerCase().includes(v));
+    case "month": return S.t0[k] != null && mLabel(monthIdx(S.t0[k])).startsWith(v);
+    case "after": return S.t0[k] != null && bkk(S.t0[k]) >= v;
+    case "before": return S.t0[k] != null && bkk(S.t0[k]) < v;
+    case "rows": case "text": case "msgs": case "copies": case "user": case "asst": case "think": case "calls": case "results": case "errors": case "tools": {
+      const x = key === "tools" ? tools(k) : S[key][k], n = Number(v);
+      return op === ">" ? x > n : op === "<" ? x < n : op === ">=" ? x >= n : op === "<=" ? x <= n : x === n;
+    }
+  }
+  return true;
+}
+function run(q) {
+  // terms: word · key:value · key>n · key:"value with spaces" · "phrase" · a leading - negates
+  const terms = (q.match(/-?[a-z]+(?::|>=|<=|>|<|=)"[^"]*"?|-?"[^"]*"?|\S+/gi) || []).map(t => {
+    const neg = t.startsWith("-") && t.length > 1; if (neg) t = t.slice(1);
+    const m = t.match(/^([a-z]+)(:|>=|<=|>|<|=)(.+)$/i);
+    const unq = v => v.replace(/^"|"$/g, "");
+    return m ? { neg, key: m[1].toLowerCase(), op: m[2], val: unq(m[3]) } : { neg, word: unq(t).toLowerCase() };
+  }).filter(t => t.word !== "");
+  active = terms.length > 0;
+  for (let k = 0; k < N; k++) {
+    let ok = true;
+    for (const t of terms) {
+      const r = t.word != null ? (cat(k) + " " + proj(k) + " " + S.sid[k]).toLowerCase().includes(t.word) : test(k, t.key, t.op, t.val);
+      if (r === t.neg) { ok = false; break; }
+    }
+    match[k] = ok && tierOn[S.tier[k]] ? 1 : 0;
+  }
+  history.replaceState(null, "", q ? "#" + encodeURIComponent(q) : location.pathname);
+  summary(); draw();
+}
+
+// ---------- view ----------
+const cv = $("c"), ctx = cv.getContext("2d");
+let W, H, DPR, scale, ox, oy, sel = -1, hover = -1;
+const tierOn = [true, true, true];
+let colorBy = "tier";
+function fit() {
+  DPR = window.devicePixelRatio || 1; W = innerWidth - 360; H = innerHeight;
+  cv.width = innerWidth * DPR; cv.height = H * DPR; cv.style.width = innerWidth + "px"; cv.style.height = H + "px";
+}
+function home() { scale = Math.min(W, H - 60) / (2 * (ROUT + 190)); ox = W / 2; oy = H / 2 + 22; }
+const sx = k => ox + X[k] * scale, sy = k => oy + Y[k] * scale;
+function hue(k) {
+  if (colorBy === "repo") return `hsl(${(S.cat[k] * 137.508) % 360} 75% 70%)`;
+  if (colorBy === "tools%") {
+    // share of the session's rows that are tool traffic: text-heavy = warm, tool-heavy = cold
+    const f = S.rows[k] ? tools(k) / S.rows[k] : 0;
+    return `hsl(${40 + 170 * f} 85% ${72 - 12 * f}%)`;
+  }
+  if (S.think && colorBy === "thinking") return S.think[k] > 0 ? "#ff9ec7" : "#3a4258";
+  if (colorBy === "age") {
+    const t = S.t1[k] ?? S.t0[k]; if (t == null) return "#555";
+    const age = (Date.now() / 1000 - t) / 86400;
+    return age < 2 ? "#ff7a59" : age < 14 ? "#ffd166" : age < 60 ? "#7fd3ff" : "#5a6a9a";
+  }
+  return COLOR[S.tier[k]];
+}
+let grid = new Map();
+function draw() {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, innerWidth, H);
+  // rings + month labels
+  ctx.lineWidth = 1; ctx.font = "11px ui-monospace, Menlo, monospace"; ctx.textAlign = "center";
+  for (let i = 0; i <= RINGS; i++) {
+    const r = (R0 + i * DR) * scale;
+    ctx.strokeStyle = (m0 + i) % 12 === 0 ? "#2b3550" : "#141a28"; // a brighter ring where a year starts
+    ctx.beginPath(); ctx.arc(ox, oy, r, 0, 2 * Math.PI); ctx.stroke();
+    if (i < RINGS && DR * scale > 14) { ctx.fillStyle = "#4a5470"; ctx.fillText(mLabel(m0 + i), ox, oy - (R0 + (i + 0.5) * DR) * scale + 4); }
+  }
+  // repo labels at the rim
+  ctx.fillStyle = "#6f7a96";
+  let shown = 0;
+  for (const [c, [s0, w, n]] of sector) {
+    if (w * (ROUT + 30) * scale < 26 && shown > 8) continue;
+    const a = s0 + w / 2, r = (ROUT + 22) * scale;
+    ctx.save(); ctx.translate(ox + r * Math.cos(a), oy + r * Math.sin(a));
+    let rot = a; ctx.textAlign = "left";
+    if (Math.cos(a) < 0) { rot += Math.PI; ctx.textAlign = "right"; }
+    ctx.rotate(rot); ctx.fillText(`${secName(c)} ${n}`, 0, 4); ctx.restore(); shown++;
+  }
+  // constellation lines for a small query result, and for the selection
+  const few = active && countMatched < 4000;
+  ctx.lineWidth = 0.6;
+  if (few) {
+    ctx.strokeStyle = "rgba(140,160,220,.18)"; ctx.beginPath();
+    for (let k = 0; k < N; k++) if (match[k] && S.parent[k] >= 0 && match[S.parent[k]]) { ctx.moveTo(sx(k), sy(k)); ctx.lineTo(sx(S.parent[k]), sy(S.parent[k])); }
+    ctx.stroke();
+  }
+  if (sel >= 0) {
+    const root = S.parent[sel] >= 0 ? S.parent[sel] : sel;
+    ctx.strokeStyle = "rgba(255,122,89,.55)"; ctx.beginPath();
+    for (const k of kids[root]) { ctx.moveTo(sx(root), sy(root)); ctx.lineTo(sx(k), sy(k)); }
+    ctx.stroke();
+  }
+  // stars
+  ctx.globalCompositeOperation = "lighter";
+  grid = new Map();
+  const zoom = Math.pow(scale / homeScale, 0.45);
+  for (let k = 0; k < N; k++) {
+    const x = sx(k), y = sy(k);
+    if (x < -10 || y < -10 || x > W + 10 || y > H + 10) continue;
+    if (!tierOn[S.tier[k]]) continue;
+    const on = match[k] === 1;
+    // unmatched satellites are skipped: 100 of them at 4% each around one parent add up to a bright false halo
+    if (!on && S.tier[k] > 0) continue;
+    ctx.globalAlpha = !on ? 0.04 : S.tier[k] === 0 ? 0.8 : 0.32;
+    const r = Math.max(0.6, SIZE[k] * zoom);
+    ctx.fillStyle = hue(k);
+    if (r < 1.3) ctx.fillRect(x - r, y - r, 2 * r, 2 * r);
+    else { ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * Math.PI); ctx.fill(); }
+    if (on || !active) {
+      const g = `${Math.floor(x / 12)},${Math.floor(y / 12)}`;
+      (grid.get(g) || grid.set(g, []).get(g)).push(k);
+    }
+  }
+  ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1;
+  for (const [k, c] of [[hover, "#ffffff"], [sel, "#ff7a59"]]) if (k >= 0) {
+    ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.beginPath();
+    ctx.arc(sx(k), sy(k), Math.max(5, SIZE[k] * zoom + 4), 0, 2 * Math.PI); ctx.stroke();
+  }
+}
+let queued = false;
+const redraw = () => { if (!queued) { queued = true; requestAnimationFrame(() => { queued = false; draw(); }); } };
+function nearest(x, y) {
+  let best = -1, bd = 100;
+  const gx = Math.floor(x / 12), gy = Math.floor(y / 12);
+  for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const k of grid.get(`${gx + i},${gy + j}`) || []) {
+    const d = (sx(k) - x) ** 2 + (sy(k) - y) ** 2; if (d < bd) { bd = d; best = k; }
+  }
+  return best;
+}
+
+// ---------- panel ----------
+let countMatched = N;
+function bars(items, total, onclick) {
+  return items.map(([label, n, extra]) => `<div class="row" data-q="${esc(onclick(label))}"><span>${esc(label)}</span><span class="n">${extra ?? fmt(n)}</span></div>
+    <div class="bar"><i style="width:${Math.max(1, 100 * n / total)}%"></i></div>`).join("");
+}
+// one bar per type, its share of all rows (errors: share of results)
+function typeBars(ty, rows) {
+  return TYPES.map(([key, label, color], j) => {
+    const base = key === "errors" ? ty[4] : rows, pct = base ? 100 * ty[j] / base : 0;
+    return `<div class="row" data-q="${key}>0"><span><b style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:6px"></b>${label}</span>
+      <span class="n">${fmt(ty[j])} · ${pct.toFixed(1)}%${key === "errors" ? " of results" : ""}</span></div>
+      <div class="bar"><i style="width:${Math.max(0.5, pct)}%;background:${color}"></i></div>`;
+  }).join("");
+}
+function summary() {
+  if (sel >= 0) return detail(sel);
+  let n = 0, rows = 0, t = [0, 0, 0], lo = Infinity, hi = -Infinity;
+  const ty = TYPES.map(() => 0);
+  const byCat = new Map(), byHome = new Map();
+  for (let k = 0; k < N; k++) if (match[k]) {
+    n++; rows += S.rows[k]; t[S.tier[k]]++;
+    TYPES.forEach(([key], j) => { ty[j] += S[key][k]; });
+    if (S.t0[k] != null) { lo = Math.min(lo, S.t0[k]); hi = Math.max(hi, S.t1[k] ?? S.t0[k]); }
+    byCat.set(cat(k), (byCat.get(cat(k)) || 0) + 1);
+    for (const h of S.homes[k]) byHome.set(h, (byHome.get(h) || 0) + 1);
+  }
+  countMatched = n;
+  $("count").textContent = active ? `${fmt(n)} / ${fmt(N)} sessions` : `${fmt(N)} sessions`;
+  const topCats = [...byCat.entries()].sort((a, b) => b[1] - a[1]).slice(0, 18);
+  const topHomes = [...byHome.entries()].sort((a, b) => b[1] - a[1]).slice(0, 16)
+    .map(([h, c]) => { const x = D.homes[h]; return [x.path.replace(/^\/Users\/[^/]+/, "~"), c, `${fmt(c)} · ${(x.bytes / 1e9).toFixed(2)} GB · ${x.origin}`]; });
+  $("panel").innerHTML = `
+    <h2>${active ? "query result" : "all sessions"} · ${esc(D.agent)}</h2>
+    <div class="kv">
+      <span>sessions</span><span>${fmt(n)}</span>
+      <span>main</span><span>${fmt(t[0])}</span>
+      <span>subagent</span><span>${fmt(t[1])}</span>
+      <span>workflow</span><span>${fmt(t[2])}</span>
+      <span>rows</span><span>${fmt(rows)}</span>
+      <span>span (BKK)</span><span>${lo < Infinity ? bkk(lo).slice(0, 10) + " → " + bkk(hi).slice(0, 10) : "—"}</span>
+    </div>
+    <h2>rows by type</h2>${typeBars(ty, rows)}
+    <h2>repos</h2>${bars(topCats, topCats[0]?.[1] || 1, l => `repo:${l}`)}
+    <h2>jsonl homes (sessions · size · origin)</h2>${bars(topHomes, topHomes[0]?.[1] || 1, l => `home:${l.replace(/^~/, "")}`)}
+    <h2>query</h2>
+    <div class="help">words match repo, project and sid. <code>repo:</code> <code>proj:</code> <code>sid:</code> <code>home:</code>
+    <code>tier:main|sub|wf</code> <code>month:2026-07</code> <code>after:2026-09-01</code> <code>before:</code>
+    <code>rows&gt;1000</code> <code>text</code> <code>msgs</code> <code>copies</code>
+    <code>user</code> <code>asst</code> <code>think</code> <code>calls</code> <code>results</code> <code>errors</code> <code>tools</code>, e.g. <code>think&gt;0</code> <code>errors&gt;=20</code>. A leading <code>-</code> negates. Terms AND.
+    Click a star for its session, drag to pan, wheel to zoom, double-click to reset.</div>
+    <div class="help" style="margin-top:8px">built ${esc(D.built)} · ${fmt(D.homes.length)} homes · rings = month started (BKK), inside = oldest</div>`;
+  // click a repo or a home: add it to the query (quoted when it has spaces)
+  for (const el of $("panel").querySelectorAll("[data-q]")) el.onclick = () => {
+    const raw = el.dataset.q, ci = raw.indexOf(":");
+    const term = ci < 0 || !/\s/.test(raw) ? raw : `${raw.slice(0, ci)}:"${raw.slice(ci + 1)}"`;
+    const q = $("q").value.trim();
+    $("q").value = (q ? q + " " : "") + term;
+    run($("q").value);
+  };
+}
+function detail(k) {
+  const root = S.parent[k] >= 0 ? S.parent[k] : k, sid = S.sid[k];
+  const homes = S.homes[k].map(h => `${esc(D.homes[h].path.replace(/^\/Users\/[^/]+/, "~"))} <span class="muted">(${D.homes[h].origin})</span>`).join("<br>");
+  const ks = kids[root].slice().sort((a, b) => (S.t0[a] ?? 0) - (S.t0[b] ?? 0));
+  $("panel").innerHTML = `
+    <h2>${TIER[S.tier[k]]} session</h2>
+    <div class="kv">
+      <span>sid</span><span><code>${esc(sid)}</code></span>
+      <span>repo</span><span>${esc(cat(k))}</span>
+      <span>project</span><span>${esc(proj(k) || "—")}</span>
+      <span>started</span><span>${bkk(S.t0[k])}</span>
+      <span>last</span><span>${bkk(S.t1[k])}</span>
+      <span>rows</span><span>${fmt(S.rows[k])} (text ${fmt(S.text[k])} · msgs ${fmt(S.msgs[k])})</span>
+      ${TYPES.map(([key, label, color]) => `<span style="color:${color}">${label}</span><span>${fmt(S[key][k])}</span>`).join("")}
+      <span>copies</span><span>${S.copies[k]} · ${(S.bytes[k] / 1e6).toFixed(1)} MB largest</span>
+      <span>homes</span><span>${homes || "—"}</span>
+      ${root !== k ? `<span>parent</span><span class="row" data-k="${root}"><code>${esc(S.sid[root])}</code></span>` : ""}
+    </div>
+    <button class="btn" data-copy="${esc(sid)}">copy sid</button>
+    ${S.tier[k] === 0 ? `<button class="btn" data-copy="claude --resume ${esc(sid)}">copy resume</button>` : ""}
+    <button class="btn" id="back">back</button>
+    <h2>${root === k ? "satellites" : "siblings"} · ${ks.length}</h2>
+    ${ks.slice(0, 300).map(c => `<div class="row" data-k="${c}"><span style="color:${COLOR[S.tier[c]]}">${esc(S.sid[c].slice(0, 22))}</span><span class="n">${fmt(S.rows[c])}</span></div>`).join("")}`;
+  for (const el of $("panel").querySelectorAll("[data-k]")) el.onclick = () => select(+el.dataset.k);
+  for (const el of $("panel").querySelectorAll("[data-copy]")) el.onclick = () => navigator.clipboard.writeText(el.dataset.copy).then(() => { el.textContent = "copied"; });
+  $("back").onclick = () => select(-1);
+}
+function select(k) { sel = k; summary(); redraw(); }
+
+// ---------- legend + input ----------
+function legend() {
+  $("legend").innerHTML = TIER.map((t, i) => `<button class="${tierOn[i] ? "on" : ""}" data-t="${i}"><b style="background:${COLOR[i]}"></b>${t}</button>`).join("")
+    + ` <span>color:</span>` + ["tier", "repo", "age", "tools%", "thinking"].map(c => `<button class="${colorBy === c ? "on" : ""}" data-c="${c}">${c}</button>`).join("");
+  for (const el of $("legend").querySelectorAll("[data-t]")) el.onclick = () => { tierOn[+el.dataset.t] = !tierOn[+el.dataset.t]; legend(); run($("q").value); };
+  for (const el of $("legend").querySelectorAll("[data-c]")) el.onclick = () => { colorBy = el.dataset.c; legend(); redraw(); };
+}
+let timer;
+$("q").addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(() => run($("q").value), 180); });
+$("q").addEventListener("keydown", e => { if (e.key === "Escape") { $("q").value = ""; run(""); } });
+
+let drag = null, moved = false;
+cv.addEventListener("mousedown", e => { drag = [e.clientX, e.clientY, ox, oy]; moved = false; });
+addEventListener("mouseup", e => {
+  if (drag && !moved && e.target === cv) { const k = nearest(e.clientX, e.clientY); select(k); }
+  drag = null;
+});
+addEventListener("mousemove", e => {
+  if (drag) {
+    const dx = e.clientX - drag[0], dy = e.clientY - drag[1];
+    if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
+    ox = drag[2] + dx; oy = drag[3] + dy; redraw(); return;
+  }
+  if (e.target !== cv) return;
+  const k = nearest(e.clientX, e.clientY), tip = $("tip");
+  if (k !== hover) { hover = k; redraw(); }
+  if (k < 0) { tip.style.display = "none"; return; }
+  tip.style.display = "block"; tip.style.left = e.clientX + 14 + "px"; tip.style.top = e.clientY + 12 + "px";
+  tip.innerHTML = `<span style="color:${COLOR[S.tier[k]]}">${TIER[S.tier[k]]}</span> · ${esc(cat(k))}<br>
+    <code>${esc(S.sid[k])}</code><br>${bkk(S.t0[k])} · ${fmt(S.rows[k])} rows · ${S.copies[k]} cop${S.copies[k] === 1 ? "y" : "ies"}`;
+});
+cv.addEventListener("wheel", e => {
+  e.preventDefault();
+  const f = Math.exp(-e.deltaY * 0.0015), x = e.clientX, y = e.clientY;
+  ox = x - (x - ox) * f; oy = y - (y - oy) * f; scale *= f; redraw();
+}, { passive: false });
+cv.addEventListener("dblclick", () => { home(); redraw(); });
+addEventListener("resize", () => { fit(); redraw(); });
+
+fit(); home();
+const homeScale = scale;
+legend();
+$("q").value = decodeURIComponent(location.hash.slice(1));
+run($("q").value);
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-//! Phase 2, `relic4-scan parse`: every indexed file -> rows -> ONE file per Bangkok month.
+//! Phase 2, `relic-scan parse`: every indexed file -> rows -> ONE file per Bangkok month.
 //!
 //!   index (phase 1)  ->  sort by size, biggest first (LPT)  ->  N threads take the next file (atomic index)
 //!   per file: the bytes jt would send (complete lines; a last line without "\n" only if it is JSON;
