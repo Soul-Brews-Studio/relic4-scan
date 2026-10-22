@@ -392,7 +392,7 @@ fn write_parquet(p: &Path, cols: Vec<(&str, ArrayRef)>) {
     let props = WriterProperties::builder().set_compression(Compression::ZSTD(ZstdLevel::try_new(3).unwrap())).build();
     let mut w = ArrowWriter::try_new(fs::File::create(&tmp).unwrap(), schema, Some(props)).unwrap();
     w.write(&batch).unwrap();
-    w.close().unwrap();
+    w.into_inner().unwrap().sync_all().unwrap();
     fs::rename(tmp, p).unwrap();
 }
 
@@ -609,4 +609,64 @@ pub fn jsonl(out: &Path, r: &crate::scan::ScanResult, st: &HashMap<String, FileS
     let vaults: BTreeSet<&str> = r.loose.iter().filter(|f| f.kind == "vault").map(|f| f.home.as_str()).collect();
     eprintln!("meta: jsonl {} (home {} · ψ vault {} in {} vaults · other {}) in {:.1}s -> {}/meta/jsonl.parquet",
               all.len(), n("home"), n("vault"), vaults.len(), n("other"), t0.elapsed().as_secs_f64(), out.display());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const U: &str = "0b867d73-405b-4b03-8c46-aee7648f1bd7";
+
+    #[test]
+    fn tiers() {
+        let h = "/Users/x/.claude/projects/-opt-Code-github-com-laris-co-neo";
+        assert_eq!(tier_of(&format!("{h}/{U}.jsonl")), "main");
+        assert_eq!(tier_of(&format!("{h}/{U}/subagents/agent-a1.jsonl")), "subagent");
+        assert_eq!(tier_of(&format!("{h}/{U}/subagents/workflows/wf_1/agent-a2.jsonl")), "workflow-agent");
+        assert_eq!(tier_of(&format!("{h}/{U}/subagents/workflows/wf_1/journal.jsonl")), "other");
+        assert_eq!(tier_of(&format!("/Users/x/.codex/sessions/2026/07/01/rollout-2026-07-01T00-00-00-{U}.jsonl")), "main");
+        assert_eq!(tier_of("/Users/x/.codex/sessions/rollout-x.jsonl"), "other");
+        assert_eq!(tier_of("/Users/x/.omp/agent/sessions/p/2026_ab12-cd.jsonl"), "main");
+        assert_eq!(tier_of("/Users/x/.omx/logs/run.jsonl"), "main");
+        assert_eq!(tier_of("/Users/x/.omx/history.jsonl"), "other");
+        assert_eq!(tier_of("/Users/x/.claude/history.jsonl"), "other");
+        // the scan uses the very same rules
+        assert_eq!(crate::scan::tier("/Users/x/.omp/agent/sessions/p/2026_ab12-cd.jsonl"), "main");
+    }
+
+    #[test]
+    fn repos_and_projects() {
+        let p = format!("/h/.claude/projects/-opt-Code-github-com-Soul-Brews-Studio-relic4-scan/{U}.jsonl");
+        assert_eq!(proj_of(&p).as_deref(), Some("-opt-Code-github-com-Soul-Brews-Studio-relic4-scan"));
+        assert_eq!(cat_of("claude", proj_of(&p).as_deref()), "relic4-scan");
+        assert_eq!(cat_of("claude", Some("-opt-Code-github-com-laris-co-neo-oracle-wt-fix-x")), "neo-oracle");
+        assert_eq!(cat_of("claude", Some("-Users-x-proj-worktrees-thing-wt-2")), "thing");
+        assert_eq!(cat_of("claude", Some("-Users-x-oracle-probe-cwd-1")), "probe (automated)");
+        assert_eq!(cat_of("claude", Some("-Users-x")), "home / other");
+        assert_eq!(cat_of("claude", None), "(no project dir)");
+        assert_eq!(cat_of("codex", None), "codex (no cwd in path)");
+        assert_eq!(parent_of(&format!("/h/p/{U}/subagents/agent-1.jsonl")).as_deref(), Some(U));
+        assert_eq!(home_of(&p), "/h/.claude");
+    }
+
+    #[test]
+    fn msg_key_keeps_null_apart_from_empty() {
+        assert_ne!(msg_key(Some("user"), None, Some("x")), msg_key(Some("user"), Some(""), Some("x")));
+        assert_ne!(msg_key(Some("ab"), Some("c"), None), msg_key(Some("a"), Some("bc"), None));
+        assert_eq!(msg_key(Some("user"), Some("t"), Some("x")), msg_key(Some("user"), Some("t"), Some("x")));
+    }
+
+    #[test]
+    fn months_and_cache_round_trip() {
+        assert_eq!(month_of("2026-07.parquet"), Some("2026-07"));
+        assert_eq!(month_of("undated.parquet"), Some("undated"));
+        assert_eq!(month_of(".parquet"), None);
+        assert_eq!(month_of("_state.tsv"), None);
+        let a = Agg { n_rows: 5, text_rows: 2, text_msgs: 1, by: [1, 1, 0, 2, 1, 1], first_ts: Some(String::new()), last_ts: None };
+        let line = format!("F\tp\t{}", agg_tsv(&a));
+        let c: Vec<&str> = line.split('\t').collect();
+        assert_eq!(c.len(), 13);
+        let b = agg_from(&c[2..]);
+        assert_eq!((b.n_rows, b.by, b.first_ts, b.last_ts), (5, [1, 1, 0, 2, 1, 1], Some(String::new()), None));
+    }
 }

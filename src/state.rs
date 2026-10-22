@@ -63,7 +63,7 @@ pub fn save(out: &Path, m: &HashMap<String, FileState>) {
         writeln!(w, "{k}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", s.dev, s.ino, s.size, s.ctx.offset, s.ctx.lines, s.ctx.session,
                  s.ctx.last_ms.map(|x| x.to_string()).unwrap_or_default(), s.prefix_len, s.prefix_hash).unwrap();
     }
-    w.flush().unwrap();
-    drop(w);
+    // on disk before the rename, so a power cut can never leave a state that points past what was written
+    w.into_inner().unwrap().sync_all().unwrap();
     fs::rename(tmp, out.join("_state.tsv")).unwrap(); // the state is written LAST: a crash re-reads, h folds it
 }

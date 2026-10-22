@@ -106,21 +106,10 @@ pub struct FileEntry {
     pub ino: u64,
 }
 
-/// main / subagent / workflow-agent / other, from the file path (same rules as relic4's sql.tier_of).
+/// main / subagent / workflow-agent / other, from the file path. One classifier for the whole crate: relic4's
+/// sql.tier_of rules, in meta.rs (the scan table, the sniff and meta/*.parquet must never disagree).
 pub fn tier(path: &str) -> &'static str {
-    if path.contains("/subagents/workflows/") && path.ends_with(".jsonl") && file_name(path).starts_with("agent-") {
-        "workflow-agent"
-    } else if path.contains("/subagents/") && file_name(path).starts_with("agent-") {
-        "subagent"
-    } else if is_uuid_jsonl(file_name(path)) || (file_name(path).starts_with("rollout-") && path.ends_with(".jsonl")) {
-        "main"
-    } else {
-        "other"
-    }
-}
-
-fn file_name(p: &str) -> &str {
-    p.rsplit('/').next().unwrap_or(p)
+    crate::meta::tier_of(path)
 }
 
 fn is_uuid_jsonl(n: &str) -> bool {
@@ -133,11 +122,7 @@ fn is_uuid_jsonl(n: &str) -> bool {
 }
 
 fn expand(p: &str) -> PathBuf {
-    match p.strip_prefix("~/") {
-        Some(rest) => PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(rest),
-        None if p == "~" => PathBuf::from(std::env::var("HOME").unwrap_or_default()),
-        None => PathBuf::from(p),
-    }
+    PathBuf::from(crate::expand(p))
 }
 
 fn walker(root: &Path, depth: Option<usize>, threads: usize) -> WalkBuilder {
@@ -389,5 +374,40 @@ fn sniff_all(files: &mut [FileEntry], threads: usize, full: bool) {
             f.agent = a;
             f.verdict = v;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn homes_by_name() {
+        for (n, k) in [(".claude", "claude"), (".claude_bak", "claude"), (".claude2", "claude"), ("claude-backup", "claude"),
+                       (".codex", "codex"), (".omx", "omx"), (".omx-runs", "omx-ops"), (".pi", "pi"), (".gemini", "gemini")] {
+            assert_eq!(agent_kind(n), Some(k), "{n}");
+        }
+        for n in ["claude", "claude-code", ".pip", "src"] {
+            assert_eq!(agent_kind(n), None, "{n}");
+        }
+    }
+
+    #[test]
+    fn origins() {
+        assert_eq!(origin("/Users/x/.claude"), "own");
+        assert_eq!(origin("/Users/x/.relic-mirrors/white/.claude"), "mirror");
+        assert_eq!(origin("/Users/x/.claude_bak"), "rescue");
+        assert_eq!(origin("/Users/x/Downloads/old/.claude"), "copy");
+    }
+
+    #[test]
+    fn shapes_and_vaults() {
+        let u = "0b867d73-405b-4b03-8c46-aee7648f1bd7";
+        assert!(is_uuid_jsonl(&format!("{u}.jsonl")));
+        assert!(!is_uuid_jsonl("agent-1.jsonl"));
+        assert_eq!(shape_root(Path::new(&format!("/m/projects/p/{u}.jsonl"))).unwrap(), (PathBuf::from("/m/projects"), "claude"));
+        assert_eq!(shape_root(Path::new("/m/sessions/2026/07/01/rollout-a.jsonl")).unwrap(), (PathBuf::from("/m/sessions"), "codex"));
+        assert_eq!(vault_of("/r/neo/ψ/memory/x.jsonl"), Some("/r/neo/ψ"));
+        assert_eq!(vault_of("/r/neo/x.jsonl"), None);
     }
 }

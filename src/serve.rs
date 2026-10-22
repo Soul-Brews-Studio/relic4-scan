@@ -1,6 +1,7 @@
 //! `relic-scan serve` / `up`: OUT/meta/map.html on 127.0.0.1 only. One page, two views:
 //!   /  /map   the session star map
 //!   /tree     homes -> repos -> sessions -> satellites
+//!   /paths    every .jsonl the scan saw, by folder: indexed or not, and why (data: /paths.json)
 //! The page is read from disk on every request, so a `relic-scan run` in another shell shows up on reload.
 
 use std::io::{BufRead, BufReader, Write};
@@ -14,6 +15,8 @@ fn reply(mut s: TcpStream, status: &str, ctype: &str, body: &[u8]) {
 }
 
 fn handle(s: TcpStream, page: &Path) {
+    // a client that never finishes its request must not hold a thread forever
+    let _ = s.set_read_timeout(Some(std::time::Duration::from_secs(10)));
     let mut rd = BufReader::new(match s.try_clone() {
         Ok(c) => c,
         Err(_) => return,
@@ -30,12 +33,19 @@ fn handle(s: TcpStream, page: &Path) {
     let path = line.split_whitespace().nth(1).unwrap_or("/");
     let path = path.split(['?', '#']).next().unwrap_or("/");
     match path {
-        "/" | "/map" | "/tree" | "/map.html" => match std::fs::read(page) {
+        "/" | "/map" | "/tree" | "/paths" | "/map.html" => match std::fs::read(page) {
             Ok(b) => reply(s, "200 OK", "text/html; charset=utf-8", &b),
             Err(e) => reply(s, "500 Internal Server Error", "text/plain", format!("{}: {e}\n", page.display()).as_bytes()),
         },
+        "/paths.json" => {
+            let p = page.with_file_name("paths.json");
+            match std::fs::read(&p) {
+                Ok(b) => reply(s, "200 OK", "application/json", &b),
+                Err(e) => reply(s, "404 Not Found", "text/plain", format!("{}: {e}\n", p.display()).as_bytes()),
+            }
+        }
         "/favicon.ico" => reply(s, "204 No Content", "text/plain", b""),
-        _ => reply(s, "404 Not Found", "text/plain", b"not found: try /map or /tree\n"),
+        _ => reply(s, "404 Not Found", "text/plain", b"not found: try /map, /tree or /paths\n"),
     }
 }
 
@@ -49,7 +59,7 @@ pub fn serve(out: &Path, port: u16) {
         eprintln!("serve: 127.0.0.1:{port}: {e} (another server? try --port)");
         std::process::exit(1);
     });
-    eprintln!("serve: http://127.0.0.1:{port}/map · http://127.0.0.1:{port}/tree  ({})  ctrl-c to stop", page.display());
+    eprintln!("serve: http://127.0.0.1:{port}/map · /tree · /paths  ({})  ctrl-c to stop", page.display());
     for s in l.incoming().flatten() {
         let page = page.clone();
         std::thread::spawn(move || handle(s, &page));

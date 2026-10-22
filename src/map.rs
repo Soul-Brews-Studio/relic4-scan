@@ -17,7 +17,10 @@ use serde_json::{Value, json};
 const PAGE: &str = include_str!("map.html");
 
 fn read(p: &Path) -> Vec<RecordBatch> {
-    let f = fs::File::open(p).unwrap_or_else(|e| panic!("{}: {e} (run `relic-scan run` first)", p.display()));
+    let f = fs::File::open(p).unwrap_or_else(|e| {
+        eprintln!("map: {}: {e} (run `relic-scan run` first)", p.display());
+        std::process::exit(1);
+    });
     ParquetRecordBatchReaderBuilder::try_new(f).unwrap().with_batch_size(65_536).build().unwrap().map(|b| b.unwrap()).collect()
 }
 
@@ -27,6 +30,10 @@ fn s<'a>(b: &'a RecordBatch, n: &str) -> &'a StringArray {
 
 fn i<'a>(b: &'a RecordBatch, n: &str) -> &'a Int64Array {
     b.column_by_name(n).unwrap().as_any().downcast_ref::<Int64Array>().unwrap()
+}
+
+fn b<'a>(b: &'a RecordBatch, n: &str) -> &'a arrow::array::BooleanArray {
+    b.column_by_name(n).unwrap().as_any().downcast_ref::<arrow::array::BooleanArray>().unwrap()
 }
 
 fn get<'a>(a: &'a StringArray, k: usize) -> Option<&'a str> {
@@ -76,6 +83,7 @@ pub fn build(out: &Path, agent: &str) {
     let mut homes: Vec<(String, u64, u64, i64)> = vec![]; // path, files, bytes, rows
     let mut home_at: HashMap<String, usize> = HashMap::new();
     let mut sess_homes: HashMap<(String, String), Vec<usize>> = HashMap::new();
+    let mut rows_of: HashMap<String, i64> = HashMap::new(); // rows per file path, for the paths view
     for b in read(&dir.join("files.parquet")) {
         let (path, home, base, tier, size, rows) = (s(&b, "path"), s(&b, "home"), s(&b, "base"), s(&b, "tier"), i(&b, "size"), i(&b, "n_rows"));
         for k in 0..b.num_rows() {
@@ -90,6 +98,7 @@ pub fn build(out: &Path, agent: &str) {
             homes[hi].1 += 1;
             homes[hi].2 += size.value(k) as u64;
             homes[hi].3 += rows.value(k);
+            rows_of.insert(path.value(k).to_string(), rows.value(k));
             let v = sess_homes.entry((base.value(k).to_string(), tier.value(k).to_string())).or_default();
             if !v.contains(&hi) {
                 v.push(hi);
@@ -147,6 +156,48 @@ pub fn build(out: &Path, agent: &str) {
     let page = PAGE.replace("/*DATA*/null", &js);
     let p = dir.join("map.html");
     fs::write(&p, page).unwrap();
-    eprintln!("map: {} sessions · {} repos · {} homes · {:.1} MB in {:.1}s -> {}", n, cats.words.len(), homes.len(),
-              fs::metadata(&p).unwrap().len() as f64 / 1e6, t0.elapsed().as_secs_f64(), p.display());
+    let np = paths(&dir, &rows_of);
+    eprintln!("map: {} sessions · {} repos · {} homes · {:.1} MB · {} paths in {:.1}s -> {}", n, cats.words.len(), homes.len(),
+              fs::metadata(&p).unwrap().len() as f64 / 1e6, np, t0.elapsed().as_secs_f64(), p.display());
+}
+
+/// OUT/meta/paths.json for the /paths view: every .jsonl the scan saw (meta/jsonl.parquet), grouped by folder, with
+/// whether it was indexed into the months and, if so, how many rows it holds. Fetched by the page only on /paths,
+/// so the map and the tree do not load it. Returns the number of paths.
+fn paths(dir: &Path, rows_of: &HashMap<String, i64>) -> usize {
+    let src = dir.join("jsonl.parquet");
+    if !src.exists() {
+        return 0;
+    }
+    let (mut dirs, mut verdicts) = (Dict::default(), Dict::default());
+    let mut cols: HashMap<&str, Vec<Value>> = HashMap::new();
+    let mut n = 0;
+    for bt in read(&src) {
+        let (path, place, verdict, size, mtime, parsed) =
+            (s(&bt, "path"), s(&bt, "place"), s(&bt, "verdict"), i(&bt, "size"), i(&bt, "mtime_ms"), b(&bt, "parsed"));
+        for k in 0..bt.num_rows() {
+            let p = path.value(k);
+            let (d, name) = p.rsplit_once('/').unwrap_or(("", p));
+            let mut push = |c: &'static str, v: Value| cols.entry(c).or_default().push(v);
+            push("d", dirs.id(Some(d)));
+            push("n", json!(name));
+            push("size", json!(size.value(k)));
+            push("mt", json!(mtime.value(k) / 1000));
+            push("rows", json!(rows_of.get(p).copied().unwrap_or(-1)));
+            push("pl", json!(match place.value(k) { "home" => 0, "vault" => 1, _ => 2 }));
+            push("v", verdicts.id(get(verdict, k)));
+            push("ok", json!(parsed.value(k) as u8));
+            n += 1;
+        }
+    }
+    let data = json!({
+        "built": chrono::Local::now().format("%Y-%m-%d %H:%M").to_string(),
+        "home": std::env::var("HOME").unwrap_or_default(),
+        "dirs": dirs.words, "verdicts": verdicts.words, "f": cols,
+    });
+    let p = dir.join("paths.json");
+    let tmp = dir.join("paths.json.part");
+    fs::write(&tmp, serde_json::to_vec(&data).unwrap()).unwrap();
+    fs::rename(tmp, p).unwrap();
+    n
 }

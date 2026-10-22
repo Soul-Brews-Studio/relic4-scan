@@ -63,7 +63,8 @@ struct RunArgs {
     #[arg(long)]
     only: Vec<String>,
     /// only homes of this kind: claude, codex, omp, omx, thclaws, gemini, pi (repeatable); loose .jsonl are kept
-    /// when their content says the same agent. Use its own --out: other kinds are not touched in the state.
+    /// when their content says the same agent. Without --out it writes ~/.relic-scan/<kind> (kinds joined by +),
+    /// so it never mixes with a run over every kind.
     #[arg(long)]
     kind: Vec<String>,
 }
@@ -110,6 +111,9 @@ enum Cmd {
         out: String,
         #[arg(long, default_value_t = 8787)]
         port: u16,
+        /// the --kind the run used: picks ~/.relic-scan/<kind> when --out is not given
+        #[arg(long)]
+        kind: Vec<String>,
     },
     /// The month files + _state.tsv -> meta/files.parquet + meta/sessions.parquet (`run` does this as its last step)
     Meta {
@@ -121,6 +125,9 @@ enum Cmd {
         agent: Option<String>,
         #[arg(long, default_value_t = 0)]
         threads: usize,
+        /// the --kind the run used: picks ~/.relic-scan/<kind> when --out is not given
+        #[arg(long)]
+        kind: Vec<String>,
     },
     /// meta/sessions.parquet + meta/files.parquet -> meta/map.html: every session as a star, queryable in the browser
     Map {
@@ -129,6 +136,9 @@ enum Cmd {
         out: String,
         #[arg(long)]
         agent: Option<String>,
+        /// the --kind the run used: picks ~/.relic-scan/<kind> when --out is not given
+        #[arg(long)]
+        kind: Vec<String>,
     },
     /// Parse every indexed file -> one Parquet file per Bangkok month (truth schema, copies folded)
     Parse {
@@ -198,12 +208,42 @@ fn expand(p: &str) -> String {
     }
 }
 
+/// The output directory. With --kind and no --out, each kind set gets its own folder (~/.relic-scan/claude), so a
+/// kind-only run never shares a state with a run over every kind.
+fn out_dir(out: &str, kind: &[String]) -> String {
+    if kind.is_empty() || out != DEFAULT_OUT {
+        return expand(out);
+    }
+    let mut k = kind.to_vec();
+    k.sort();
+    k.dedup();
+    expand(&format!("{DEFAULT_OUT}/{}", k.join("+")))
+}
+
+/// One writer per output directory: a second `run` (cron, another shell) on the same OUT would delete this one's
+/// raw parts and race it on _state.tsv. The lock is released when the returned file is dropped (or the process ends).
+fn lock_out(outp: &std::path::Path) -> std::fs::File {
+    std::fs::create_dir_all(outp).unwrap_or_else(|e| {
+        eprintln!("relic-scan: cannot create {}: {e}", outp.display());
+        std::process::exit(1);
+    });
+    let f = std::fs::OpenOptions::new().create(true).truncate(false).write(true).open(outp.join(".lock")).unwrap_or_else(|e| {
+        eprintln!("relic-scan: cannot open {}/.lock: {e}", outp.display());
+        std::process::exit(1);
+    });
+    if f.try_lock().is_err() {
+        eprintln!("relic-scan: another relic-scan is writing {} (wait for it, or use another --out)", outp.display());
+        std::process::exit(1);
+    }
+    f
+}
+
 fn run_cmd(a: RunArgs) {
     let RunArgs { out, roots, depth, threads, exclude, full, agent, jt_compat, only, kind } = a;
-    let out = expand(&out);
+    let out = out_dir(&out, &kind);
     let t0 = std::time::Instant::now();
     let outp = std::path::Path::new(&out);
-    std::fs::create_dir_all(outp).unwrap();
+    let _lock = lock_out(outp);
     let roots = if roots.is_empty() { vec!["~".to_string(), "/opt/Code".to_string()] } else { roots };
     let agent = agent.unwrap_or_else(default_agent);
     let mut r = scan::run(&roots, depth, threads, &exclude, false);
@@ -216,11 +256,17 @@ fn run_cmd(a: RunArgs) {
     let (mut new, mut grown, mut rewritten, mut unchanged) = (0u64, 0u64, 0u64, 0u64);
     let mut jobs = vec![];
     let mut seen = std::collections::HashSet::new();
+    let mut odd = 0u64;
     for f in &r.files {
         if !only.is_empty() && !only.iter().any(|o| f.path.contains(o.as_str())) {
             continue;
         }
         if f.verdict == "not-transcript" {
+            continue;
+        }
+        // _state.tsv is tab- and line-separated: such a path could not be saved, so it would be re-read every run
+        if f.path.contains(['\t', '\n', '\r']) {
+            odd += 1;
             continue;
         }
         seen.insert(f.path.clone());
@@ -258,6 +304,9 @@ fn run_cmd(a: RunArgs) {
     if !filtered {
         st.retain(|k, _| seen.contains(k));
     }
+    if odd > 0 {
+        eprintln!("run: skipped {} files whose path holds a tab or a newline", num(odd));
+    }
     let bytes: u64 = jobs.iter().map(|j| j.size.saturating_sub(j.ctx.offset)).sum();
     eprintln!("run: scan {:.1}s · new {} · grown {} · rewritten {} · unchanged {} · gone {} · {:.2} GB to read",
               t_scan, num(new), num(grown), num(rewritten), num(unchanged), num(gone as u64), bytes as f64 / 1e9);
@@ -282,17 +331,20 @@ fn main() {
     match cli.cmd {
         Cmd::Run(a) => run_cmd(a),
         Cmd::Up { run, port } => {
-            let out = expand(&run.out);
+            let out = out_dir(&run.out, &run.kind);
             run_cmd(run);
             serve::serve(std::path::Path::new(&out), port);
         }
-        Cmd::Serve { out, port } => serve::serve(std::path::Path::new(&expand(&out)), port),
-        Cmd::Map { out, agent } => {
-            map::build(std::path::Path::new(&expand(&out)), &agent.unwrap_or_else(default_agent));
+        Cmd::Serve { out, port, kind } => serve::serve(std::path::Path::new(&out_dir(&out, &kind)), port),
+        Cmd::Map { out, agent, kind } => {
+            let out = out_dir(&out, &kind);
+            let _lock = lock_out(std::path::Path::new(&out));
+            map::build(std::path::Path::new(&out), &agent.unwrap_or_else(default_agent));
         }
-        Cmd::Meta { out, agent, threads } => {
-            let out = expand(&out);
+        Cmd::Meta { out, agent, threads, kind } => {
+            let out = out_dir(&out, &kind);
             let outp = std::path::Path::new(&out);
+            let _lock = lock_out(outp);
             let st = state::load(outp);
             if st.is_empty() {
                 eprintln!("meta: no {out}/_state.tsv (run `relic-scan run --out {out}` first)");
