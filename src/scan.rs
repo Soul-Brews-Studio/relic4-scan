@@ -83,6 +83,10 @@ pub struct Home {
     pub main: u64,
     pub subagent: u64,
     pub workflow_agent: u64,
+    pub transcripts: u64,
+    pub empty_sessions: u64,
+    pub not_transcripts: u64,
+    pub found_by: String, // name | shape — and every kept home is confirmed by content
 }
 
 #[derive(Serialize, Clone)]
@@ -90,6 +94,8 @@ pub struct FileEntry {
     pub path: String,
     pub home: String,
     pub kind: String,
+    pub agent: String,   // by content (sniff.rs), "-" when no signature
+    pub verdict: String, // transcript | transcript-empty | not-transcript | empty | unreadable
     pub size: u64,
     pub mtime: i64,
     pub dev: u64,
@@ -247,6 +253,8 @@ fn list_home(home: &Path, kind: &'static str, threads: usize, by_shape: bool) ->
                     path: e.path().to_string_lossy().to_string(),
                     home: label.clone(),
                     kind: kind.to_string(),
+                    agent: String::new(),
+                    verdict: String::new(),
                     size: md.len(),
                     mtime,
                     dev: md.dev(),
@@ -267,7 +275,7 @@ pub struct ScanResult {
     pub secs_files: f64,
 }
 
-pub fn run(roots: &[String], depth: usize, threads: usize, exclude: &[String]) -> ScanResult {
+pub fn run(roots: &[String], depth: usize, threads: usize, exclude: &[String], full: bool) -> ScanResult {
     let t0 = Instant::now();
     let homes = find_homes(roots, depth, threads, exclude);
     let secs_homes = t0.elapsed().as_secs_f64();
@@ -278,17 +286,25 @@ pub fn run(roots: &[String], depth: usize, threads: usize, exclude: &[String]) -
     for (path, kind) in &homes {
         let mut h = Home {
             path: path.to_string_lossy().to_string(), kind: kind.to_string(), origin: origin(&path.to_string_lossy()).to_string(), files: 0, bytes: 0, dup_files: 0,
-            newest: None, main: 0, subagent: 0, workflow_agent: 0,
+            newest: None, main: 0, subagent: 0, workflow_agent: 0, transcripts: 0, empty_sessions: 0, not_transcripts: 0,
+            found_by: if path.file_name().and_then(|n| n.to_str()).and_then(agent_kind).is_some() { "name".into() } else { "shape".into() },
         };
         let mut newest = 0i64;
         let by_shape = path.file_name().and_then(|n| n.to_str()).and_then(agent_kind).is_none();
-        for f in list_home(path, kind, threads, by_shape) {
+        let mut listed = list_home(path, kind, threads, by_shape);
+        sniff_all(&mut listed, threads, full);
+        for f in listed {
             if !seen.insert((f.dev, f.ino)) {
                 h.dup_files += 1; // the same inode under an earlier home
                 continue;
             }
             h.files += 1;
             h.bytes += f.size;
+            match f.verdict.as_str() {
+                "transcript" | "transcript-shaped" | "transcript-unverified" => h.transcripts += 1,
+                "transcript-empty" | "unknown" => h.empty_sessions += 1,
+                _ => h.not_transcripts += 1,
+            }
             newest = newest.max(f.mtime);
             match tier(&f.path) {
                 "main" => h.main += 1,
@@ -302,7 +318,35 @@ pub fn run(roots: &[String], depth: usize, threads: usize, exclude: &[String]) -
             h.newest = chrono::DateTime::from_timestamp_millis(newest + 7 * 3600 * 1000)
                 .map(|d| d.format("%Y-%m-%d %H:%M").to_string());
         }
+        // a home found only by its shape must hold at least one real transcript
+        if h.found_by == "shape" && h.transcripts == 0 {
+            files.retain(|f: &FileEntry| f.home != h.path);
+            continue;
+        }
         out.push(h);
     }
     ScanResult { homes: out, files, secs_homes, secs_files: t1.elapsed().as_secs_f64() }
+}
+
+/// Content verdict for every file, in parallel (64 KB read + parse per file).
+fn sniff_all(files: &mut [FileEntry], threads: usize, full: bool) {
+    let n = if threads == 0 { std::thread::available_parallelism().map(|x| x.get()).unwrap_or(8) } else { threads };
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let results: Vec<Mutex<Option<(String, String)>>> = (0..files.len()).map(|_| Mutex::new(None)).collect();
+    std::thread::scope(|sc| {
+        for _ in 0..n {
+            sc.spawn(|| loop {
+                let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                let Some(f) = files.get(i) else { break };
+                let s = if full { crate::sniff::sniff(&f.path) } else { crate::sniff::by_path(&f.path) };
+                *results[i].lock().unwrap() = Some((s.agent.to_string(), s.verdict.to_string()));
+            });
+        }
+    });
+    for (f, r) in files.iter_mut().zip(results) {
+        if let Some((a, v)) = r.into_inner().unwrap() {
+            f.agent = a;
+            f.verdict = v;
+        }
+    }
 }

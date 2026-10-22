@@ -4,8 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+arrow = { version = "60.0.0", default-features = false, features = ["ipc"] }
+blake2b_simd = "1.0.5"
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
 clap = { version = "4.6.7", features = ["derive"] }
 ignore = "0.4.33"
+memchr = "2.8.3"
+parquet = { version = "60.0.0", default-features = false, features = ["arrow", "zstd", "lz4", "snap"] }
+regex = "1.13.1"
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.154"
+serde_json = { version = "1.0.154", features = ["preserve_order"] }
