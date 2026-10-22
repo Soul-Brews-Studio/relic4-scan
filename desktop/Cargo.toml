@@ -14,7 +14,7 @@ path = "src/main.rs"
 
 [dependencies]
 relic-scan = { path = ".." }
-tauri = "2"
+tauri = { version = "2", features = [] }
 
 [build-dependencies]
-tauri-build = "2"
+tauri-build = { version = "2", features = [] }

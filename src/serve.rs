@@ -1,5 +1,6 @@
 //! `relic-scan serve` / `up`, and the desktop app's window: OUT/meta/map.html on 127.0.0.1 only. One page, three views:
-//!   /  /map   the session star map
+//!   /  /scan   Smart Scan: the files indexed, the index button        /banks  homes and repositories
+//!   /health  checks computed from the index                            /map    the session star map
 //!   /tree     homes -> repos -> sessions -> satellites
 //!   /paths    every .jsonl the scan saw, by folder: indexed or not, and why (data: /paths.json)
 //! and two endpoints for the page's "index" button:
@@ -113,7 +114,7 @@ fn handle(s: TcpStream, c: &Arc<Ctx>) {
     let path = path.split(['?', '#']).next().unwrap_or("/");
     let page = c.out.join("meta").join("map.html");
     match (method, path) {
-        ("GET", "/" | "/map" | "/tree" | "/paths" | "/map.html") => match std::fs::read(&page) {
+        ("GET", "/" | "/scan" | "/banks" | "/health" | "/map" | "/tree" | "/paths" | "/map.html") => match std::fs::read(&page) {
             Ok(b) => reply(s, "200 OK", "text/html; charset=utf-8", &b),
             Err(_) => reply(s, "200 OK", "text/html; charset=utf-8", WELCOME.replace("{OUT}", &c.out.display().to_string()).as_bytes()),
         },

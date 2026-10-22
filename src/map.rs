@@ -143,8 +143,13 @@ pub fn build(out: &Path, agent: &str) {
     }
     let parent: Vec<Value> = parents.iter().map(|p| json!(p.as_ref().and_then(|p| sid_main.get(p)).map(|&x| x as i64).unwrap_or(-1))).collect();
     cols.insert("parent", parent);
+    // the Smart Scan and Health numbers come from every .jsonl the scan saw; paths.json is written on the way
+    let (np, scan_sum) = paths(&dir, &rows_of);
+    let last_run = fs::metadata(out.join("_state.tsv")).ok().and_then(|m| m.modified().ok())
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_secs());
     let data = json!({
         "agent": agent,
+        "scan": scan_sum, "last_run": last_run, "out": out.display().to_string(),
         "built": chrono::Local::now().format("%Y-%m-%d %H:%M").to_string(),
         "cats": cats.words, "projs": projs.words,
         "homes": homes.iter().map(|(p, f, b, r)| json!({"path": p, "origin": crate::scan::origin(p), "files": f, "bytes": b, "rows": r}))
@@ -156,19 +161,22 @@ pub fn build(out: &Path, agent: &str) {
     let page = PAGE.replace("/*DATA*/null", &js);
     let p = dir.join("map.html");
     fs::write(&p, page).unwrap();
-    let np = paths(&dir, &rows_of);
     eprintln!("map: {} sessions · {} repos · {} homes · {:.1} MB · {} paths in {:.1}s -> {}", n, cats.words.len(), homes.len(),
               fs::metadata(&p).unwrap().len() as f64 / 1e6, np, t0.elapsed().as_secs_f64(), p.display());
 }
 
 /// OUT/meta/paths.json for the /paths view: every .jsonl the scan saw (meta/jsonl.parquet), grouped by folder, with
 /// whether it was indexed into the months and, if so, how many rows it holds. Fetched by the page only on /paths,
-/// so the map and the tree do not load it. Returns the number of paths.
-fn paths(dir: &Path, rows_of: &HashMap<String, i64>) -> usize {
+/// so the map and the tree do not load it. Returns the number of paths and their totals for the Smart Scan and
+/// Health views (inlined in map.html).
+fn paths(dir: &Path, rows_of: &HashMap<String, i64>) -> (usize, Value) {
     let src = dir.join("jsonl.parquet");
     if !src.exists() {
-        return 0;
+        return (0, Value::Null);
     }
+    // indexed · skipped · vault · loose · loose that look like transcripts · unknown shape · indexed with no rows
+    let mut c = [0i64; 7];
+    let (mut bytes, mut newest) = (0i64, 0i64);
     let (mut dirs, mut verdicts) = (Dict::default(), Dict::default());
     let mut cols: HashMap<&str, Vec<Value>> = HashMap::new();
     let mut n = 0;
@@ -188,6 +196,20 @@ fn paths(dir: &Path, rows_of: &HashMap<String, i64>) -> usize {
             push("v", verdicts.id(get(verdict, k)));
             push("ok", json!(parsed.value(k) as u8));
             n += 1;
+            let v = get(verdict, k).unwrap_or("");
+            match (place.value(k), parsed.value(k)) {
+                ("home", true) => {
+                    c[0] += 1;
+                    bytes += size.value(k);
+                    newest = newest.max(mtime.value(k) / 1000);
+                    c[6] += (rows_of.get(p).copied().unwrap_or(0) == 0) as i64;
+                }
+                ("home", false) => c[1] += 1,
+                ("vault", _) => c[2] += 1,
+                _ => c[3] += 1,
+            }
+            c[4] += (place.value(k) != "home" && v.starts_with("transcript")) as i64;
+            c[5] += (v == "unknown") as i64;
         }
     }
     let data = json!({
@@ -199,5 +221,7 @@ fn paths(dir: &Path, rows_of: &HashMap<String, i64>) -> usize {
     let tmp = dir.join("paths.json.part");
     fs::write(&tmp, serde_json::to_vec(&data).unwrap()).unwrap();
     fs::rename(tmp, p).unwrap();
-    n
+    let sum = json!({"discovered": n, "indexed": c[0], "skipped": c[1], "vault": c[2], "loose": c[3], "loose_transcripts": c[4],
+                     "unknown": c[5], "empty": c[6], "bytes": bytes, "newest": newest});
+    (n, sum)
 }

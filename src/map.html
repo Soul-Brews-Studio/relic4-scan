@@ -15,12 +15,15 @@
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
                font: 13px/1.45 ui-monospace, "SF Mono", Menlo, monospace; overflow: hidden; }
   canvas { position: fixed; inset: 0; display: block; cursor: crosshair; }
-  #bar { position: fixed; left: 14px; top: 12px; right: 374px; display: flex; gap: 10px; align-items: center; }
+  :root { --side: 232px; --amber: #f5b73b; --cyan: #67c8ef; --green: #6fd6a0; --card: #12151c; --sideb: #13161d; }
+  :root[data-theme="light"] { --amber: #b7791f; --cyan: #1f7fbf; --green: #1f9d63; --card: #ffffff; --sideb: #eceff5; }
+  @media (max-width: 1100px) { :root { --side: 64px; } #side .lbl, #side .brand .t, #side .foot { display: none; } }
+  #bar { position: fixed; left: calc(var(--side) + 14px); top: 12px; right: 374px; display: flex; gap: 10px; align-items: center; }
   #q { flex: 1; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px;
        padding: 9px 12px; font: inherit; outline: none; }
   #q:focus { border-color: var(--focus); }
   #count { color: var(--dim); white-space: nowrap; }
-  #legend { position: fixed; left: 14px; bottom: 12px; display: flex; gap: 14px; color: var(--dim); align-items: center; flex-wrap: wrap; }
+  #legend { position: fixed; left: calc(var(--side) + 14px); bottom: 12px; display: flex; gap: 14px; color: var(--dim); align-items: center; flex-wrap: wrap; }
   #legend b { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
   #legend button { background: none; border: 1px solid var(--line); color: var(--dim); border-radius: 4px; padding: 3px 8px; font: inherit; cursor: pointer; }
   #legend button.on { color: var(--ink); border-color: var(--focus); }
@@ -43,11 +46,70 @@
   #tabs { display: flex; gap: 4px; }
   #tabs a { color: var(--dim); text-decoration: none; border: 1px solid var(--line); border-radius: 5px; padding: 7px 11px; background: var(--panel); }
   #tabs a.on { color: var(--ink); border-color: var(--focus); }
-  #tree { margin: 0 360px 0 0; padding: 62px 14px 56px; display: none; }
+  #tree { margin: 0 360px 0 var(--side); padding: 62px 14px 56px; display: none; }
   /* tree and paths: the page is the one scroll area (no scroll box inside the page) */
   html.doc, html.doc body { overflow-x: hidden; overflow-y: auto; height: auto; }
-  html.doc #bar { top: 0; left: 0; padding: 12px 14px 8px; background: var(--bg); z-index: 2; }
-  html.doc #legend { background: var(--bg); padding: 6px 8px; left: 6px; bottom: 6px; border-radius: 6px; }
+  html.doc #bar { top: 0; left: var(--side); padding: 12px 14px 8px; background: var(--bg); z-index: 2; }
+  html.doc #legend { background: var(--bg); padding: 6px 8px; left: calc(var(--side) + 6px); bottom: 6px; border-radius: 6px; }
+  /* sidebar: the Relic Studio shell */
+  #side { position: fixed; left: 0; top: 0; bottom: 0; width: var(--side); background: var(--sideb); border-right: 1px solid var(--line);
+          z-index: 5; display: flex; flex-direction: column; padding: 22px 12px 18px; font-family: -apple-system, system-ui, sans-serif; }
+  #side .brand { display: flex; gap: 12px; align-items: center; padding: 0 8px 26px; }
+  #side .logo { width: 46px; height: 46px; border-radius: 12px; flex: none; display: grid; place-items: center;
+                background: linear-gradient(135deg, #ff3cac, #00d6ff); color: #fff; font: 800 22px/1 -apple-system, system-ui, sans-serif; }
+  #side .t b { display: block; font-size: 21px; letter-spacing: .06em; color: var(--ink); }
+  #side .t i { display: block; font-style: normal; font-size: 11px; letter-spacing: .32em; color: var(--amber); font-weight: 700; }
+  #side a { display: flex; gap: 12px; align-items: center; color: var(--ink); text-decoration: none; padding: 10px 12px; border-radius: 9px;
+            font-size: 15px; margin-bottom: 3px; border-left: 3px solid transparent; }
+  #side a:hover { background: var(--hover); }
+  #side a.on { background: var(--hover); border-left-color: var(--cyan); font-weight: 600; }
+  #side .ic { width: 22px; text-align: center; color: var(--cyan); font-size: 17px; }
+  #side .sep { height: 1px; background: var(--line); margin: 10px 8px 12px; }
+  #side .foot { margin-top: auto; padding: 0 10px; font-size: 12px; color: var(--dim); line-height: 1.5; }
+  #side .foot b { color: var(--ink); letter-spacing: .14em; font-size: 11px; }
+  #side .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-right: 8px; }
+  /* dashboard views: scan, banks, health */
+  #dash { display: none; margin-left: var(--side); padding: 44px 48px 60px; max-width: 1180px; font-family: -apple-system, system-ui, sans-serif; }
+  #dash .eyebrow { color: var(--amber); font-size: 12px; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; }
+  #dash h1 { font-size: 44px; line-height: 1.1; margin: 8px 0 8px; font-weight: 800; letter-spacing: -.01em; }
+  #dash .sub { color: var(--dim); font-size: 17px; margin: 0 0 30px; }
+  #dash .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 24px 26px; margin-bottom: 18px; }
+  #dash .card h3 { margin: 0 0 14px; font-size: 17px; color: var(--amber); display: flex; gap: 10px; align-items: center; }
+  #dash .card h3.c { color: var(--cyan); }
+  #dash .strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin: 10px 0 24px; }
+  #dash .stat .k { font-size: 11px; letter-spacing: .2em; color: var(--dim); font-weight: 700; text-transform: uppercase; }
+  #dash .stat .v { font-size: 34px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  #dash .ringwrap { display: grid; place-items: center; margin: 0 0 26px; }
+  #dash .go { background: linear-gradient(180deg, #f7c04f, #e9a92a); color: #1d1405; border: 0; border-radius: 10px; padding: 14px 26px;
+              font: 700 17px -apple-system, system-ui, sans-serif; cursor: pointer; min-width: 220px; }
+  #dash .go:disabled { opacity: .55; cursor: default; }
+  #dash .ghost { background: var(--hover); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 14px 26px;
+                 font: 600 17px -apple-system, system-ui, sans-serif; cursor: pointer; min-width: 220px; margin-left: 12px; }
+  #dash .note { color: var(--dim); font-size: 13px; margin-top: 14px; }
+  #dash .track { height: 6px; border-radius: 3px; background: var(--line); margin: 16px 0 6px; overflow: hidden; }
+  #dash .track i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ff3cac, #00d6ff); transition: width .4s; }
+  #dash .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  #dash .bank { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px 24px; cursor: pointer; }
+  #dash .bank:hover { border-color: var(--focus); }
+  #dash .bank .n { color: var(--amber); font-weight: 700; font-size: 17px; margin-bottom: 4px; overflow-wrap: anywhere; }
+  #dash .bank .p { color: var(--dim); font-size: 12px; margin-bottom: 14px; font-family: ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
+  #dash .bank .nums { display: flex; gap: 28px; }
+  #dash .bank .nums b { display: block; font-size: 19px; font-variant-numeric: tabular-nums; }
+  #dash .bank .nums span { font-size: 10px; letter-spacing: .18em; color: var(--dim); font-weight: 700; }
+  #dash .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-left: 8px; vertical-align: 2px;
+                 background: var(--hover); color: var(--dim); font-weight: 600; letter-spacing: .04em; }
+  #dash .repo { display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; align-items: center; padding: 14px 4px; border-top: 1px solid var(--line); cursor: pointer; }
+  #dash .repo:first-of-type { border-top: 0; }
+  #dash .repo:hover { background: var(--hover); }
+  #dash .repo .r b { display: block; font-size: 15px; }
+  #dash .repo .r code { font-size: 13px; color: var(--dim); }
+  #dash .repo .x { text-align: right; } #dash .repo .x b { font-size: 18px; } #dash .repo .x div { color: var(--dim); font-size: 12px; }
+  #dash .warn { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; padding: 9px 0; align-items: start; font-size: 15px; }
+  #dash .warn a { color: var(--cyan); font-size: 13px; text-decoration: none; white-space: nowrap; }
+  #dash .lvl { width: 16px; height: 16px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11px; font-weight: 800; color: #1d1405; margin-top: 2px; }
+  #dash .head { display: flex; gap: 18px; align-items: center; }
+  #dash .head .big { font-size: 40px; }
+  @media (max-width: 900px) { #dash .strip { grid-template-columns: 1fr 1fr; } #dash .grid2 { grid-template-columns: 1fr; } }
   #panel { scrollbar-width: thin; z-index: 3; }
   #idx { background: var(--panel); color: var(--sub, #7fd3ff); border: 1px solid var(--line); border-radius: 5px; padding: 7px 10px; font: inherit; cursor: pointer; white-space: nowrap; }
   #idx:disabled { color: var(--dim); cursor: default; }
@@ -77,6 +139,8 @@
 </style>
 </head>
 <body>
+<nav id="side"></nav>
+<div id="dash"></div>
 <canvas id="c"></canvas>
 <div id="bar"><span id="tabs"></span><input id="q" spellcheck="false" autocomplete="off"
   placeholder="query: words · repo:neo · tier:main · home:mirror · month:2026-07 · rows>1000 · think>0 · errors>=20 · -tier:wf"><span id="count"></span><button id="idx" title="index new transcripts now (incremental)" style="display:none"></button><button id="theme" title="theme: auto / dark / light"></button></div>
@@ -86,12 +150,17 @@
 <div id="tip"></div>
 <script>
 const D = /*DATA*/null;
+const SERVED = location.protocol.startsWith("http");
 // theme: auto (follows the system), dark or light; a choice is kept in localStorage
 const THEME_PICK = localStorage.getItem("relic-theme") || "auto";
 const LIGHT = THEME_PICK === "light" || (THEME_PICK === "auto" && matchMedia("(prefers-color-scheme: light)").matches);
 document.documentElement.dataset.theme = LIGHT ? "light" : "dark";
 // one page, three views: /map, /tree and /paths when served, ?view=tree|paths when opened as a file
-const VIEW = ["tree", "paths"].find(v => location.pathname.endsWith("/" + v) || new URLSearchParams(location.search).get("view") === v) || "map";
+// served: / is Smart Scan; opened as a file (no server, no index button): the map
+const VIEWS = ["scan", "banks", "health", "map", "tree", "paths"];
+const VIEW = VIEWS.find(v => location.pathname.endsWith("/" + v) || new URLSearchParams(location.search).get("view") === v)
+  || (location.protocol.startsWith("http") && /\/$/.test(location.pathname) ? "scan" : "map");
+const DASH = ["scan", "banks", "health"].includes(VIEW);
 const S = D.s, N = S.sid.length, BKK = 7 * 3600;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -219,14 +288,15 @@ function run(q) {
 
 // ---------- view ----------
 const cv = $("c"), ctx = cv.getContext("2d");
-let W, H, DPR, scale, ox, oy, sel = -1, hover = -1;
+let W, H, DPR, SIDE = 0, scale, ox, oy, sel = -1, hover = -1;
 const tierOn = [true, true, true];
 let colorBy = "tier";
 function fit() {
-  DPR = window.devicePixelRatio || 1; W = innerWidth - 360; H = innerHeight;
+  SIDE = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--side")) || 0;
+  DPR = window.devicePixelRatio || 1; W = innerWidth - 360 - SIDE; H = innerHeight;
   cv.width = innerWidth * DPR; cv.height = H * DPR; cv.style.width = innerWidth + "px"; cv.style.height = H + "px";
 }
-function home() { scale = Math.min(W, H - 60) / (2 * (ROUT + 190)); ox = W / 2; oy = H / 2 + 22; }
+function home() { scale = Math.min(W, H - 60) / (2 * (ROUT + 190)); ox = SIDE + W / 2; oy = H / 2 + 22; }
 const sx = k => ox + X[k] * scale, sy = k => oy + Y[k] * scale;
 function hue(k) {
   if (colorBy === "repo") return `hsl(${(S.cat[k] * 137.508) % 360} 75% ${LIGHT ? 42 : 70}%)`;
@@ -286,7 +356,7 @@ function draw() {
   const zoom = Math.pow(scale / homeScale, 0.45);
   for (let k = 0; k < N; k++) {
     const x = sx(k), y = sy(k);
-    if (x < -10 || y < -10 || x > W + 10 || y > H + 10) continue;
+    if (x < SIDE - 10 || y < -10 || x > SIDE + W + 10 || y > H + 10) continue;
     if (!tierOn[S.tier[k]]) continue;
     const on = match[k] === 1;
     // unmatched satellites are skipped: 100 of them at 4% each around one parent add up to a bright false halo
@@ -412,10 +482,18 @@ function select(k) { sel = k; summary(); if (VIEW === "tree") renderTree(); else
 // ---------- tabs: map | tree | paths; a session query travels in the hash between map and tree ----------
 function tabs() {
   const file = location.protocol === "file:";
-  const h = v => (v === "paths") === (VIEW === "paths") ? location.hash : ""; // paths has its own query words
+  // a session query carries between map and tree; paths has its own words; the dashboards take none
+  const h = v => ["map", "tree"].includes(v) && ["map", "tree"].includes(VIEW) ? location.hash : "";
   const href = v => file ? `?view=${v}${h(v)}` : `/${v}${h(v)}`;
-  $("tabs").innerHTML = ["map", "tree", "paths"].map(v => `<a class="${VIEW === v ? "on" : ""}" href="${href(v)}">${v}</a>`).join("");
+  const item = (v, ic, l) => `<a class="${VIEW === v ? "on" : ""}" href="${href(v)}" title="${l}"><span class="ic">${ic}</span><span class="lbl">${l}</span></a>`;
+  const ago = D.last_run ? agoText(Date.now() / 1000 - D.last_run) : "never";
+  $("side").innerHTML = `<div class="brand"><div class="logo">◎</div><div class="t"><b>RELIC</b><i>SCAN</i></div></div>`
+    + item("scan", "✦", "Smart Scan") + item("banks", "⌂", "Banks & Repos") + item("health", "✚", "Health")
+    + `<div class="sep"></div>` + item("map", "✺", "Session map") + item("tree", "☰", "Tree") + item("paths", "▤", "Paths")
+    + `<div class="foot"><div><span class="dot" id="sdot"></span><b id="sstate">RELIC READY</b></div>
+       <div>Index runs only when you click it.</div><div>last run ${ago}</div></div>`;
 }
+const agoText = d => d < 90 ? "just now" : d < 5400 ? Math.round(d / 60) + " min ago" : d < 129600 ? Math.round(d / 3600) + " h ago" : Math.round(d / 86400) + " days ago";
 
 // ---------- tree: jsonl home -> repo -> session -> satellites ----------
 // a session sits under every home that holds a copy of it; counts are over the sessions the query matches
@@ -655,6 +733,127 @@ function pdetail(i) {
   $("back").onclick = () => { psel = -1; psummary(); prender(); };
 }
 
+// ---------- dashboards: Smart Scan, Banks & Repos, Health (the Relic Studio shell, from this index's own numbers) ----------
+const SC = D.scan || { discovered: 0, indexed: 0, skipped: 0, vault: 0, loose: 0, loose_transcripts: 0, unknown: 0, empty: 0, bytes: 0 };
+const gbs = b => (b / 1e9).toFixed(1) + " GB";
+function ring(frac, big, label, pct) {
+  const R = 118, C = 2 * Math.PI * R, arc = `stroke-dasharray="${C * Math.max(0.002, Math.min(1, frac))} ${C}" transform="rotate(-90 160 160)"`;
+  return `<svg width="320" height="320" viewBox="0 0 320 320" role="img" aria-label="${label} ${big}, ${pct}">
+    <defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5fd0f3"/><stop offset="1" stop-color="#f3ef8a"/></linearGradient>
+      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter></defs>
+    <circle cx="160" cy="160" r="${R + 24}" fill="none" stroke="var(--line)" stroke-dasharray="1 7"/>
+    <circle cx="160" cy="160" r="${R}" fill="none" stroke="var(--line)" stroke-width="22"/>
+    <circle cx="160" cy="160" r="${R}" fill="none" stroke="url(#rg)" stroke-width="22" stroke-linecap="round" ${arc} filter="url(#glow)" opacity=".55"/>
+    <circle cx="160" cy="160" r="${R}" fill="none" stroke="url(#rg)" stroke-width="22" stroke-linecap="round" ${arc}/>
+    <text x="160" y="152" text-anchor="middle" font-size="42" font-weight="800" fill="var(--ink)">${big}</text>
+    <text x="160" y="178" text-anchor="middle" font-size="14" font-weight="600" fill="var(--cyan)">${label}</text>
+    <line x1="115" x2="205" y1="196" y2="196" stroke="var(--line)"/>
+    <text x="160" y="222" text-anchor="middle" font-size="17" font-weight="700" fill="var(--dim)">${pct}</text>
+    <text x="160" y="242" text-anchor="middle" font-size="10" letter-spacing="3" font-weight="700" fill="var(--dim)">COVERAGE</text></svg>`;
+}
+const stat = (k, v, c) => `<div class="stat"><div class="k">${k}</div><div class="v" style="color:${c}">${v}</div></div>`;
+function totals() {
+  let rows = 0, t = [0, 0, 0], ty = TYPES.map(() => 0), undated = 0, orphans = 0, sats = 0;
+  const months = new Set();
+  for (let k = 0; k < N; k++) {
+    rows += S.rows[k]; t[S.tier[k]]++; TYPES.forEach(([key], j) => { ty[j] += S[key][k]; });
+    if (S.t0[k] == null) undated++; else months.add(monthIdx(S.t0[k]));
+    if (S.tier[k] > 0) { sats++; if (S.parent[k] < 0) orphans++; }
+  }
+  return { rows, t, ty, undated, orphans, sats, months: months.size };
+}
+function dashScan() {
+  const T = totals(), cov = SC.indexed / Math.max(1, SC.indexed + SC.loose_transcripts);
+  return `<div class="eyebrow">Memory intake</div><h1>Smart Scan</h1>
+    <p class="sub">Find every agent transcript on this machine, read only the bytes that are new, and rebuild the months, the meta and these views.</p>
+    <div class="ringwrap">${ring(cov, fmt(SC.indexed), "files indexed", (100 * cov).toFixed(2) + "%")}</div>
+    <div class="card"><h3>▣ Index controls</h3>
+      <div>The last run indexed <b>${fmt(SC.indexed)}</b> transcript files (${gbs(SC.bytes)}) out of <b>${fmt(SC.discovered)}</b> .jsonl discovered.
+        ${fmt(SC.skipped)} in agent homes are not transcripts; ${fmt(SC.vault + SC.loose)} sit outside every home.</div>
+      <div style="margin-top:18px"><button class="go" id="dgo" ${SERVED ? "" : "disabled title='open it through relic-scan serve or the app'"}>▶&nbsp; Index now</button><button class="ghost" id="dref">↻&nbsp; Refresh status</button></div>
+      <div class="track"><i id="dbar"></i></div><div class="note" id="dmsg">Refresh only reads. Index now is the one write action, and it runs only when you click it; a run reads new bytes only.</div></div>
+    <div class="strip">${stat("Files indexed", fmt(SC.indexed), "var(--green)")}${stat("Files discovered", fmt(SC.discovered), "var(--cyan)")}${stat("Not transcripts", fmt(SC.skipped), "var(--amber)")}${stat("Outside homes", fmt(SC.vault + SC.loose), "var(--amber)")}</div>
+    <div class="strip">${stat("Sessions", fmt(N), "var(--ink)")}${stat("Rows", fmt(T.rows), "var(--ink)")}${stat("Indexed size", gbs(SC.bytes), "var(--ink)")}${stat("Last run", D.last_run ? agoText(Date.now() / 1000 - D.last_run) : "never", "var(--ink)")}</div>`;
+}
+function homeStats() {
+  const H = D.homes.map(() => ({ n: 0, last: 0 }));
+  for (let k = 0; k < N; k++) for (const h of S.homes[k]) { H[h].n++; H[h].last = Math.max(H[h].last, S.t1[k] ?? S.t0[k] ?? 0); }
+  return H;
+}
+const orgRepo = k => { // "-opt-Code-github-com-Soul-Brews-Studio-mawjs-oracle" + cat "mawjs-oracle" -> "Soul-Brews-Studio/mawjs-oracle"
+  const p = proj(k), c = cat(k), i = p.toLowerCase().indexOf("github-com-");
+  if (i < 0) return p;
+  const rest = p.slice(i + 11), j = rest.toLowerCase().lastIndexOf("-" + c.toLowerCase());
+  return j > 0 ? rest.slice(0, j) + "/" + rest.slice(j + 1) : rest;
+};
+let repoCap = 30;
+function dashBanks() {
+  const H = homeStats(), order = D.homes.map((_, i) => i).sort((a, b) => D.homes[b].rows - D.homes[a].rows);
+  const name = p => p.replace(/^\/Users\/[^/]+/, "~");
+  const banks = order.map(i => { const h = D.homes[i];
+    return `<div class="bank" data-go="/tree#home:${encodeURIComponent(name(h.path).replace(/^~/, ""))}">
+      <div class="n">⌂ ${esc(name(h.path).split("/").slice(-2).join("/"))}<span class="badge">${h.origin}</span></div><div class="p">${esc(name(h.path))}</div>
+      <div class="nums"><div><b>${fmt(H[i].n)}</b><span>SESSIONS</span></div><div><b>${fmt(h.rows)}</b><span>ROWS</span></div>
+        <div><b>${fmt(h.files)}</b><span>FILES</span></div><div><b>${gbs(h.bytes)}</b><span>SIZE</span></div></div>
+      <div class="note">Newest session: ${H[i].last ? agoText(Date.now() / 1000 - H[i].last) : "—"}</div></div>`; }).join("");
+  const R = new Map();
+  for (let k = 0; k < N; k++) { const c = cat(k); const r = R.get(c) || R.set(c, { n: 0, rows: 0, k }).get(c); r.n++; r.rows += S.rows[k]; if (S.tier[k] === 0) r.k = k; }
+  const repos = [...R].sort((a, b) => b[1].rows - a[1].rows);
+  const list = repos.slice(0, repoCap).map(([c, r]) => `<div class="repo" data-go="/map#repo:${encodeURIComponent(/\s/.test(c) ? '"' + c + '"' : c)}">
+      <span style="color:var(--cyan)">▰</span><div class="r"><b>${esc(c)}</b><code>${esc(orgRepo(r.k))}</code></div>
+      <div class="x"><b>${fmt(r.n)}</b><div>sessions · ${fmt(r.rows)} rows</div></div></div>`).join("");
+  return `<div class="eyebrow">Memory topology</div><h1>Banks &amp; Repositories</h1>
+    <p class="sub">Where the transcripts live on this machine, and which repositories hold the most of them. A session copied into several banks counts in each.</p>
+    <div class="grid2">${banks}</div>
+    <div class="card" style="margin-top:22px"><h3 class="c">⌥ Repository index · ${fmt(repos.length)}</h3>${list}
+      ${repos.length > repoCap ? `<div class="note"><a href="#" id="rmore" style="color:var(--cyan)">show ${fmt(Math.min(100, repos.length - repoCap))} more</a></div>` : ""}</div>`;
+}
+function dashHealth() {
+  const T = totals(), errPct = T.ty[4] ? 100 * T.ty[5] / T.ty[4] : 0, age = D.last_run ? Date.now() / 1000 - D.last_run : Infinity;
+  const mirrors = D.homes.filter(h => h.origin !== "own").length;
+  const checks = [
+    [age > 86400 ? "warn" : "ok", age === Infinity ? "Never indexed." : `Last run ${agoText(age)}${age > 86400 ? ": transcripts written since then are not in the index yet" : ""}.`, age > 86400 ? ["/scan", "index"] : null],
+    [SC.loose_transcripts ? "warn" : "ok", SC.loose_transcripts ? `${fmt(SC.loose_transcripts)} .jsonl outside every agent home look like transcripts. They are listed, not indexed (usually test fixtures).` : "No transcript sits outside an agent home.", SC.loose_transcripts ? ["/paths#-is:indexed verdict:transcript", "see them"] : null],
+    [T.orphans / Math.max(1, T.sats) > 0.01 ? "warn" : "ok", `${fmt(T.sats - T.orphans)} of ${fmt(T.sats)} subagent and workflow sessions found their main session${T.orphans ? `; ${fmt(T.orphans)} have none on disk` : ""}.`, null],
+    [T.undated ? "info" : "ok", T.undated ? `${fmt(T.undated)} sessions carry no timestamp; their rows are in the undated month.` : "Every session has a timestamp.", null],
+    [SC.empty ? "info" : "ok", SC.empty ? `${fmt(SC.empty)} indexed files produced no rows (empty or summary-only sessions).` : "Every indexed file produced rows.", SC.empty ? ["/paths#is:indexed rows=0", "see them"] : null],
+    ["info", `${fmt(SC.skipped)} files in agent homes are not transcripts (workflow journals, prompt logs, omx logs) and were skipped by the content sniff.`, ["/paths#is:skipped", "see them"]],
+    ["info", `${fmt(SC.unknown)} files had no recognised shape and were indexed anyway: a transcript-shaped path is never dropped.`, SC.unknown ? ["/paths#verdict:unknown", "see them"] : null],
+    ["info", `${mirrors} of ${D.homes.length} homes are mirrors, rescues or copies; the same line read twice is folded into one row.`, ["/banks", "banks"]],
+    ["info", `Tool errors: ${fmt(T.ty[5])}, ${errPct.toFixed(1)}% of tool results.`, ["/map#errors>=20", "sessions with 20+"]],
+  ];
+  const warns = checks.filter(c => c[0] === "warn").length;
+  const L = { ok: ["var(--green)", "✓"], warn: ["var(--amber)", "!"], info: ["var(--cyan)", "i"] };
+  return `<div class="eyebrow">System readiness</div><h1>Health</h1>
+    <p class="sub">Signals computed from this index itself: nothing here is estimated.</p>
+    <div class="card head"><span class="big" style="color:${warns ? "var(--amber)" : "var(--green)"}">${warns ? "⚠" : "✓"}</span>
+      <div><b style="font-size:18px">${warns ? `${warns} warning${warns > 1 ? "s" : ""} reported` : "All clear"}</b>
+      <div class="note" style="margin:2px 0 0">Page built ${esc(D.built)} · ${esc(D.out || "")}</div></div></div>
+    <div class="strip">${stat("Rows", fmt(T.rows), "var(--cyan)")}${stat("Sessions", fmt(N), "var(--green)")}${stat("Months", fmt(T.months), "var(--amber)")}${stat("Warnings", warns, warns ? "var(--amber)" : "var(--green)")}</div>
+    <div class="card"><h3>⚑ Checks</h3>${checks.map(([lv, txt, link]) => `<div class="warn"><span class="lvl" style="background:${L[lv][0]}">${L[lv][1]}</span>
+      <div>${txt}</div>${link ? `<a href="${link[0]}">${link[1]} →</a>` : "<span></span>"}</div>`).join("")}</div>`;
+}
+function renderDash() {
+  $("dash").innerHTML = VIEW === "scan" ? dashScan() : VIEW === "banks" ? dashBanks() : dashHealth();
+  for (const el of $("dash").querySelectorAll("[data-go]")) el.onclick = () => { location.href = el.dataset.go; };
+  const more = $("rmore"); if (more) more.onclick = e => { e.preventDefault(); repoCap += 100; renderDash(); };
+  if ($("dgo")) {
+    $("dgo").onclick = () => $("idx").click();
+    $("dref").onclick = () => location.reload();
+  }
+}
+// a run's progress, from the index button's poll: the sidebar state and the Smart Scan card follow it
+window.onRun = st => {
+  if ($("sstate")) { $("sstate").textContent = st.running ? "INDEXING" : "RELIC READY"; $("sdot").style.background = st.running ? "var(--amber)" : "var(--green)"; }
+  if (!$("dgo") || !st.running) return;
+  $("dgo").disabled = true; $("dgo").textContent = "Indexing…";
+  const f = st.phase === "parse" && st.total ? st.done / st.total : st.phase === "scan" ? 0.03 : st.phase === "merge" ? 0.92 : st.phase === "meta" ? 0.97 : 0;
+  $("dbar").style.width = (100 * f).toFixed(1) + "%";
+  $("dmsg").textContent = st.phase === "scan" ? `scan · ${st.walked.toLocaleString()} entries walked · ${st.listed.toLocaleString()} .jsonl listed`
+    : st.phase === "parse" ? `parse · ${(st.done / 1e9).toFixed(1)} / ${(st.total / 1e9).toFixed(1)} GB` : `${st.phase}…`;
+  $("dmsg").textContent += ` · ${Math.round(st.secs || 0)}s`;
+};
+
 // ---------- legend + input ----------
 function legend() {
   $("legend").innerHTML = TIER.map((t, i) => `<button class="${tierOn[i] ? "on" : ""}" data-t="${i}"><b style="background:${COLOR[i]}"></b>${t}</button>`).join("")
@@ -694,14 +893,20 @@ cv.addEventListener("wheel", e => {
 cv.addEventListener("dblclick", () => { home(); redraw(); });
 addEventListener("resize", () => { fit(); redraw(); });
 
-if (VIEW !== "map") { cv.style.display = "none"; $("tree").style.display = "block"; document.documentElement.classList.add("doc"); }
+if (VIEW !== "map") { cv.style.display = "none"; document.documentElement.classList.add("doc"); }
+if (DASH) {
+  for (const id of ["q", "count", "panel", "legend"]) $(id).style.display = "none";
+  $("bar").style.right = "14px"; $("bar").style.justifyContent = "flex-end"; $("bar").style.background = "transparent";
+  $("dash").style.display = "block";
+} else if (VIEW !== "map") $("tree").style.display = "block";
 $("theme").textContent = { auto: "◐ auto", dark: "● dark", light: "○ light" }[THEME_PICK];
 // served (not opened as a file): an index button that runs an incremental run in the server and reloads when done
-if (location.protocol.startsWith("http")) {
+if (SERVED) {
   const b = $("idx"); b.style.display = ""; b.textContent = "⟳ index";
   const gb = x => (x / 1e9).toFixed(1);
   const poll = async () => {
     const s = await (await fetch("/api/status")).json();
+    window.onRun(s);
     if (s.running) {
       b.disabled = true;
       b.textContent = s.phase === "parse" && s.total ? `⟳ parse ${Math.round(100 * s.done / s.total)}% · ${gb(s.done)}/${gb(s.total)} GB`
@@ -725,7 +930,9 @@ $("theme").onclick = () => {
 fit(); home();
 const homeScale = scale;
 $("q").value = decodeURIComponent(location.hash.slice(1));
-if (VIEW === "paths") {
+if (DASH) {
+  tabs(); renderDash();
+} else if (VIEW === "paths") {
   $("q").placeholder = "paths: words in the path · is:indexed|skipped|vault|loose · verdict:not-transcript · mb>100 · rows=0 · -word";
   tabs(); loadPaths();
 } else {
