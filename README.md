@@ -4,6 +4,13 @@ One Rust binary, `relic-scan` (this repo is still named relic4-scan). It finds e
 
 Grown in the agent-relic-v4 lab (`lab/relic4-scan` on branch `lab-rust-scan`, history kept). [agent-relic-v4](https://github.com/Soul-Brews-Studio/agent-relic-v4) is the reader: it turns these month files into truth, meta, vectors and search. The verify scripts need its Python environment: `uv run --project <agent-relic-v4> python verify/…`.
 
+**Install and run, one command each** (the repo is private, so cargo fetches it through the git CLI and your gh login):
+```
+CARGO_NET_GIT_FETCH_WITH_CLI=true cargo install --git https://github.com/Soul-Brews-Studio/relic4-scan relic-scan
+relic-scan up --kind claude      # scan + parse + meta + map into ~/.relic-scan, then http://127.0.0.1:8787/map and /tree
+```
+`up` is `run` followed by `serve`; run it again later and only new bytes are read (about 10 s). `relic-scan serve` serves what is already there.
+
 ```
 cargo build --release
 ./target/release/relic-scan run --out months/                       # incremental: scan + parse only new bytes + meta
@@ -117,8 +124,12 @@ The same walk that finds the homes collects the loose files, so they add no extr
 | cold (no cache) | 86,905 | 45,094 | every row and column equal | **1.9 s** (Python: truth import 19.9 s + meta 2.5 s) |
 | after an incremental `run` (2026-10 rewritten) | 86,905 | 45,094 | every row and column equal | **0.9 s** (1 month aggregated again) |
 
-## map
-`run` ends with it; `relic-scan map --out DIR` rebuilds it alone in 0.1 s. It writes `DIR/meta/map.html`, a single offline page (3.6 MB for 43,006 sessions) with the data inlined. It makes no network calls; open the file, or serve it on 127.0.0.1.
+## map and tree
+`relic-scan serve` (or `up`) serves the page on 127.0.0.1 only: `/map` is the star map and `/tree` the tree. As a file, `map.html?view=tree` opens the tree. Both views share the query box, the side panel and the hash, so a query carries over when you switch.
+
+**Tree:** jsonl home → repo → session → satellites. Every level shows the sessions, the rows, a bar of rows by type (user, assistant, thinking, tool calls, tool results) and the last activity. A session is listed under every home that holds a copy of it. A query result of up to 400 sessions opens itself down to the repos.
+
+`run` ends with it; `relic-scan map --out DIR` rebuilds it alone in 0.1 s. `--out` defaults to `~/.relic-scan` for run, meta, map, serve and up. It writes `DIR/meta/map.html`, a single offline page (3.6 MB for 43,006 sessions) with the data inlined. It makes no network calls; open the file, or serve it on 127.0.0.1.
 
 - **Ring:** the Bangkok month the session started. The oldest month is innermost; a brighter ring marks the start of a year.
 - **Sector:** the repo. Wider sectors have more sessions; repos with fewer than 12 sessions share one sector.

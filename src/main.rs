@@ -8,6 +8,9 @@
 //!   relic-scan run --out DIR [--full] [--root DIR]... [--agent user@host]
 //!       incremental: scan, diff against DIR/_state.tsv, parse only new bytes, rewrite only touched months,
 //!       then meta (below)
+//!   relic-scan up [--kind claude] [--port 8787]
+//!       run (into ~/.relic-scan unless --out), then serve http://127.0.0.1:8787/map and /tree
+//!   relic-scan serve [--out DIR] [--port 8787]
 //!   relic-scan map --out DIR
 //!       DIR/meta/{sessions,files}.parquet -> DIR/meta/map.html (session star map + query, one offline page)
 //!   relic-scan meta --out DIR [--agent user@host]
@@ -18,6 +21,7 @@ mod map;
 mod meta;
 mod parse;
 mod scan;
+mod serve;
 mod sniff;
 mod state;
 
@@ -30,6 +34,38 @@ use clap::{Parser, Subcommand};
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,
+}
+
+/// Where run/meta/map/serve read and write when --out is not given.
+const DEFAULT_OUT: &str = "~/.relic-scan";
+
+#[derive(clap::Args)]
+struct RunArgs {
+    /// output directory: YYYY-MM.parquet per month, _state.tsv, meta/
+    #[arg(long, default_value = DEFAULT_OUT)]
+    out: String,
+    #[arg(long = "root")]
+    roots: Vec<String>,
+    #[arg(long, default_value_t = 8)]
+    depth: usize,
+    #[arg(long, default_value_t = 0)]
+    threads: usize,
+    #[arg(long)]
+    exclude: Vec<String>,
+    /// content-sniff NEW files (unchanged ones keep their verdict from the light scan)
+    #[arg(long)]
+    full: bool,
+    #[arg(long)]
+    agent: Option<String>,
+    #[arg(long)]
+    jt_compat: bool,
+    /// only files whose path contains this text (repeatable)
+    #[arg(long)]
+    only: Vec<String>,
+    /// only homes of this kind: claude, codex, omp, omx, thclaws, gemini, pi (repeatable); loose .jsonl are kept
+    /// when their content says the same agent. Use its own --out: other kinds are not touched in the state.
+    #[arg(long)]
+    kind: Vec<String>,
 }
 
 #[derive(Subcommand)]
@@ -59,38 +95,26 @@ enum Cmd {
         #[arg(long)]
         full: bool,
     },
-    /// Incremental: scan, then parse only new/grown/rewritten files from where they were left
-    Run {
-        /// output directory: YYYY-MM.parquet per month + _state.tsv
-        #[arg(long)]
+    /// Incremental: scan, then parse only new/grown/rewritten files from where they were left, then meta + map
+    Run(RunArgs),
+    /// One command: `run`, then serve the map and the tree on 127.0.0.1 (http://127.0.0.1:PORT/map · /tree)
+    Up {
+        #[command(flatten)]
+        run: RunArgs,
+        #[arg(long, default_value_t = 8787)]
+        port: u16,
+    },
+    /// Serve OUT/meta/map.html on 127.0.0.1: /map (star map) and /tree (homes -> repos -> sessions)
+    Serve {
+        #[arg(long, default_value = DEFAULT_OUT)]
         out: String,
-        #[arg(long = "root")]
-        roots: Vec<String>,
-        #[arg(long, default_value_t = 8)]
-        depth: usize,
-        #[arg(long, default_value_t = 0)]
-        threads: usize,
-        #[arg(long)]
-        exclude: Vec<String>,
-        /// content-sniff NEW files (unchanged ones keep their verdict from the light scan)
-        #[arg(long)]
-        full: bool,
-        #[arg(long)]
-        agent: Option<String>,
-        #[arg(long)]
-        jt_compat: bool,
-        /// only files whose path contains this text (repeatable)
-        #[arg(long)]
-        only: Vec<String>,
-        /// only homes of this kind: claude, codex, omp, omx, thclaws, gemini, pi (repeatable); loose .jsonl are kept
-        /// when their content says the same agent. Use its own --out: other kinds are not touched in the state.
-        #[arg(long)]
-        kind: Vec<String>,
+        #[arg(long, default_value_t = 8787)]
+        port: u16,
     },
     /// The month files + _state.tsv -> meta/files.parquet + meta/sessions.parquet (`run` does this as its last step)
     Meta {
         /// the directory `run` wrote
-        #[arg(long)]
+        #[arg(long, default_value = DEFAULT_OUT)]
         out: String,
         /// the --agent `run` used (default: user@host)
         #[arg(long)]
@@ -101,7 +125,7 @@ enum Cmd {
     /// meta/sessions.parquet + meta/files.parquet -> meta/map.html: every session as a star, queryable in the browser
     Map {
         /// the directory `run` wrote
-        #[arg(long)]
+        #[arg(long, default_value = DEFAULT_OUT)]
         out: String,
         #[arg(long)]
         agent: Option<String>,
@@ -166,89 +190,108 @@ fn default_agent() -> String {
     format!("{user}@{host}")
 }
 
+/// A leading ~ means $HOME (clap defaults are not expanded by a shell).
+fn expand(p: &str) -> String {
+    match p.strip_prefix('~') {
+        Some(rest) if rest.is_empty() || rest.starts_with('/') => format!("{}{rest}", std::env::var("HOME").unwrap_or_default()),
+        _ => p.to_string(),
+    }
+}
+
+fn run_cmd(a: RunArgs) {
+    let RunArgs { out, roots, depth, threads, exclude, full, agent, jt_compat, only, kind } = a;
+    let out = expand(&out);
+    let t0 = std::time::Instant::now();
+    let outp = std::path::Path::new(&out);
+    std::fs::create_dir_all(outp).unwrap();
+    let roots = if roots.is_empty() { vec!["~".to_string(), "/opt/Code".to_string()] } else { roots };
+    let agent = agent.unwrap_or_else(default_agent);
+    let mut r = scan::run(&roots, depth, threads, &exclude, false);
+    if !kind.is_empty() {
+        r.files.retain(|f| kind.contains(&f.kind));
+        r.loose.retain(|f| kind.iter().any(|k| *k == f.agent));
+    }
+    let t_scan = t0.elapsed().as_secs_f64();
+    let mut st = state::load(outp);
+    let (mut new, mut grown, mut rewritten, mut unchanged) = (0u64, 0u64, 0u64, 0u64);
+    let mut jobs = vec![];
+    let mut seen = std::collections::HashSet::new();
+    for f in &r.files {
+        if !only.is_empty() && !only.iter().any(|o| f.path.contains(o.as_str())) {
+            continue;
+        }
+        if f.verdict == "not-transcript" {
+            continue;
+        }
+        seen.insert(f.path.clone());
+        let start = match st.get(&f.path) {
+            None => {
+                if full && sniff::sniff(&f.path).verdict == "not-transcript" {
+                    continue;
+                }
+                new += 1;
+                Some(parse::Ctx::default())
+            }
+            // unchanged first: same inode, same size -> no read at all (the prefix is checked only on growth)
+            Some(s) if s.dev == f.dev && s.ino == f.ino && f.size == s.ctx.offset => {
+                unchanged += 1;
+                None
+            }
+            Some(s) if s.dev != f.dev || s.ino != f.ino || f.size < s.ctx.offset
+                || state::prefix_hash(&f.path, s.prefix_len) != Some(s.prefix_hash) => {
+                rewritten += 1;
+                Some(parse::Ctx::default())
+            }
+            Some(s) => {
+                grown += 1;
+                Some(s.ctx.clone())
+            }
+        };
+        if let Some(ctx) = start {
+            jobs.push(parse::Job { path: f.path.clone(), size: f.size, verdict: f.verdict.clone(), ctx });
+        }
+    }
+    let filtered = !only.is_empty() || !kind.is_empty();
+    let gone = if !kind.is_empty() { 0 } else {
+        st.keys().filter(|k| !seen.contains(*k) && (only.is_empty() || only.iter().any(|o| k.contains(o.as_str())))).count()
+    };
+    if !filtered {
+        st.retain(|k, _| seen.contains(k));
+    }
+    let bytes: u64 = jobs.iter().map(|j| j.size.saturating_sub(j.ctx.offset)).sum();
+    eprintln!("run: scan {:.1}s · new {} · grown {} · rewritten {} · unchanged {} · gone {} · {:.2} GB to read",
+              t_scan, num(new), num(grown), num(rewritten), num(unchanged), num(gone as u64), bytes as f64 / 1e9);
+    let sizes: std::collections::HashMap<String, (u64, u64, u64)> =
+        r.files.iter().map(|f| (f.path.clone(), (f.dev, f.ino, f.size))).collect();
+    let done = if jobs.is_empty() { Default::default() } else { parse::run(jobs, outp, &agent, threads, jt_compat, false) };
+    for (p, c) in done {
+        let (dev, ino, size) = sizes.get(&p).copied().unwrap_or_default();
+        let plen = c.offset.min(state::PREFIX);
+        let ph = state::prefix_hash(&p, plen).unwrap_or(0);
+        st.insert(p, state::FileState { dev, ino, size, ctx: c, prefix_len: plen, prefix_hash: ph });
+    }
+    state::save(outp, &st);
+    meta::jsonl(outp, &r, &st);
+    meta::build(outp, &agent, &st, threads);
+    map::build(outp, &agent);
+    eprintln!("run: done in {:.1}s · state {} files -> {}/_state.tsv", t0.elapsed().as_secs_f64(), num(st.len() as u64), out);
+}
+
 fn main() {
     let cli = Cli::parse();
     match cli.cmd {
-        Cmd::Run { out, roots, depth, threads, exclude, full, agent, jt_compat, only, kind } => {
-            let t0 = std::time::Instant::now();
-            let outp = std::path::Path::new(&out);
-            std::fs::create_dir_all(outp).unwrap();
-            let roots = if roots.is_empty() { vec!["~".to_string(), "/opt/Code".to_string()] } else { roots };
-            let agent = agent.unwrap_or_else(default_agent);
-            let mut r = scan::run(&roots, depth, threads, &exclude, false);
-            if !kind.is_empty() {
-                r.files.retain(|f| kind.contains(&f.kind));
-                r.loose.retain(|f| kind.iter().any(|k| *k == f.agent));
-            }
-            let t_scan = t0.elapsed().as_secs_f64();
-            let mut st = state::load(outp);
-            let (mut new, mut grown, mut rewritten, mut unchanged) = (0u64, 0u64, 0u64, 0u64);
-            let mut jobs = vec![];
-            let mut seen = std::collections::HashSet::new();
-            for f in &r.files {
-                if !only.is_empty() && !only.iter().any(|o| f.path.contains(o.as_str())) {
-                    continue;
-                }
-                if f.verdict == "not-transcript" {
-                    continue;
-                }
-                seen.insert(f.path.clone());
-                let start = match st.get(&f.path) {
-                    None => {
-                        if full && sniff::sniff(&f.path).verdict == "not-transcript" {
-                            continue;
-                        }
-                        new += 1;
-                        Some(parse::Ctx::default())
-                    }
-                    // unchanged first: same inode, same size -> no read at all (the prefix is checked only on growth)
-                    Some(s) if s.dev == f.dev && s.ino == f.ino && f.size == s.ctx.offset => {
-                        unchanged += 1;
-                        None
-                    }
-                    Some(s) if s.dev != f.dev || s.ino != f.ino || f.size < s.ctx.offset
-                        || state::prefix_hash(&f.path, s.prefix_len) != Some(s.prefix_hash) => {
-                        rewritten += 1;
-                        Some(parse::Ctx::default())
-                    }
-                    Some(s) => {
-                        grown += 1;
-                        Some(s.ctx.clone())
-                    }
-                };
-                if let Some(ctx) = start {
-                    jobs.push(parse::Job { path: f.path.clone(), size: f.size, verdict: f.verdict.clone(), ctx });
-                }
-            }
-            let filtered = !only.is_empty() || !kind.is_empty();
-            let gone = if !kind.is_empty() { 0 } else {
-                st.keys().filter(|k| !seen.contains(*k) && (only.is_empty() || only.iter().any(|o| k.contains(o.as_str())))).count()
-            };
-            if !filtered {
-                st.retain(|k, _| seen.contains(k));
-            }
-            let bytes: u64 = jobs.iter().map(|j| j.size.saturating_sub(j.ctx.offset)).sum();
-            eprintln!("run: scan {:.1}s · new {} · grown {} · rewritten {} · unchanged {} · gone {} · {:.2} GB to read",
-                      t_scan, num(new), num(grown), num(rewritten), num(unchanged), num(gone as u64), bytes as f64 / 1e9);
-            let sizes: std::collections::HashMap<String, (u64, u64, u64)> =
-                r.files.iter().map(|f| (f.path.clone(), (f.dev, f.ino, f.size))).collect();
-            let done = if jobs.is_empty() { Default::default() } else { parse::run(jobs, outp, &agent, threads, jt_compat, false) };
-            for (p, c) in done {
-                let (dev, ino, size) = sizes.get(&p).copied().unwrap_or_default();
-                let plen = c.offset.min(state::PREFIX);
-                let ph = state::prefix_hash(&p, plen).unwrap_or(0);
-                st.insert(p, state::FileState { dev, ino, size, ctx: c, prefix_len: plen, prefix_hash: ph });
-            }
-            state::save(outp, &st);
-            meta::jsonl(outp, &r, &st);
-            meta::build(outp, &agent, &st, threads);
-            map::build(outp, &agent);
-            eprintln!("run: done in {:.1}s · state {} files -> {}/_state.tsv", t0.elapsed().as_secs_f64(), num(st.len() as u64), out);
+        Cmd::Run(a) => run_cmd(a),
+        Cmd::Up { run, port } => {
+            let out = expand(&run.out);
+            run_cmd(run);
+            serve::serve(std::path::Path::new(&out), port);
         }
+        Cmd::Serve { out, port } => serve::serve(std::path::Path::new(&expand(&out)), port),
         Cmd::Map { out, agent } => {
-            map::build(std::path::Path::new(&out), &agent.unwrap_or_else(default_agent));
+            map::build(std::path::Path::new(&expand(&out)), &agent.unwrap_or_else(default_agent));
         }
         Cmd::Meta { out, agent, threads } => {
+            let out = expand(&out);
             let outp = std::path::Path::new(&out);
             let st = state::load(outp);
             if st.is_empty() {
