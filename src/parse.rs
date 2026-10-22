@@ -100,21 +100,34 @@ fn split_lines(data: &[u8]) -> Vec<&[u8]> {
     out
 }
 
-/// store.parse_chunk for a whole file, from line 0 with an empty context.
-pub fn parse_file(path: &str, jt_compat: bool, st: &Stats, emit: &mut dyn FnMut(Raw)) {
+/// Where a file was left: the byte after its last complete line, and the parse context at that point
+/// (store.parse_chunk's ctx = line count, first session id, last timestamp).
+#[derive(Clone, Default, Debug)]
+pub struct Ctx {
+    pub offset: u64,
+    pub lines: i64,
+    pub session: String,
+    pub last_ms: Option<i64>,
+}
+
+/// store.parse_chunk from `ctx.offset` with `ctx`, to the end of the file's complete lines. Returns the new ctx.
+pub fn parse_file(path: &str, ctx: &Ctx, jt_compat: bool, st: &Stats, emit: &mut dyn FnMut(Raw)) -> Option<Ctx> {
+    use std::io::{Seek, SeekFrom};
     let mut data = Vec::new();
-    if fs::File::open(path).and_then(|mut f| f.read_to_end(&mut data)).is_err() {
-        return;
-    }
+    let mut f = fs::File::open(path).ok()?;
+    f.seek(SeekFrom::Start(ctx.offset)).ok()?;
+    f.read_to_end(&mut data).ok()?;
     st.bytes.fetch_add(data.len() as u64, Ordering::Relaxed);
     let data = complete(&data);
     let eng = engine::engine_of(path);
-    let (mut nline, mut session, mut last): (i64, String, Option<i64>) = (0, String::new(), None);
+    let (mut nline, mut session, mut last) = (ctx.lines, ctx.session.clone(), ctx.last_ms);
+    let mut used: u64 = 0;
     for line in split_lines(data) {
         if jt_compat && line.len() > JT_CHUNK {
             st.stuck.fetch_add(1, Ordering::Relaxed); // jt never ships a line longer than its chunk: the file stops here
             break;
         }
+        used += line.len() as u64;
         nline += 1;
         let r = match engine::parse(line) {
             Some(serde_json::Value::Object(m)) => m,
@@ -164,8 +177,9 @@ pub fn parse_file(path: &str, jt_compat: bool, st: &Stats, emit: &mut dyn FnMut(
             });
         }
     }
-    st.lines.fetch_add(nline as u64, Ordering::Relaxed);
+    st.lines.fetch_add((nline - ctx.lines) as u64, Ordering::Relaxed);
     st.files.fetch_add(1, Ordering::Relaxed);
+    Some(Ctx { offset: ctx.offset + used, lines: nline, session, last_ms: last })
 }
 
 // ---------- arrow: raw parts ----------
@@ -231,81 +245,126 @@ impl Spiller {
 
 // ---------- merge: one month -> one file ----------
 
-struct Kept {
-    row: usize, // index into the month's rows of the copy that wins (first by file, line)
+/// One candidate copy of a truth row, from the existing month file or from a new raw part.
+struct Cand {
+    s: String, h: i64, idx: i64, engine: Option<String>, role: Option<String>, typ: Option<String>, sid: Option<String>,
+    ts: Option<String>, ts_th: Option<String>, text: Option<String>, kind: Option<String>, call_id: Option<String>,
+    name: Option<String>, body: Option<String>, err: Option<bool>, red: Option<String>,
+    first: (String, i64), // the copy's (file, line): the lowest wins, so incremental == cold
 }
 
-fn col_str<'a>(b: &'a RecordBatch, i: usize) -> &'a StringArray {
-    b.column(i).as_any().downcast_ref::<StringArray>().unwrap()
+fn col_str<'a>(b: &'a RecordBatch, name: &str) -> &'a StringArray {
+    b.column_by_name(name).unwrap().as_any().downcast_ref::<StringArray>().unwrap()
 }
 
-fn s_opt(a: &StringArray, i: usize) -> Option<&str> {
-    if a.is_null(i) { None } else { Some(a.value(i)) }
+fn s_opt(a: &StringArray, i: usize) -> Option<String> {
+    if a.is_null(i) { None } else { Some(a.value(i).to_string()) }
 }
 
-/// Fold one month's raw parts into the truth rows and write `out/<month>.parquet`. Returns (rows, copies).
-pub fn merge_month(parts_dir: &Path, month: &str, out: &Path, agent: &str) -> (usize, usize) {
-    let mut batches = vec![];
-    for e in fs::read_dir(parts_dir.join(month)).unwrap().flatten() {
-        let r = FileReader::try_new(fs::File::open(e.path()).unwrap(), None).unwrap();
-        for b in r {
-            batches.push(b.unwrap());
-        }
-    }
-    let cat = arrow::compute::concat_batches(&raw_schema(), &batches).unwrap();
-    drop(batches);
-    let n = cat.num_rows();
-    let (s, h, idx) = (col_str(&cat, 0), cat.column(1).as_any().downcast_ref::<Int64Array>().unwrap(),
-                       cat.column(2).as_any().downcast_ref::<Int64Array>().unwrap());
-    let (file, line) = (col_str(&cat, 16), cat.column(17).as_any().downcast_ref::<Int64Array>().unwrap());
-    // first copy wins: lowest (file, line) per (s, h, idx)
-    let mut keep: HashMap<(&str, i64, i64), Kept> = HashMap::with_capacity(n);
-    // sources: one per (h, agent, file), its first line
-    let mut srcs: HashMap<i64, BTreeMap<&str, i64>> = HashMap::new();
-    for i in 0..n {
-        let k = (s.value(i), h.value(i), idx.value(i));
-        let better = match keep.get(&k) {
-            None => true,
-            Some(o) => (file.value(i), line.value(i)) < (file.value(o.row), line.value(o.row)),
+fn cands_from(b: &RecordBatch, srcs: &mut HashMap<i64, BTreeMap<String, i64>>, agent: &str, out: &mut Vec<Cand>) {
+    let (h, idx) = (b.column_by_name("h").unwrap().as_any().downcast_ref::<Int64Array>().unwrap(),
+                    b.column_by_name("idx").unwrap().as_any().downcast_ref::<Int64Array>().unwrap());
+    let err = b.column_by_name("err").unwrap().as_any().downcast_ref::<BooleanArray>().unwrap();
+    let c = |n: &str| col_str(b, n);
+    let (s, eng, role, typ, sid, ts, tsth, text, kind, cid, name, body, red) =
+        (c("s"), c("engine"), c("role"), c("type"), c("sid"), c("ts"), c("ts_th"), c("text"), c("kind"), c("call_id"), c("name"),
+         c("body"), c("red"));
+    let raw = b.column_by_name("file").is_some();
+    let prefix = format!("{agent}:");
+    for i in 0..b.num_rows() {
+        let hv = h.value(i);
+        let first = if raw {
+            let (f, l) = (c("file").value(i).to_string(), b.column_by_name("line").unwrap().as_any().downcast_ref::<Int64Array>().unwrap().value(i));
+            let e = srcs.entry(hv).or_default().entry(f.clone()).or_insert(l);
+            if l < *e {
+                *e = l;
+            }
+            (f, l)
+        } else {
+            // an existing month row: its sources list holds every copy; its own copy is the lowest (file, line)
+            let list = b.column_by_name("sources").unwrap().as_any().downcast_ref::<arrow::array::ListArray>().unwrap().value(i);
+            let list = list.as_any().downcast_ref::<StringArray>().unwrap();
+            let mut best: Option<(String, i64)> = None;
+            for j in 0..list.len() {
+                let v = list.value(j);
+                let Some(rest) = v.strip_prefix(&prefix) else { continue };
+                let Some((f, l)) = rest.rsplit_once(':') else { continue };
+                let l: i64 = l.parse().unwrap_or(i64::MAX);
+                let e = srcs.entry(hv).or_default().entry(f.to_string()).or_insert(l);
+                if l < *e {
+                    *e = l;
+                }
+                if best.as_ref().is_none_or(|b| (f, l) < (b.0.as_str(), b.1)) {
+                    best = Some((f.to_string(), l));
+                }
+            }
+            best.unwrap_or((String::new(), i64::MAX))
         };
-        if better {
-            keep.insert(k, Kept { row: i });
-        }
-        let e = srcs.entry(h.value(i)).or_default().entry(file.value(i)).or_insert(line.value(i));
-        if line.value(i) < *e {
-            *e = line.value(i);
+        out.push(Cand {
+            s: s.value(i).to_string(), h: hv, idx: idx.value(i), engine: s_opt(eng, i), role: s_opt(role, i), typ: s_opt(typ, i),
+            sid: s_opt(sid, i), ts: s_opt(ts, i), ts_th: s_opt(tsth, i), text: s_opt(text, i), kind: s_opt(kind, i),
+            call_id: s_opt(cid, i), name: s_opt(name, i), body: s_opt(body, i), err: if err.is_null(i) { None } else { Some(err.value(i)) },
+            red: s_opt(red, i), first,
+        });
+    }
+}
+
+/// Fold one month: the existing out/<month>.parquet (if any) + this run's raw parts -> out/<month>.parquet.
+/// Returns (rows, new copies read).
+pub fn merge_month(parts_dir: &Path, month: &str, out: &Path, agent: &str) -> (usize, usize) {
+    let mut cands: Vec<Cand> = vec![];
+    let mut srcs: HashMap<i64, BTreeMap<String, i64>> = HashMap::new();
+    let existing = out.join(format!("{month}.parquet"));
+    if existing.exists() {
+        let r = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(fs::File::open(&existing).unwrap())
+            .unwrap().build().unwrap();
+        for b in r {
+            cands_from(&b.unwrap(), &mut srcs, agent, &mut cands);
         }
     }
-    let ts = col_str(&cat, 7);
-    let mut order: Vec<usize> = keep.values().map(|k| k.row).collect();
-    order.sort_by(|&a, &b| (ts.value(a), s.value(a), h.value(a), idx.value(a)).cmp(&(ts.value(b), s.value(b), h.value(b), idx.value(b))));
-
-    // build the truth columns
-    let strs = |c: usize| -> ArrayRef {
-        let a = col_str(&cat, c);
-        Arc::new(order.iter().map(|&i| s_opt(a, i)).collect::<StringArray>())
-    };
+    let had = cands.len();
+    if let Ok(rd) = fs::read_dir(parts_dir.join(month)) {
+        for e in rd.flatten() {
+            for b in FileReader::try_new(fs::File::open(e.path()).unwrap(), None).unwrap() {
+                cands_from(&b.unwrap(), &mut srcs, agent, &mut cands);
+            }
+        }
+    }
+    let copies = cands.len() - had;
+    // first copy wins: lowest (file, line) per (s, h, idx)
+    let mut keep: HashMap<(String, i64, i64), usize> = HashMap::with_capacity(cands.len());
+    for (i, c) in cands.iter().enumerate() {
+        let k = (c.s.clone(), c.h, c.idx);
+        match keep.get(&k) {
+            Some(&o) if cands[o].first <= c.first => {}
+            _ => {
+                keep.insert(k, i);
+            }
+        }
+    }
+    let mut order: Vec<usize> = keep.into_values().collect();
+    order.sort_by(|&a, &b| {
+        let (x, y) = (&cands[a], &cands[b]);
+        (x.ts.as_deref(), x.s.as_str(), x.h, x.idx).cmp(&(y.ts.as_deref(), y.s.as_str(), y.h, y.idx))
+    });
+    let strs = |f: &dyn Fn(&Cand) -> Option<&str>| -> ArrayRef { Arc::new(order.iter().map(|&i| f(&cands[i])).collect::<StringArray>()) };
     let mut hb = Int64Builder::new();
     let mut ib = Int64Builder::new();
     let mut eb = BooleanBuilder::new();
-    let errs = cat.column(14).as_any().downcast_ref::<BooleanArray>().unwrap();
-    for &i in &order {
-        hb.append_value(h.value(i));
-        ib.append_value(idx.value(i));
-        if errs.is_null(i) { eb.append_null() } else { eb.append_value(errs.value(i)) }
-    }
     let mut machines = ListBuilder::new(StringBuilder::new());
     let mut sources = ListBuilder::new(StringBuilder::new());
     for &i in &order {
+        let c = &cands[i];
+        hb.append_value(c.h);
+        ib.append_value(c.idx);
+        eb.append_option(c.err);
         machines.values().append_value(agent);
         machines.append(true);
-        for (f, l) in &srcs[&h.value(i)] {
+        for (f, l) in &srcs[&c.h] {
             sources.values().append_value(format!("{agent}:{f}:{l}"));
         }
         sources.append(true);
     }
-    let null_str: ArrayRef = Arc::new(StringArray::from(vec![None::<&str>; order.len()]));
-    let _ = null_str;
     let u = |n: &str| Field::new(n, DataType::Utf8, true);
     let list = |n: &str| Field::new(n, DataType::List(Arc::new(Field::new("item", DataType::Utf8, true))), true);
     let schema = Arc::new(Schema::new(vec![
@@ -314,8 +373,11 @@ pub fn merge_month(parts_dir: &Path, month: &str, out: &Path, agent: &str) -> (u
         Field::new("err", DataType::Boolean, true), u("red"), list("machines"), list("sources"),
     ]));
     let cols: Vec<ArrayRef> = vec![
-        strs(0), Arc::new(hb.finish()), Arc::new(ib.finish()), strs(3), strs(4), strs(5), strs(6), strs(7), strs(8), strs(9),
-        strs(10), strs(11), strs(12), strs(13), Arc::new(eb.finish()), strs(15), Arc::new(machines.finish()), Arc::new(sources.finish()),
+        strs(&|c| Some(c.s.as_str())), Arc::new(hb.finish()), Arc::new(ib.finish()), strs(&|c| c.engine.as_deref()),
+        strs(&|c| c.role.as_deref()), strs(&|c| c.typ.as_deref()), strs(&|c| c.sid.as_deref()), strs(&|c| c.ts.as_deref()),
+        strs(&|c| c.ts_th.as_deref()), strs(&|c| c.text.as_deref()), strs(&|c| c.kind.as_deref()), strs(&|c| c.call_id.as_deref()),
+        strs(&|c| c.name.as_deref()), strs(&|c| c.body.as_deref()), Arc::new(eb.finish()), strs(&|c| c.red.as_deref()),
+        Arc::new(machines.finish()), Arc::new(sources.finish()),
     ];
     let batch = RecordBatch::try_new(schema.clone(), cols).unwrap();
     fs::create_dir_all(out).unwrap();
@@ -324,8 +386,8 @@ pub fn merge_month(parts_dir: &Path, month: &str, out: &Path, agent: &str) -> (u
     let mut w = ArrowWriter::try_new(fs::File::create(&tmp).unwrap(), schema, Some(props)).unwrap();
     w.write(&batch).unwrap();
     w.close().unwrap();
-    fs::rename(&tmp, out.join(format!("{month}.parquet"))).unwrap();
-    (order.len(), n)
+    fs::rename(&tmp, &existing).unwrap(); // atomic: readers see the old month or the new one, never half
+    (order.len(), copies)
 }
 
 // ---------- driver ----------
@@ -334,6 +396,7 @@ pub struct Job {
     pub path: String,
     pub size: u64,
     pub verdict: String,
+    pub ctx: Ctx, // where to start (offset 0 + empty ctx for a new or rewritten file)
 }
 
 pub fn read_index(p: &str) -> Vec<Job> {
@@ -344,33 +407,40 @@ pub fn read_index(p: &str) -> Vec<Job> {
     let iv = head.iter().position(|c| *c == "verdict");
     lines.map(|l| {
         let c: Vec<&str> = l.split('\t').collect();
-        Job { path: c[ip].to_string(), size: c[is].parse().unwrap_or(0), verdict: iv.map(|i| c[i].to_string()).unwrap_or_default() }
+        Job { path: c[ip].to_string(), size: c[is].parse().unwrap_or(0), verdict: iv.map(|i| c[i].to_string()).unwrap_or_default(),
+              ctx: Ctx::default() }
     }).collect()
 }
 
-pub fn run(mut jobs: Vec<Job>, out: &Path, agent: &str, threads: usize, jt_compat: bool, keep_parts: bool) {
+/// Parse the jobs (each from its own ctx) and merge every touched month into out/<month>.parquet.
+/// Returns each job's new ctx (by path) for the state file.
+pub fn run(mut jobs: Vec<Job>, out: &Path, agent: &str, threads: usize, jt_compat: bool, keep_parts: bool) -> HashMap<String, Ctx> {
     let t0 = Instant::now();
-    jobs.sort_by(|a, b| b.size.cmp(&a.size)); // LPT: the biggest files first, so none is left for last
+    // LPT on the bytes still to read: the biggest pieces first, so none is left for last
+    jobs.sort_by(|a, b| (b.size.saturating_sub(b.ctx.offset)).cmp(&(a.size.saturating_sub(a.ctx.offset))));
+    let new_ctx: Mutex<HashMap<String, Ctx>> = Mutex::default();
     let parts = out.join("_parts");
     let _ = fs::remove_dir_all(&parts);
     fs::create_dir_all(&parts).unwrap();
     let n = if threads == 0 { std::thread::available_parallelism().map(|x| x.get()).unwrap_or(8) } else { threads };
     let next = AtomicUsize::new(0);
     let st = Stats::default();
-    let total: u64 = jobs.iter().map(|j| j.size).sum();
+    let total: u64 = jobs.iter().map(|j| j.size.saturating_sub(j.ctx.offset)).sum();
     let months: Mutex<std::collections::BTreeSet<String>> = Mutex::default();
     std::thread::scope(|sc| {
         for tid in 0..n {
-            let (jobs, next, st, parts, months) = (&jobs, &next, &st, &parts, &months);
+            let (jobs, next, st, parts, months, new_ctx) = (&jobs, &next, &st, &parts, &months, &new_ctx);
             sc.spawn(move || {
                 let mut sp = Spiller { dir: parts.clone(), tid, n: 0, buf: HashMap::new() };
                 loop {
                     let i = next.fetch_add(1, Ordering::Relaxed);
                     let Some(j) = jobs.get(i) else { break };
-                    parse_file(&j.path, jt_compat, st, &mut |r| {
+                    if let Some(c) = parse_file(&j.path, &j.ctx, jt_compat, st, &mut |r| {
                         st.rows.fetch_add(1, Ordering::Relaxed);
                         sp.push(r)
-                    });
+                    }) {
+                        new_ctx.lock().unwrap().insert(j.path.clone(), c);
+                    }
                 }
                 let m: Vec<String> = sp.buf.keys().cloned().collect();
                 sp.flush();
@@ -397,6 +467,7 @@ pub fn run(mut jobs: Vec<Job>, out: &Path, agent: &str, threads: usize, jt_compa
     // merge: months in parallel (each holds only its own rows)
     let t1 = Instant::now();
     let ms: Vec<String> = fs::read_dir(&parts).unwrap().flatten().map(|e| e.file_name().to_string_lossy().to_string()).collect();
+    // only months this run wrote rows into are rewritten; every other month file is left as it is
     let done = Mutex::new(vec![]);
     let next = AtomicUsize::new(0);
     std::thread::scope(|sc| {
@@ -412,11 +483,12 @@ pub fn run(mut jobs: Vec<Job>, out: &Path, agent: &str, threads: usize, jt_compa
     let mut done = done.into_inner().unwrap();
     done.sort();
     for (m, rows, copies) in &done {
-        eprintln!("  {m}: {rows} rows from {copies} copies -> {}/{m}.parquet", out.display());
+        eprintln!("  {m}: {rows} rows ({copies} new copies merged) -> {}/{m}.parquet", out.display());
     }
     eprintln!("merge: {} months in {:.1}s · total {:.1}s", done.len(), t1.elapsed().as_secs_f64(), t0.elapsed().as_secs_f64());
     if !keep_parts {
         let _ = fs::remove_dir_all(&parts);
     }
     let _ = months;
+    new_ctx.into_inner().unwrap()
 }

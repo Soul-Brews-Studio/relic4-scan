@@ -4,9 +4,46 @@ One Rust binary. It finds every AI-agent transcript on a machine and writes **on
 
 ```
 cargo build --release
-./target/release/relic4-scan scan [--full] --index index.tsv        # phase 1: find homes, index files
-./target/release/relic4-scan parse --index index.tsv --out months/   # phase 2: months/YYYY-MM.parquet
+./target/release/relic4-scan run --out months/                       # incremental: scan + parse only new bytes
+./target/release/relic4-scan scan [--full] --index index.tsv        # phase 1 alone: find homes, index files
+./target/release/relic4-scan parse --index index.tsv --out months/   # phase 2 alone, cold: months/YYYY-MM.parquet
 ```
+
+## run (incremental)
+`months/_state.tsv` records, per file: dev, inode, size, the offset after the last complete line, the line count, the session, the last ts, and a hash of the first 4 KB. Each run classifies every file:
+
+| state | rule | work |
+|---|---|---|
+| unchanged | same inode, size = offset | nothing is read |
+| grown | same inode, size > offset, same prefix | parse from the offset with the saved line count, session and last ts |
+| rewritten | other inode, size < offset, or the prefix changed | parse from 0 again; old rows stay, truth is append-only |
+| new | not in the state | parse from 0 |
+| gone | in the state, not on disk | dropped from the state; its rows stay |
+
+Only months that received rows are rewritten; every other month file is left untouched. The state file is written last, so after a crash the next run re-reads and the line hash folds the duplicates.
+
+**Proof: incremental equals cold** (`verify/incremental.py`). The test takes real transcripts and:
+1. cuts them at random lines, some mid-line;
+2. runs;
+3. grows them, adds new files, deletes one, rewrites the start of one;
+4. runs again, then a third time;
+5. compares with one cold parse of the final state.
+
+| transcripts | cold rows | in incremental, every field equal | extra rows (old versions, append-only) | 3rd run |
+|---:|---:|---:|---:|---|
+| 40 | 1,938 | 1,938 / 1,938 | 1 | 0 bytes read, no month rewritten |
+| 300 | 21,257 | 21,257 / 21,257 | 397 | 0 bytes read, no month rewritten |
+
+**m5 (beta), whole machine:**
+
+| run | files | read | time |
+|---|---:|---:|---:|
+| cold | 86,904 | 75.6 GB | **58 s**: scan 9, parse 27 (2.8 GB/s, 18 threads), merge 8, prefix hashes and state 14 |
+| incremental (2 grown) | 86,904 | 0.00 GB | **13 s**: scan 8.5, merge 4.3 (only 2026-10 rewritten) |
+
+For comparison, relic v3 needed 43 s for an incremental run with 37 changed files. Where the next win is:
+- the light scan re-walks every home (8.5 s): cache the home list and only stat known files, or watch with FSEvents;
+- rewriting the current month (4.3 s): a small delta file plus compaction would trade the "1 month = 1 file" rule for speed.
 
 ## scan: light (default) vs --full
 | | reads file contents | m5 (beta), 91,297 files / 76 GB | verdicts |
@@ -42,7 +79,6 @@ Verified against truth: **0 lost**. No file that produced a truth row was called
 `--jt-compat` stops a file at a line over 8 MB, as jt does. By default `parse` skips files the scan called not-transcript; `--all` includes them.
 
 ## Not yet
-- **Offset-based incremental parse.** LEARNED.md: no relic ever built it, and it is where the next big win is.
 - **A quarantine month** for impossible dates.
 - **Antigravity `transcript_full.jsonl` preference.**
 - **Splitting multi-GB files** into chunks.

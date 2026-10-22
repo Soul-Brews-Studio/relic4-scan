@@ -5,11 +5,14 @@
 //!       phase 1: find every agent home (.claude, .claude_bak, .claude2, .codex …) and index its .jsonl files
 //!   relic4-scan parse --index index.tsv --out DIR [--agent user@host] [--threads N] [--jt-compat]
 //!       phase 2: parse every indexed file in parallel -> DIR/YYYY-MM.parquet, one file per Bangkok month
+//!   relic4-scan run --out DIR [--full] [--root DIR]... [--agent user@host]
+//!       incremental: scan, diff against DIR/_state.tsv, parse only new bytes, rewrite only touched months
 
 mod engine;
 mod parse;
 mod scan;
 mod sniff;
+mod state;
 
 use std::io::Write;
 
@@ -48,6 +51,30 @@ enum Cmd {
         /// Default is the light scan: names, folder shapes and path rules only, no file contents.
         #[arg(long)]
         full: bool,
+    },
+    /// Incremental: scan, then parse only new/grown/rewritten files from where they were left
+    Run {
+        /// output directory: YYYY-MM.parquet per month + _state.tsv
+        #[arg(long)]
+        out: String,
+        #[arg(long = "root")]
+        roots: Vec<String>,
+        #[arg(long, default_value_t = 8)]
+        depth: usize,
+        #[arg(long, default_value_t = 0)]
+        threads: usize,
+        #[arg(long)]
+        exclude: Vec<String>,
+        /// content-sniff NEW files (unchanged ones keep their verdict from the light scan)
+        #[arg(long)]
+        full: bool,
+        #[arg(long)]
+        agent: Option<String>,
+        #[arg(long)]
+        jt_compat: bool,
+        /// only files whose path contains this text (repeatable)
+        #[arg(long)]
+        only: Vec<String>,
     },
     /// Parse every indexed file -> one Parquet file per Bangkok month (truth schema, copies folded)
     Parse {
@@ -102,16 +129,84 @@ fn tilde(p: &str) -> String {
     }
 }
 
+fn default_agent() -> String {
+    let user = std::env::var("USER").unwrap_or_default();
+    let host = std::process::Command::new("hostname").arg("-s").output().ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
+    format!("{user}@{host}")
+}
+
 fn main() {
     let cli = Cli::parse();
     match cli.cmd {
+        Cmd::Run { out, roots, depth, threads, exclude, full, agent, jt_compat, only } => {
+            let t0 = std::time::Instant::now();
+            let outp = std::path::Path::new(&out);
+            std::fs::create_dir_all(outp).unwrap();
+            let roots = if roots.is_empty() { vec!["~".to_string(), "/opt/Code".to_string()] } else { roots };
+            let agent = agent.unwrap_or_else(default_agent);
+            let r = scan::run(&roots, depth, threads, &exclude, false);
+            let t_scan = t0.elapsed().as_secs_f64();
+            let mut st = state::load(outp);
+            let (mut new, mut grown, mut rewritten, mut unchanged) = (0u64, 0u64, 0u64, 0u64);
+            let mut jobs = vec![];
+            let mut seen = std::collections::HashSet::new();
+            for f in &r.files {
+                if !only.is_empty() && !only.iter().any(|o| f.path.contains(o.as_str())) {
+                    continue;
+                }
+                if f.verdict == "not-transcript" {
+                    continue;
+                }
+                seen.insert(f.path.clone());
+                let start = match st.get(&f.path) {
+                    None => {
+                        if full && sniff::sniff(&f.path).verdict == "not-transcript" {
+                            continue;
+                        }
+                        new += 1;
+                        Some(parse::Ctx::default())
+                    }
+                    // unchanged first: same inode, same size -> no read at all (the prefix is checked only on growth)
+                    Some(s) if s.dev == f.dev && s.ino == f.ino && f.size == s.ctx.offset => {
+                        unchanged += 1;
+                        None
+                    }
+                    Some(s) if s.dev != f.dev || s.ino != f.ino || f.size < s.ctx.offset
+                        || state::prefix_hash(&f.path, s.prefix_len) != Some(s.prefix_hash) => {
+                        rewritten += 1;
+                        Some(parse::Ctx::default())
+                    }
+                    Some(s) => {
+                        grown += 1;
+                        Some(s.ctx.clone())
+                    }
+                };
+                if let Some(ctx) = start {
+                    jobs.push(parse::Job { path: f.path.clone(), size: f.size, verdict: f.verdict.clone(), ctx });
+                }
+            }
+            let gone = st.keys().filter(|k| !seen.contains(*k) && (only.is_empty() || only.iter().any(|o| k.contains(o.as_str())))).count();
+            if only.is_empty() {
+                st.retain(|k, _| seen.contains(k));
+            }
+            let bytes: u64 = jobs.iter().map(|j| j.size.saturating_sub(j.ctx.offset)).sum();
+            eprintln!("run: scan {:.1}s · new {} · grown {} · rewritten {} · unchanged {} · gone {} · {:.2} GB to read",
+                      t_scan, num(new), num(grown), num(rewritten), num(unchanged), num(gone as u64), bytes as f64 / 1e9);
+            let sizes: std::collections::HashMap<String, (u64, u64, u64)> =
+                r.files.iter().map(|f| (f.path.clone(), (f.dev, f.ino, f.size))).collect();
+            let done = if jobs.is_empty() { Default::default() } else { parse::run(jobs, outp, &agent, threads, jt_compat, false) };
+            for (p, c) in done {
+                let (dev, ino, size) = sizes.get(&p).copied().unwrap_or_default();
+                let plen = c.offset.min(state::PREFIX);
+                let ph = state::prefix_hash(&p, plen).unwrap_or(0);
+                st.insert(p, state::FileState { dev, ino, size, ctx: c, prefix_len: plen, prefix_hash: ph });
+            }
+            state::save(outp, &st);
+            eprintln!("run: done in {:.1}s · state {} files -> {}/_state.tsv", t0.elapsed().as_secs_f64(), num(st.len() as u64), out);
+        }
         Cmd::Parse { index, out, agent, threads, jt_compat, only, keep_parts, all } => {
-            let agent = agent.unwrap_or_else(|| {
-                let user = std::env::var("USER").unwrap_or_default();
-                let host = std::process::Command::new("hostname").arg("-s").output().ok()
-                    .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
-                format!("{user}@{host}")
-            });
+            let agent = agent.unwrap_or_else(default_agent);
             let mut jobs = parse::read_index(&index);
             if !only.is_empty() {
                 jobs.retain(|j| only.iter().any(|o| j.path.contains(o.as_str())));
@@ -124,7 +219,7 @@ fn main() {
                 }
             }
             eprintln!("parse: {} files from {index} · agent {agent}", jobs.len());
-            parse::run(jobs, std::path::Path::new(&out), &agent, threads, jt_compat, keep_parts);
+            let _ = parse::run(jobs, std::path::Path::new(&out), &agent, threads, jt_compat, keep_parts);
         }
         Cmd::Scan { roots, depth, threads, json, index, exclude, full } => {
             let roots = if roots.is_empty() { vec!["~".to_string(), "/opt/Code".to_string()] } else { roots };
