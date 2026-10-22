@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>relic-scan · not indexed yet</title>
+<style>
+  :root { --bg: #05070d; --ink: #d9dde8; --dim: #7c8496; --line: #1c2333; --cyan: #00d6ff; --pink: #ff3cac; color-scheme: dark; }
+  @media (prefers-color-scheme: light) { :root { --bg: #f5f6fa; --ink: #1c2233; --dim: #5d667a; --line: #d6dbe7; --cyan: #0a84b8; --pink: #c4237f; color-scheme: light; } }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.6 ui-monospace, "SF Mono", Menlo, monospace; }
+  main { max-width: 640px; margin: 14vh auto 0; padding: 0 24px; }
+  h1 { font-size: 26px; letter-spacing: .08em; margin: 0 0 6px; }
+  h1 .a { color: var(--pink); } h1 .b { color: var(--cyan); } h1 .d { color: var(--dim); }
+  p { color: var(--dim); margin: 6px 0 22px; }
+  code { color: var(--ink); }
+  button { background: none; color: var(--cyan); border: 1px solid var(--cyan); border-radius: 6px; padding: 10px 18px; font: inherit; cursor: pointer; }
+  button:disabled { color: var(--dim); border-color: var(--line); cursor: default; }
+  .track { height: 6px; border-radius: 3px; background: var(--line); margin: 22px 0 8px; overflow: hidden; }
+  .track i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--pink), var(--cyan)); transition: width .4s; }
+  #msg { color: var(--dim); min-height: 1.6em; }
+</style>
+</head>
+<body>
+<main>
+  <h1><span class="a">▓▒░ RELIC</span><span class="d">·</span><span class="b">SCAN ░▒▓</span></h1>
+  <p>Nothing indexed in <code>{OUT}</code> yet. The first run reads every transcript once (about a minute for 70 GB); after that only new bytes.</p>
+  <button id="go">⟳ index now</button>
+  <div class="track"><i id="bar"></i></div>
+  <div id="msg"></div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const gb = b => (b / 1e9).toFixed(1);
+function show(s) {
+  if (!s.running) return;
+  const f = s.phase === "parse" && s.total ? s.done / s.total : s.phase === "scan" ? 0.03 : s.phase === "merge" ? 0.92 : s.phase === "meta" ? 0.97 : 0;
+  $("bar").style.width = (100 * f).toFixed(1) + "%";
+  $("msg").textContent = s.phase === "scan" ? `scan · ${s.walked.toLocaleString()} entries walked · ${s.listed.toLocaleString()} .jsonl listed`
+    : s.phase === "parse" ? `parse · ${gb(s.done)} / ${gb(s.total)} GB` : s.phase + "…";
+  $("msg").textContent += ` · ${Math.round(s.secs || 0)}s`;
+}
+async function poll() {
+  const s = await (await fetch("/api/status")).json();
+  if (s.running) { $("go").disabled = true; show(s); return setTimeout(poll, 600); }
+  if (s.last_error) { $("go").disabled = false; $("msg").textContent = "failed: " + s.last_error; return; }
+  if (s.ready) location.reload();
+}
+$("go").onclick = async () => {
+  $("go").disabled = true;
+  const r = await fetch("/api/run", { method: "POST", headers: { "X-Relic": "1" } });
+  if (!r.ok) { const e = await r.json(); $("msg").textContent = e.error; if (r.status !== 409) $("go").disabled = false; }
+  poll();
+};
+poll();
+</script>
+</body>
+</html>

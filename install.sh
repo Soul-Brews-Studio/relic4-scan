@@ -25,4 +25,4 @@ case ":$PATH:" in
   *":$HOME/.local/bin:"*) ;;
   *) echo "relic-scan: add ~/.local/bin to PATH, e.g. echo 'export PATH=\$HOME/.local/bin:\$PATH' >> ~/.zshrc" ;;
 esac
-echo "relic-scan: next: relic-scan up --kind claude   (then open http://127.0.0.1:8787/map and /tree)"
+echo "relic-scan: next: relic-scan up --kind claude   (then http://127.0.0.1:8787/map · /tree · /paths), or relic-scan tui --kind claude"

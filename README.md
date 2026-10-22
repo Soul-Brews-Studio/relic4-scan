@@ -23,7 +23,7 @@ The first run reads everything: on m5 that is 83,673 files and 67.6 GB in about 
 |---|---|
 | `relic-scan up [--kind K] [--port 8787]` | `run`, then `serve` |
 | `relic-scan run [--kind K] [--out DIR]` | Scan, parse only new bytes, then write meta, map and paths. It ends with a summary card. |
-| `relic-scan serve [--kind K]` | Serves `/map`, `/tree` and `/paths` on 127.0.0.1 only. The page is read on every request, so a `run` in another shell shows up on reload. |
+| `relic-scan serve [--kind K]` | Serves `/map`, `/tree` and `/paths` on 127.0.0.1 only. The page is read on every request, so a `run` in another shell shows up on reload. The page's **⟳ index** button runs an incremental run in the server (`POST /api/run`, which needs an `X-Relic: 1` header; progress at `GET /api/status`). Before the first run, every view shows a welcome page with the same button. |
 | `relic-scan tui [--kind K]` | The terminal browser (below). |
 | `relic-scan meta` / `map` | Rebuild only the meta tables, or only the page. |
 | `relic-scan scan [--full] [--index F]` / `parse --index F --out DIR` | The two phases alone, for debugging and benchmarks. |
@@ -34,6 +34,17 @@ The first run reads everything: on m5 that is 83,673 files and 67.6 GB in about 
 - **Crash safety:** month files, meta tables and `_state.tsv` are written to a temporary file, fsynced, then renamed. The state goes last, so a crash costs a re-read, never a lost or doubled row.
 - **Peak memory:** files are read in 32 MiB chunks (`RELIC_SCAN_CHUNK` bytes to change it). The biggest files are parsed side by side, so reading them whole used to hold gigabytes at once.
 - **Local only:** the server binds 127.0.0.1, and the page makes no network calls.
+
+**Desktop app (Tauri v2):** `desktop/` wraps the same page in a native window.
+- **How it runs:** it starts the server inside its own process on a free 127.0.0.1 port and opens a window on it.
+- **Index button:** runs an incremental run in that process. On a first launch the window shows a welcome page with the button.
+- **`RELIC_SCAN_KIND`:** `claude` (the default), a comma-separated list, or `all`.
+- **`RELIC_SCAN_OUT`:** overrides the output directory.
+```
+cd desktop && cargo build --release && ./target/release/relic-scan-desktop    # run it
+cargo install tauri-cli --version '^2' --locked && cargo tauri build          # Relic Scan.app
+```
+How it compares with Relic Scanner and Relic Studio, the SwiftUI apps over relic3: [docs/COMPARE.md](docs/COMPARE.md).
 
 **Build from a checkout instead:**
 ```

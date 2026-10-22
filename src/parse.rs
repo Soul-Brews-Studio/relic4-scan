@@ -30,6 +30,10 @@ use parquet::file::properties::WriterProperties;
 use crate::engine::{self, Tool};
 
 const JT_CHUNK: usize = 8 << 20;
+
+/// Bytes read so far and bytes to read in the current parse, for /api/status.
+pub static DONE: AtomicU64 = AtomicU64::new(0);
+pub static TOTAL: AtomicU64 = AtomicU64::new(0);
 const SPILL_ROWS: usize = 20_000;
 
 /// One row per (line, stream[, tool]) per copy: the live store's events/tools/sources, flattened.
@@ -461,6 +465,8 @@ pub fn run(mut jobs: Vec<Job>, out: &Path, agent: &str, threads: usize, jt_compa
     let st = Stats::default();
     let total: u64 = jobs.iter().map(|j| j.size.saturating_sub(j.ctx.offset)).sum();
     let months: Mutex<std::collections::BTreeSet<String>> = Mutex::default();
+    TOTAL.store(total, Ordering::Relaxed);
+    DONE.store(0, Ordering::Relaxed);
     std::thread::scope(|sc| {
         for tid in 0..n {
             let (jobs, next, st, parts, months, new_ctx) = (&jobs, &next, &st, &parts, &months, &new_ctx);
@@ -487,6 +493,7 @@ pub fn run(mut jobs: Vec<Job>, out: &Path, agent: &str, threads: usize, jt_compa
             while next.load(Ordering::Relaxed) < nj {
                 std::thread::sleep(std::time::Duration::from_millis(1000));
                 let b = st.bytes.load(Ordering::Relaxed);
+                DONE.store(b, Ordering::Relaxed);
                 let frac = if total > 0 { b as f64 / total as f64 } else { 0.0 };
                 eprint!("\r  {} {} {:>3.0}%  {}/{} files · {:.1}/{:.1} GB · {:.1} GB/s · {} rows   ", crate::ui::pink("parse"),
                         crate::ui::bar(frac, 28), frac * 100.0, st.files.load(Ordering::Relaxed), nj, b as f64 / 1e9, total as f64 / 1e9,
@@ -499,6 +506,8 @@ pub fn run(mut jobs: Vec<Job>, out: &Path, agent: &str, threads: usize, jt_compa
               st.files.load(Ordering::Relaxed), st.bytes.load(Ordering::Relaxed) as f64 / 1e9, st.lines.load(Ordering::Relaxed),
               st.bad_json.load(Ordering::Relaxed), st.rows.load(Ordering::Relaxed), st.stuck.load(Ordering::Relaxed), t_parse,
               st.bytes.load(Ordering::Relaxed) as f64 / 1e6 / t_parse, n);
+    DONE.store(total, Ordering::Relaxed);
+    crate::PHASE.store(3, Ordering::Relaxed);
     // merge: months in parallel (each holds only its own rows)
     let t1 = Instant::now();
     let ms: Vec<String> = fs::read_dir(&parts).unwrap().flatten().map(|e| e.file_name().to_string_lossy().to_string()).collect();

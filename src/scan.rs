@@ -27,6 +27,11 @@ use std::time::{Instant, UNIX_EPOCH};
 use ignore::{WalkBuilder, WalkState};
 use serde::Serialize;
 
+/// Live counters for the progress line while a scan runs (the walk takes ~10 s on m5 and prints nothing else).
+pub static WALKED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+pub static HOMES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+pub static LISTED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
 /// Directory names never worth entering while looking for homes (or while listing a home's files).
 const SKIP: &[&str] = &[
     "node_modules", ".git", "target", "dist", "build", ".venv", "venv", "__pycache__", ".next", "vendor",
@@ -180,9 +185,11 @@ pub fn find_homes(roots: &[String], depth: usize, threads: usize, exclude: &[Str
                     if e.depth() == 0 {
                         return WalkState::Continue;
                     }
+                    WALKED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     if e.file_type().is_some_and(|t| t.is_dir()) {
                         if let Some(kind) = e.file_name().to_str().and_then(agent_kind) {
                             f.lock().unwrap().push((e.path().to_path_buf(), kind));
+                            HOMES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                             return WalkState::Skip; // a home's own subfolders are not homes
                         }
                     } else if e.path().extension().is_some_and(|x| x == "jsonl") {
@@ -249,6 +256,7 @@ fn list_home(home: &Path, kind: &'static str, threads: usize, by_shape: bool) ->
                     return WalkState::Continue;
                 }
                 let mtime = md.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map(|d| d.as_millis() as i64).unwrap_or(0);
+                LISTED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 o.lock().unwrap().push(FileEntry {
                     path: e.path().to_string_lossy().to_string(),
                     home: label.clone(),

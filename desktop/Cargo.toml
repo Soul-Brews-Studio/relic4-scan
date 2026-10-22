@@ -1,0 +1,20 @@
+[package]
+name = "relic-scan-desktop"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+description = "Relic Scan desktop: the relic-scan page in a native window (Tauri v2)"
+
+# its own workspace: `cargo install relic-scan` never resolves or builds the Tauri tree
+[workspace]
+
+[[bin]]
+name = "relic-scan-desktop"
+path = "src/main.rs"
+
+[dependencies]
+relic-scan = { path = ".." }
+tauri = "2"
+
+[build-dependencies]
+tauri-build = "2"
