@@ -4,11 +4,12 @@ One Rust binary, `relic-scan` (this repo is still named relic4-scan). It finds e
 
 Grown in the agent-relic-v4 lab (`lab/relic4-scan` on branch `lab-rust-scan`, history kept). [agent-relic-v4](https://github.com/Soul-Brews-Studio/agent-relic-v4) is the reader: it turns these month files into truth, meta, vectors and search. The verify scripts need its Python environment: `uv run --project <agent-relic-v4> python verify/…`.
 
-**Install and run, one command each** (the repo is private, so cargo fetches it through the git CLI and your gh login):
+**Install and run, one command each.** `install.sh` finds cargo, even when it is not on PATH, and installs to `~/.local/bin`. The repo is private, so cargo fetches it through the git CLI and your gh login.
 ```
-CARGO_NET_GIT_FETCH_WITH_CLI=true cargo install --git https://github.com/Soul-Brews-Studio/relic4-scan relic-scan
+gh api repos/Soul-Brews-Studio/relic4-scan/contents/install.sh -H 'Accept: application/vnd.github.raw' | sh
 relic-scan up --kind claude      # scan + parse + meta + map into ~/.relic-scan, then http://127.0.0.1:8787/map and /tree
 ```
+To install a branch instead of `main`, pipe to `REF=<branch> sh` rather than `sh`.
 `up` is `run` followed by `serve`; run it again later and only new bytes are read (about 10 s). `relic-scan serve` serves what is already there.
 
 ```
