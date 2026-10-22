@@ -38,10 +38,10 @@ The first run reads everything: on m5 that is 83,673 files and 67.6 GB in about 
 **Desktop app (Tauri v2):** `desktop/` wraps the same page in a native window.
 - **How it runs:** it starts the server inside its own process on a free 127.0.0.1 port and opens a window on it.
 - **Index button:** runs an incremental run in that process. On a first launch the window shows a welcome page with the button.
-- **`RELIC_SCAN_KIND`:** `claude` (the default), a comma-separated list, or `all`.
+- **`RELIC_SCAN_KIND`:** `all` (the default, the same folder as `relic-scan run`), `claude`, or a comma-separated list.
 - **`RELIC_SCAN_OUT`:** overrides the output directory.
 ```
-cd desktop && cargo build --release && ./target/release/relic-scan-desktop    # run it
+cd desktop && cargo build --release && ./target/release/relic-scan-desktop    # run it (--view banks|health|map|tree|paths)
 cargo install tauri-cli --version '^2' --locked && cargo tauri build          # Relic Scan.app
 ```
 How it compares with Relic Scanner and Relic Studio, the SwiftUI apps over relic3: [docs/COMPARE.md](docs/COMPARE.md).
@@ -157,8 +157,23 @@ The same walk that finds the homes collects the loose files, so they add no extr
 | cold (no cache) | 86,905 | 45,094 | every row and column equal | **1.9 s** (Python: truth import 19.9 s + meta 2.5 s) |
 | after an incremental `run` (2026-10 rewritten) | 86,905 | 45,094 | every row and column equal | **0.9 s** (1 month aggregated again) |
 
-## Views: map, tree, paths and the TUI
-`serve` (or `up`) serves one page on 127.0.0.1 with three views. A tab bar switches between them; map and tree share the query box, the side panel and the URL hash, so a query carries over. The theme button cycles auto, dark and light; auto follows the system. In tree and paths only the page scrolls; the side panel sits beside it, never inside it.
+## Views: Smart Scan, Banks & Repos, Health, map, tree, paths and the TUI
+`serve` (or `up`) serves one page on 127.0.0.1, in the shape of Relic Studio. A left sidebar holds six views; under 1100 px it folds to icons. At its foot it shows whether a run is going and when the last one was.
+
+- **Smart Scan** (`/`, `/scan`): a coverage ring (transcript files indexed out of those found), the **Index now** and **Refresh status** controls with a live progress bar, and two stat strips: files indexed, discovered, not transcripts and outside homes; then sessions, rows, indexed size and last run.
+- **Banks & Repos** (`/banks`): one card per jsonl home with sessions, rows, files, size, origin and newest session; a card opens the tree on that home. Below them is a repository index with org/repo, sessions and rows; a row opens the map on that repo.
+- **Health** (`/health`): checks computed from the index, each with a link to the matching view:
+  - the age of the last run;
+  - transcripts outside every home;
+  - subagents without a main session;
+  - undated sessions;
+  - indexed files with no rows;
+  - files skipped as not transcripts;
+  - unknown shapes;
+  - mirrors folded;
+  - tool errors.
+
+Map, tree and paths are below. Map and tree share the query box, the side panel and the URL hash, so a query carries over. The theme button cycles auto, dark and light; auto follows the system. In tree and paths only the page scrolls; the side panel sits beside it, never inside it.
 
 `run` rebuilds the page (`DIR/meta/map.html`, about 4 MB for 43,006 sessions, data inlined) and `DIR/meta/paths.json`. `relic-scan map` rebuilds both alone in 0.2 s. Opened as a file, `map.html?view=tree` shows the tree. The paths view loads `/paths.json`, so it needs the server.
 

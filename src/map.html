@@ -115,7 +115,7 @@
   #idx:disabled { color: var(--dim); cursor: default; }
   #theme { background: var(--panel); color: var(--dim); border: 1px solid var(--line); border-radius: 5px; padding: 7px 10px; font: inherit; cursor: pointer; }
   #theme:hover { color: var(--ink); }
-  .tn { display: grid; grid-template-columns: minmax(0, 1fr) 92px 104px 132px 84px; gap: 10px; align-items: center;
+  .tn { display: grid; grid-template-columns: minmax(0, 1fr) 112px 132px 132px 92px; gap: 10px; align-items: center;
         padding: 3px 6px; border-radius: 3px; cursor: pointer; white-space: nowrap; }
   .tn:hover { background: var(--hover); }
   .tn.sel { background: var(--sel); }
@@ -127,8 +127,8 @@
   .th { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
   .th:hover { background: none; cursor: default; }
   /* narrow windows: keep name, count and rows; drop the type bar and the date */
-  @media (max-width: 1150px) {
-    .tn { grid-template-columns: minmax(0, 1fr) 70px 96px; }
+  @media (max-width: 1400px) {
+    .tn { grid-template-columns: minmax(0, 1fr) 112px 132px; }
     .tn > :nth-child(4), .tn > :nth-child(5) { display: none; }
   }
   .more { color: var(--link); padding: 3px 6px; cursor: pointer; }

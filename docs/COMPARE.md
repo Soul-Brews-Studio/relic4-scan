@@ -46,6 +46,6 @@ The other banks are drawn differently by each tool. relic3 has one `projects` ba
 - **From the Swift apps into relic-scan:**
   - **Writes only on a click:** the index button is the only writer on the page and in the desktop app, and the server refuses a second one with a 409.
   - **Never invent a number:** relic-scan's status reports phase, bytes and the last error as measured.
-  - **The look:** the Studio-style dark look with neon accents is now in the page's theme and in the TUI.
+  - **The look:** the page now has the Studio shell: the sidebar, the Smart Scan ring with index controls, bank cards with a repository index, and a Health page. Each screen is built from relic-scan's own numbers, and the theme comes in light and dark.
 - **From relic-scan back into the apps:** a session-level view, thinking rows, the `.jsonl` accounting, and a cross-platform shell (Tauri) instead of macOS-only SwiftUI.
 - **Still only in the apps:** embedding control. A future `relic-scan` view could show agent-relic-v4's vector coverage next to the months, without running the embedder itself.
