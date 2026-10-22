@@ -24,6 +24,8 @@ mod scan;
 mod serve;
 mod sniff;
 mod state;
+mod tui;
+mod ui;
 
 use std::io::Write;
 
@@ -33,7 +35,7 @@ use clap::{Parser, Subcommand};
 #[command(version, about = "Find and index every AI-agent transcript on this machine")]
 struct Cli {
     #[command(subcommand)]
-    cmd: Cmd,
+    cmd: Option<Cmd>,
 }
 
 /// Where run/meta/map/serve read and write when --out is not given.
@@ -111,6 +113,14 @@ enum Cmd {
         out: String,
         #[arg(long, default_value_t = 8787)]
         port: u16,
+        /// the --kind the run used: picks ~/.relic-scan/<kind> when --out is not given
+        #[arg(long)]
+        kind: Vec<String>,
+    },
+    /// Browse the sessions, repos and every .jsonl in the terminal (reads OUT/meta/*.parquet)
+    Tui {
+        #[arg(long, default_value = DEFAULT_OUT)]
+        out: String,
         /// the --kind the run used: picks ~/.relic-scan/<kind> when --out is not given
         #[arg(long)]
         kind: Vec<String>,
@@ -240,6 +250,7 @@ fn lock_out(outp: &std::path::Path) -> std::fs::File {
 
 fn run_cmd(a: RunArgs) {
     let RunArgs { out, roots, depth, threads, exclude, full, agent, jt_compat, only, kind } = a;
+    let out_flag = if out == DEFAULT_OUT { String::new() } else { format!(" --out {}", tilde(&expand(&out))) };
     let out = out_dir(&out, &kind);
     let t0 = std::time::Instant::now();
     let outp = std::path::Path::new(&out);
@@ -320,15 +331,67 @@ fn run_cmd(a: RunArgs) {
         st.insert(p, state::FileState { dev, ino, size, ctx: c, prefix_len: plen, prefix_hash: ph });
     }
     state::save(outp, &st);
+    let t_parse = t0.elapsed().as_secs_f64() - t_scan;
+    let t1 = std::time::Instant::now();
     meta::jsonl(outp, &r, &st);
-    meta::build(outp, &agent, &st, threads);
+    let m = meta::build(outp, &agent, &st, threads);
+    let t_meta = t1.elapsed().as_secs_f64();
+    let t2 = std::time::Instant::now();
     map::build(outp, &agent);
+    let t_map = t2.elapsed().as_secs_f64();
     eprintln!("run: done in {:.1}s · state {} files -> {}/_state.tsv", t0.elapsed().as_secs_f64(), num(st.len() as u64), out);
+    let kind_flag = if !out_flag.is_empty() { out_flag } else { kind.iter().map(|k| format!(" --kind {k}")).collect() };
+    let s = |x: f64| format!("{x:.1}s");
+    eprintln!("{}", ui::card(&ui::logo(), &[
+        format!("{} sessions · {} rows · {} files · {:.1} GB read", ui::bold(&num(m.sessions as u64)), ui::bold(&num(m.rows as u64)), num(m.files as u64),
+                bytes as f64 / 1e9),
+        format!("new {} · grown {} · rewritten {} · unchanged {}", num(new), num(grown), num(rewritten), num(unchanged)),
+        ui::dim(&format!("scan {} · parse+merge {} · meta {} · map {} · total {}", s(t_scan), s(t_parse), s(t_meta), s(t_map),
+                         s(t0.elapsed().as_secs_f64()))),
+        format!("{} {}", ui::dim("→"), tilde(&out)),
+        format!("{} relic-scan serve{kind_flag}   {} relic-scan tui{kind_flag}", ui::pink("▸"), ui::pink("▸")),
+    ]));
+}
+
+/// `relic-scan` with no command: the logo, what is already indexed, and the commands that matter.
+fn banner() {
+    eprintln!("\n  {}  {}\n", ui::logo(), ui::dim(&format!("v{} · every AI-agent transcript on this machine", env!("CARGO_PKG_VERSION"))));
+    let base = expand(DEFAULT_OUT);
+    let mut outs: Vec<String> = vec![base.clone()];
+    if let Ok(rd) = std::fs::read_dir(&base) {
+        let mut subs: Vec<String> = rd.flatten().filter(|e| e.path().join("meta").is_dir()).map(|e| e.path().display().to_string()).collect();
+        subs.sort();
+        outs.extend(subs);
+    }
+    let mut any = false;
+    for o in outs {
+        let st = std::path::Path::new(&o).join("_state.tsv");
+        let Ok(md) = std::fs::metadata(&st) else { continue };
+        let files = std::fs::read_to_string(&st).map(|t| t.lines().count().saturating_sub(1)).unwrap_or(0);
+        let age = md.modified().ok().and_then(|m| m.elapsed().ok()).map(|d| d.as_secs()).unwrap_or(0);
+        let ago = if age < 3600 { format!("{} min ago", age / 60) } else if age < 86400 { format!("{} h ago", age / 3600) } else { format!("{} d ago", age / 86400) };
+        eprintln!("  {} {}  {}", ui::cyan("●"), tilde(&o), ui::dim(&format!("{} files indexed · last run {ago}", num(files as u64))));
+        any = true;
+    }
+    if !any {
+        eprintln!("  {} nothing indexed yet", ui::dim("○"));
+    }
+    let cmd = |c: &str, what: &str| eprintln!("  {}  {}", ui::pink(&format!("{c:<34}")), ui::dim(what));
+    eprintln!();
+    cmd("relic-scan up --kind claude", "index Claude transcripts, then serve the map on 127.0.0.1:8787");
+    cmd("relic-scan up", "the same over every agent (claude, codex, omp, omx, …)");
+    cmd("relic-scan tui [--kind claude]", "browse sessions, repos and paths in the terminal");
+    cmd("relic-scan serve [--kind claude]", "serve /map /tree /paths without indexing again");
+    cmd("relic-scan run [--kind claude]", "index only (incremental: new bytes only)");
+    cmd("relic-scan --help", "every command and flag");
+    eprintln!();
 }
 
 fn main() {
     let cli = Cli::parse();
-    match cli.cmd {
+    let Some(cmd) = cli.cmd else { return banner() };
+    match cmd {
+        Cmd::Tui { out, kind } => tui::tui(std::path::Path::new(&out_dir(&out, &kind))),
         Cmd::Run(a) => run_cmd(a),
         Cmd::Up { run, port } => {
             let out = out_dir(&run.out, &run.kind);
@@ -350,7 +413,7 @@ fn main() {
                 eprintln!("meta: no {out}/_state.tsv (run `relic-scan run --out {out}` first)");
                 std::process::exit(1);
             }
-            meta::build(outp, &agent.unwrap_or_else(default_agent), &st, threads);
+            let _ = meta::build(outp, &agent.unwrap_or_else(default_agent), &st, threads);
         }
         Cmd::Parse { index, out, agent, threads, jt_compat, only, keep_parts, all } => {
             let agent = agent.unwrap_or_else(default_agent);

@@ -417,8 +417,15 @@ fn month_of(name: &str) -> Option<&str> {
     name.strip_suffix(".parquet").filter(|m| !m.is_empty() && !m.starts_with('.'))
 }
 
+/// What `build` wrote, for the run's summary.
+pub struct Summary {
+    pub files: i64,
+    pub sessions: i64,
+    pub rows: i64,
+}
+
 /// Build OUT/meta/files.parquet and OUT/meta/sessions.parquet from the month files and the state.
-pub fn build(out: &Path, agent: &str, st: &HashMap<String, FileState>, threads: usize) {
+pub fn build(out: &Path, agent: &str, st: &HashMap<String, FileState>, threads: usize) -> Summary {
     let t0 = Instant::now();
     let dir = out.join("meta");
     let cache = dir.join("cache");
@@ -579,6 +586,7 @@ pub fn build(out: &Path, agent: &str, st: &HashMap<String, FileState>, threads: 
     eprintln!("meta: {} months ({} re-aggregated) in {:.1}s · {} files · {} sessions ({} probe) · {:.1}s -> {}/meta/",
               months.len(), redone.load(Ordering::Relaxed), t_months, files.len(), rows.len(), probe,
               t0.elapsed().as_secs_f64(), out.display());
+    Summary { files: files.len() as i64, sessions: rows.len() as i64, rows: rows.iter().map(|r| r.2.agg.n_rows).sum() }
 }
 
 /// OUT/meta/jsonl.parquet: every .jsonl the scan saw, one row each. place = home (an agent home; parsed into the

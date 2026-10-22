@@ -487,9 +487,10 @@ pub fn run(mut jobs: Vec<Job>, out: &Path, agent: &str, threads: usize, jt_compa
             while next.load(Ordering::Relaxed) < nj {
                 std::thread::sleep(std::time::Duration::from_millis(1000));
                 let b = st.bytes.load(Ordering::Relaxed);
-                eprint!("\r  parse {}/{} files · {:.1}/{:.1} GB · {:.0} MB/s · {} rows   ",
-                        st.files.load(Ordering::Relaxed), nj, b as f64 / 1e9, total as f64 / 1e9,
-                        b as f64 / 1e6 / t0.elapsed().as_secs_f64(), st.rows.load(Ordering::Relaxed));
+                let frac = if total > 0 { b as f64 / total as f64 } else { 0.0 };
+                eprint!("\r  {} {} {:>3.0}%  {}/{} files · {:.1}/{:.1} GB · {:.1} GB/s · {} rows   ", crate::ui::pink("parse"),
+                        crate::ui::bar(frac, 28), frac * 100.0, st.files.load(Ordering::Relaxed), nj, b as f64 / 1e9, total as f64 / 1e9,
+                        b as f64 / 1e9 / t0.elapsed().as_secs_f64(), st.rows.load(Ordering::Relaxed));
             }
         });
     });

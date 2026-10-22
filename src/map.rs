@@ -16,7 +16,7 @@ use serde_json::{Value, json};
 
 const PAGE: &str = include_str!("map.html");
 
-fn read(p: &Path) -> Vec<RecordBatch> {
+pub(crate) fn read(p: &Path) -> Vec<RecordBatch> {
     let f = fs::File::open(p).unwrap_or_else(|e| {
         eprintln!("map: {}: {e} (run `relic-scan run` first)", p.display());
         std::process::exit(1);
@@ -24,24 +24,24 @@ fn read(p: &Path) -> Vec<RecordBatch> {
     ParquetRecordBatchReaderBuilder::try_new(f).unwrap().with_batch_size(65_536).build().unwrap().map(|b| b.unwrap()).collect()
 }
 
-fn s<'a>(b: &'a RecordBatch, n: &str) -> &'a StringArray {
+pub(crate) fn s<'a>(b: &'a RecordBatch, n: &str) -> &'a StringArray {
     b.column_by_name(n).unwrap().as_any().downcast_ref::<StringArray>().unwrap()
 }
 
-fn i<'a>(b: &'a RecordBatch, n: &str) -> &'a Int64Array {
+pub(crate) fn i<'a>(b: &'a RecordBatch, n: &str) -> &'a Int64Array {
     b.column_by_name(n).unwrap().as_any().downcast_ref::<Int64Array>().unwrap()
 }
 
-fn b<'a>(b: &'a RecordBatch, n: &str) -> &'a arrow::array::BooleanArray {
+pub(crate) fn b<'a>(b: &'a RecordBatch, n: &str) -> &'a arrow::array::BooleanArray {
     b.column_by_name(n).unwrap().as_any().downcast_ref::<arrow::array::BooleanArray>().unwrap()
 }
 
-fn get<'a>(a: &'a StringArray, k: usize) -> Option<&'a str> {
+pub(crate) fn get<'a>(a: &'a StringArray, k: usize) -> Option<&'a str> {
     if a.is_null(k) { None } else { Some(a.value(k)) }
 }
 
 /// "2026-07-01T12:34:56.789Z" -> epoch seconds
-fn epoch(ts: Option<&str>) -> Value {
+pub(crate) fn epoch(ts: Option<&str>) -> Value {
     ts.and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok()).map(|d| json!(d.timestamp())).unwrap_or(Value::Null)
 }
 
