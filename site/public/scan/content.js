@@ -102,7 +102,7 @@ export const FAQ = [
   ["What format is the index?", "Plain Parquet: one file per month of rows (every message, thinking block, tool call and result), plus sessions, files and every .jsonl, readable by DuckDB, Polars or pandas."],
   ["Which platforms does it run on?", "macOS on Apple silicon and on Intel (a .dmg each), and Linux x86_64 (.deb and .AppImage); the relic-scan command builds on macOS and Linux with Rust."],
   ["Can an AI agent install and use it?", "Yes. The repository's AGENTS.md (also at relic.buildwithoracle.com/scan/agents.md) tells a coding agent how to install, run, query and build it; the agent should ask before the first index, because it reads every transcript on the machine."],
-  ["How does an agent query the index?", "With DuckDB, Polars or pandas over ~/.relic-scan: month files (YYYY-MM.parquet) hold every message and tool call with sid, ts, role, kind, name and text; meta/sessions.parquet has one line per session; meta/vaults.json lists every ψ vault."],
+  ["How does an agent query the index?", "With DuckDB, Polars or pandas over ~/.relic-scan, starting with a count of every row by what it is. Month files (YYYY-MM.parquet) hold every message and tool call: messages and thinking have a role (user, assistant, thinking), tool rows a kind (call, result), and omp marks tool results as role toolResult. meta/sessions.parquet has one line per session; meta/vaults.json lists every ψ vault."],
   ["Is it free and open source?", "Yes. The source is on GitHub (github.com/Soul-Brews-Studio/relic4-scan) under the GNU AGPL v3, and every download is free."],
 ];
 
@@ -136,6 +136,7 @@ export const AGENT = {
   p: "Hand this to Claude Code, Codex or any coding agent. It installs relic-scan, asks before it reads anything, and answers from the index on your machine.",
   prompt: "Install ARRA Relic Scan on this machine and tell me what my AI agents have been working on. Follow https://relic.buildwithoracle.com/scan/agents.md: install the relic-scan command, ask me before the first index, then run it and answer my questions from ~/.relic-scan with DuckDB. Keep everything on this machine.",
   queries: [
+    ["everything, by what it is", "duckdb -c \"select coalesce(nullif(kind, ''), nullif(role, ''), '(none)') as what, count(*) as n from '*.parquet' group by 1 order by n desc\""],
     ["sessions per repository", "duckdb -c \"select cat as repo, count(*) as sessions from 'meta/sessions.parquet' group by 1 order by sessions desc limit 10\""],
     ["what I asked about something", "duckdb -c \"select ts_th, left(text, 120) as text from '*.parquet' where role = 'user' and text ilike '%parquet%' order by ts desc limit 20\""],
     ["the tools used most", "duckdb -c \"select name, count(*) as calls from '*.parquet' where kind = 'call' group by 1 order by calls desc limit 10\""],

@@ -44,13 +44,29 @@ Paths are relative to `~/.relic-scan`. Month files hold the rows; `meta/` holds 
 
 | file | one row per | useful columns |
 |---|---|---|
-| `YYYY-MM.parquet` | message, thinking block, tool call or result | `sid`, `ts`, `ts_th` (Bangkok), `role` (user, assistant, thinking), `kind` (call, result), `name` (tool), `text`, `body`, `err` |
+| `YYYY-MM.parquet` | message, thinking block, tool call or result | `sid`, `engine`, `ts`, `ts_th` (Bangkok), `role` (user, assistant, thinking; toolResult in omp), `kind` (call, result), `name` (tool), `text`, `body`, `err` |
 | `meta/sessions.parquet` | session | `sid`, `parent_sid`, `tier` (main, subagent, workflow-agent), `cat` (repo), `proj`, `first_ts`, `last_ts`, `last_ms`, `n_rows`, `user_text`, `assistant_text`, `thinking`, `tool_calls`, `tool_results`, `tool_errors` |
 | `meta/files.parquet`, `meta/jsonl.parquet` | transcript file | path, home, size, verdict |
 | `meta/vaults.json`, `meta/vaults/<id>.json` | ψ vault, and its notes | plain JSON: name, path, kind, notes, sections; notes as `[path, section, title, bytes, mtime_ms]` |
 
+**Start here: count everything once, by what it is.** The total is the number the app shows on Smart Scan; report a
+slice (tool results, user text) only next to it.
+
 ```sh
 cd ~/.relic-scan
+duckdb -c "select count(*) as all_rows from '*.parquet'"
+duckdb -c "select coalesce(nullif(kind, ''), nullif(role, ''), '(none)') as what, count(*) as n from '*.parquet' group by 1 order by n desc"
+duckdb -c "select engine, count(*) as n from '*.parquet' group by 1 order by n desc"   # claude, codex, omp, thclaws, …
+```
+
+**How a row says what it is (two columns, not one):**
+- a message or thinking block has `role` = `user`, `assistant` or `thinking`, and no `kind`;
+- a tool call has `kind = 'call'` (the tool in `name`), a tool result `kind = 'result'` (`err` true when it failed), and no `role`;
+- **except omp transcripts** (`engine = 'omp'`), which mark a tool result as `role = 'toolResult'`. Count tool results as
+  `kind = 'result' or role = 'toolResult'`;
+- a handful of rows have neither (empty strings): leave them out or show them as "(none)".
+
+```sh
 # sessions per repository
 duckdb -c "select cat as repo, count(*) as sessions, sum(n_rows) as n_rows from 'meta/sessions.parquet' group by 1 order by sessions desc limit 10"
 # what the human asked about something, newest first
