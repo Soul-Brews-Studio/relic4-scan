@@ -1,0 +1,7 @@
+# only the source goes to the Docker host (desktop/linux/Dockerfile)
+target/
+desktop/target/
+desktop/gen/
+.git/
+wt/
+*.dmg
