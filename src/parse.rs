@@ -477,6 +477,9 @@ pub fn run(mut jobs: Vec<Job>, out: &Path, agent: &str, threads: usize, jt_compa
                 loop {
                     let i = next.fetch_add(1, Ordering::Relaxed);
                     let Some(j) = jobs.get(i) else { break };
+                    if crate::CANCEL.load(Ordering::Relaxed) {
+                        break; // stopped: take no more files
+                    }
                     if let Some(c) = parse_file(&j.path, &j.ctx, jt_compat, st, &mut |r| {
                         if range.is_some_and(|g| !g.keeps(&r.ts_th)) {
                             st.out_of_range.fetch_add(1, Ordering::Relaxed);
@@ -501,12 +504,20 @@ pub fn run(mut jobs: Vec<Job>, out: &Path, agent: &str, threads: usize, jt_compa
                 let b = st.bytes.load(Ordering::Relaxed);
                 DONE.store(b, Ordering::Relaxed);
                 let frac = if total > 0 { b as f64 / total as f64 } else { 0.0 };
-                eprint!("\r  {} {} {:>3.0}%  {}/{} files · {:.1}/{:.1} GB · {:.1} GB/s · {} rows   ", crate::ui::pink("parse"),
-                        crate::ui::bar(frac, 28), frac * 100.0, st.files.load(Ordering::Relaxed), nj, b as f64 / 1e9, total as f64 / 1e9,
-                        b as f64 / 1e9 / t0.elapsed().as_secs_f64(), st.rows.load(Ordering::Relaxed));
+                // the bar shrinks on a narrow terminal, and the line is cut to its width (see ui::live)
+                let bw = crate::ui::width().saturating_sub(80).clamp(8, 28);
+                crate::ui::live(&format!("  {} {} ", crate::ui::pink("parse"), crate::ui::bar(frac, bw)), 10 + bw,
+                                &format!("{:>3.0}%  {}/{} files · {:.1}/{:.1} GB · {:.1} GB/s · {} rows", frac * 100.0, st.files.load(Ordering::Relaxed),
+                                         nj, b as f64 / 1e9, total as f64 / 1e9, b as f64 / 1e9 / t0.elapsed().as_secs_f64(), st.rows.load(Ordering::Relaxed)));
             }
         });
     });
+    // stopped before the merge: nothing has been written to OUT yet, so throw the parts away and change nothing
+    if crate::CANCEL.load(Ordering::Relaxed) {
+        let _ = fs::remove_dir_all(&parts);
+        eprintln!("\nparse: stopped; nothing written");
+        return HashMap::new();
+    }
     let t_parse = t0.elapsed().as_secs_f64();
     eprintln!("\nparse: {} files · {:.2} GB · {} lines ({} not JSON) · {} raw rows · {} stuck at a >8 MB line · {:.1}s ({:.0} MB/s) · {} threads",
               st.files.load(Ordering::Relaxed), st.bytes.load(Ordering::Relaxed) as f64 / 1e9, st.lines.load(Ordering::Relaxed),
@@ -516,7 +527,7 @@ pub fn run(mut jobs: Vec<Job>, out: &Path, agent: &str, threads: usize, jt_compa
         eprintln!("parse: {} rows outside {} left out", st.out_of_range.load(Ordering::Relaxed), g.human());
     }
     DONE.store(total, Ordering::Relaxed);
-    crate::PHASE.store(3, Ordering::Relaxed);
+    crate::PHASE.store(3, Ordering::Relaxed); // from here on a Stop waits: the month files are being replaced
     // merge: months in parallel (each holds only its own rows)
     let t1 = Instant::now();
     let ms: Vec<String> = fs::read_dir(&parts).unwrap().flatten().map(|e| e.file_name().to_string_lossy().to_string()).collect();

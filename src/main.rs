@@ -58,6 +58,20 @@ enum Cmd {
         #[arg(long)]
         kind: Vec<String>,
     },
+    /// The scan log: every index run and check (dry run) with what it found; --diff N lists one entry's files
+    Log {
+        #[arg(long, default_value = DEFAULT_OUT)]
+        out: String,
+        /// the --kind the run used: picks ~/.relic-scan/<kind> when --out is not given
+        #[arg(long)]
+        kind: Vec<String>,
+        /// how many entries, newest first
+        #[arg(short, long, default_value_t = 20)]
+        n: usize,
+        /// list the files of entry N (the number in the first column)
+        #[arg(long)]
+        diff: Option<u64>,
+    },
     /// Browse the sessions, repos and every .jsonl in the terminal (reads OUT/meta/*.parquet)
     Tui {
         #[arg(long, default_value = DEFAULT_OUT)]
@@ -126,6 +140,7 @@ fn main() {
     match cmd {
         Cmd::Tui { out, kind } => tui::tui(std::path::Path::new(&out_dir(&out, &kind))),
         Cmd::Run(a) => run_cmd(a),
+        Cmd::Log { out, kind, n, diff } => log_cmd(std::path::Path::new(&out_dir(&out, &kind)), n, diff),
         Cmd::Up { run, port } => {
             let out = run.out_dir().unwrap_or_else(|e| {
                 eprintln!("relic-scan: {e}");
@@ -229,4 +244,44 @@ fn main() {
                       index.map(|p| format!(" · index -> {p}")).unwrap_or_default());
         }
     }
+}
+
+fn log_cmd(out: &std::path::Path, n: usize, diff: Option<u64>) {
+    let all = scanlog::read(out);
+    if all.is_empty() {
+        eprintln!("log: no {} yet (every `run` and `run --dry-run` adds a line)", scanlog::path(out).display());
+        std::process::exit(1);
+    }
+    let u = |e: &serde_json::Value, k: &str| e[k].as_u64().unwrap_or(0);
+    let when = |e: &serde_json::Value| chrono::DateTime::from_timestamp(u(e, "at") as i64, 0)
+        .map(|t| t.with_timezone(&chrono::Local).format("%Y-%m-%d %H:%M").to_string()).unwrap_or_default();
+    if let Some(i) = diff {
+        let Some(e) = all.iter().find(|e| e["i"].as_u64() == Some(i)) else {
+            eprintln!("log: no entry {i}");
+            std::process::exit(1);
+        };
+        eprintln!("{} {} {} · {} files · {} GB", ui::bold(&format!("#{i}")), when(e), e["job"].as_str().unwrap_or(""), num(u(e, "files")), gb(u(e, "bytes")));
+        for c in e["diff"].as_array().into_iter().flatten() {
+            let (st, p, size, from) = (c[0].as_str().unwrap_or(""), c[1].as_str().unwrap_or(""), c[2].as_u64().unwrap_or(0), c[3].as_u64().unwrap_or(0));
+            let what = match st { "grown" => format!("+{}", human(size.saturating_sub(from))), "gone" => format!("was {}", human(from)), _ => human(size) };
+            println!("{:<10} {:>12}  {}", st, what, tilde(p));
+        }
+        let (shown, total) = (e["diff"].as_array().map_or(0, |a| a.len()), u(e, "diff_total") as usize);
+        if total > shown {
+            eprintln!("… {} more (the log keeps the {} biggest reads)", num((total - shown) as u64), num(shown as u64));
+        }
+        return;
+    }
+    println!("{:>5}  {:<16}  {:<6} {:>7} {:>7} {:>9} {:>6} {:>10} {:>9} {:>7}  {}", "#", "when", "job", "new", "grown", "rewritten", "gone",
+             "unchanged", "read", "secs", "range");
+    for e in all.iter().rev().take(n) {
+        println!("{:>5}  {:<16}  {:<6} {:>7} {:>7} {:>9} {:>6} {:>10} {:>9} {:>7.1}  {}", u(e, "i"), when(e), e["job"].as_str().unwrap_or(""),
+                 num(u(e, "new")), num(u(e, "grown")), num(u(e, "rewritten")), num(u(e, "gone")), num(u(e, "unchanged")),
+                 human(u(e, "bytes")), e["secs"].as_f64().unwrap_or(0.0), e["range"].as_str().unwrap_or(""));
+    }
+    eprintln!("{}", ui::dim("relic-scan log --diff N lists the files of entry N"));
+}
+
+fn human(b: u64) -> String {
+    if b >= 1_000_000_000 { format!("{:.2} GB", b as f64 / 1e9) } else if b >= 1_000_000 { format!("{:.1} MB", b as f64 / 1e6) } else { format!("{:.0} KB", b as f64 / 1e3) }
 }

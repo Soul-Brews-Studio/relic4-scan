@@ -1,6 +1,6 @@
 [package]
 name = "relic-scan-desktop"
-version = "0.1.0"
+version = "26.10.23"
 edition = "2024"
 rust-version = "1.89"
 description = "Relic Scan desktop: the relic-scan page in a native window (Tauri v2)"

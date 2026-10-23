@@ -23,8 +23,10 @@ The first run reads everything: on m5 that is 83,673 files and 67.6 GB in about 
 |---|---|
 | `relic-scan up [--kind K] [--port 8787]` | `run`, then `serve` |
 | `relic-scan run [--kind K] [--out DIR]` | Scan, parse only new bytes, then write meta, map and paths. It ends with a summary card. |
+| `relic-scan log [--diff N]` | The scan log: every index and check, newest first; `--diff N` lists one entry's files. |
+| `relic-scan run --dry-run` | Only check: scan, compare with the state, and print what an index would read (new, grown, rewritten, gone, files, GB). It writes nothing and takes no lock. |
 | `relic-scan run --month 2026-10` | Only rows of those Bangkok days, in a folder of their own. Also `--day 2026-10-22`, or `--from` and `--to` (each a day or a month, either one optional). See [Only some days](#only-some-days). |
-| `relic-scan serve [--kind K]` | Serves `/map`, `/tree` and `/paths` on 127.0.0.1 only. The page is read on every request, so a `run` in another shell shows up on reload. The page's **⟳ index** button runs an incremental run in the server (`POST /api/run`, which needs an `X-Relic: 1` header; progress at `GET /api/status`). Before the first run, every view shows a welcome page with the same button. |
+| `relic-scan serve [--kind K]` | Serves `/map`, `/tree` and `/paths` on 127.0.0.1 only. The page is read on every request, so a `run` in another shell shows up on reload. The page's **⟳ index** button runs an incremental run in the server (`POST /api/run`, which needs an `X-Relic: 1` header; progress at `GET /api/status`). **Check changes** on Smart Scan is the same scan as a dry run (`POST /api/check`, same header): it shows what Index now would read and writes nothing. Before the first run, every view shows a welcome page with the same button. |
 | `relic-scan tui [--kind K]` | The terminal browser (below). |
 | `relic-scan meta` / `map` | Rebuild only the meta tables, or only the page. |
 | `relic-scan scan [--full] [--index F]` / `parse --index F --out DIR` | The two phases alone, for debugging and benchmarks. |
@@ -172,7 +174,14 @@ The same walk that finds the homes collects the loose files, so they add no extr
 ## Views: Smart Scan, Banks & Repos, Health, map, tree, paths and the TUI
 `serve` (or `up`) serves one page on 127.0.0.1, in the shape of Relic Studio. A left sidebar holds six views; under 1100 px it folds to icons. At its foot it shows whether a run is going and when the last one was.
 
-- **Smart Scan** (`/`, `/scan`): a coverage ring (transcript files indexed out of those found), the **Index now** and **Refresh status** controls with a live progress bar, and two stat strips: files indexed, discovered, not transcripts and outside homes; then sessions, rows, indexed size and last run.
+- **Smart Scan** (`/`, `/scan`): a coverage ring (transcript files indexed out of those found), the **Index now** and **Check changes** controls with a live progress bar, and two stat strips: files indexed, discovered, not transcripts and outside homes; then sessions, rows, indexed size and last run.
+  - **Scan vs index:** a scan walks the folders and compares every `.jsonl` with `_state.tsv` by size and inode, reading no content. An index is that scan, then reading only the new bytes, rewriting the months that got rows, and rebuilding meta, map and paths. **Check changes** runs only the scan: new, grown, rewritten, gone and unchanged files, and the files and GB that **Index now** would read. It writes nothing; the result stays on the page until the next index.
+  - **Contents:** a sunburst of every row. The rings are what the row is (user text, AI text, thinking, tool calls, tool results, tool errors, other), the kind of `.jsonl` that holds it (main session, subagent, workflow agent), and where that file lives (own home, mirror, archive, rescue, copy). Click a slice to go in and the centre to go back; "file kind first" swaps the first two rings. A line copied into several homes is one row, under the first home.
+  - **Wide screens** add a side column with the totals and the latest scans.
+  - **Show output** opens a popup with the server's own output during a run or check (the scan line, the parse bar, the summary card), streamed from `GET /api/log`.
+- **⌘K search** (or `/`, or the search button top right): one box over what the page holds: views, actions (index, check, output, contents, theme), sessions (by id, repo or project; empty shows the latest), repos, homes, every `.jsonl` path, scan-log entries, and filters in the map/tree query language. Each result opens its view; some carry actions: **open folder** (shows the file in Finder; the server refuses any path the index does not hold), copy the resume command, copy the path, and **check** or **index** just that file or home (`only=` on the API). ⌘↵ runs the first action.
+- **Stop:** while an index or check runs, Stop (on Smart Scan and in the output popup) ends it during the walk or the parse with nothing written; the next run reads the same bytes again. Once the merge has started it finishes.
+- **Scan log** (`/scans`): every index and check from `OUT/_scans.jsonl`, newest first: new, grown, rewritten and gone files, bytes read, time, and rows added. Open one to see its files (the 2,000 biggest reads are kept per entry). `relic-scan log` prints the same list, and `relic-scan log --diff N` lists the files of entry N.
 - **Banks & Repos** (`/banks`): one card per jsonl home with sessions, rows, files, size, origin and newest session; a card opens the tree on that home. Below them is a repository index with org/repo, sessions and rows; a row opens the map on that repo.
 - **Health** (`/health`): checks computed from the index, each with a link to the matching view:
   - the age of the last run;
@@ -228,12 +237,15 @@ Other keys:
 It sets no background colour, so it reads the same on dark and light terminals. Colour in the CLI output appears only on a terminal and is off with `NO_COLOR`.
 
 ## Tests
-`cargo test` runs 15 tests in under a second, with no other repo needed:
+`cargo test` runs 18 tests in under a second, with no other repo needed:
 - the path rules: tier, repo (cat), project, parent and home;
 - `splitlines` and the jt cut of a last line;
 - the message key and the meta cache line;
 - **chunked reading:** chunk sizes from 1 byte to 4 KB give the same rows as a whole-file read;
 - **incremental == cold:** a file grown three times, once cut mid-line, gives the same month file as one cold parse;
+- **scan log:** entries are numbered by line, a torn line is skipped, and a big diff keeps its biggest reads;
+- **output capture:** a line redrawn with `\r` replaces itself;
+- **dry run:** a check reports one new file and writes nothing; after an index it reports one unchanged file; after an append it reports exactly the appended bytes;
 - **date ranges:** the flags become days (bad dates and a `--from` after `--to` are refused); rows are kept by Bangkok day; a folder keeps its range and a full index never takes one; a one-day run gives exactly that day's rows of a full parse, and still reads to the end of the file.
 
 The full-corpus proofs (`verify/*.py`) compare against agent-relic-v4 and need its Python environment. In addition, a 4,023-file fixture (7.1 GB, including the 24 biggest files) gave every month, `files.parquet`, `sessions.parquet` and `jsonl.parquet` equal to the previous binary's. Peak RSS fell from 5.81 GB to 3.72 GB at the same speed.

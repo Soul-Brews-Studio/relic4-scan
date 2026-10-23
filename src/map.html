@@ -21,7 +21,8 @@
   :root { --side: 232px; --amber: #f5b73b; --cyan: #67c8ef; --green: #6fd6a0; --card: #12151c; --sideb: #13161d;
           --raised: #1d2230; --on-amber: #1d1405; --accent: var(--cyan);
           --font-ui: -apple-system, system-ui, sans-serif; --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
-          --ease-out: cubic-bezier(.2, .7, .2, 1); --dur-short: 120ms; }
+          --ease-out: cubic-bezier(.2, .7, .2, 1); --dur-short: 120ms;
+          --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px; --sp-7: 48px; }
   :root[data-theme="light"] { --amber: #b7791f; --cyan: #1f7fbf; --green: #1f9d63; --card: #fbfcfe; --sideb: #eceff5; --raised: #dde3ee; }
   @media (max-width: 1100px) { :root { --side: 64px; } #side .lbl, #side .brand .t, #side .foot { display: none; } }
   #bar { position: fixed; left: calc(var(--side) + 14px); top: 12px; right: 374px; display: flex; gap: 10px; align-items: center; }
@@ -86,25 +87,41 @@
   #dash { display: none; margin-left: var(--side); padding: 44px 48px 60px; max-width: 1180px; font-family: -apple-system, system-ui, sans-serif; }
   #dash .eyebrow { color: var(--amber); font-size: 12px; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; }
   #dash h1 { font-size: 44px; line-height: 1.1; margin: 8px 0 8px; font-weight: 800; letter-spacing: -.01em; }
-  #dash .sub { color: var(--dim); font-size: 17px; margin: 0 0 10px; }
-  #dash .scope { color: var(--dim); font-size: 13px; margin: 0 0 30px; }
+  #dash .sub { color: var(--dim); font-size: 17px; margin: 0 0 var(--sp-2); max-width: 75ch; }
+  #dash .scope { color: var(--dim); font-size: 13px; margin: 0 0 var(--sp-7); }
   #dash .scope b { color: var(--accent); font-weight: 600; }
+  #dash .rchip { display: inline-block; vertical-align: middle; margin-left: var(--sp-3); padding: 4px 12px; border-radius: 8px; font: 600 15px var(--font-ui);
+                 letter-spacing: 0; color: var(--accent); border: 1px solid var(--accent); }
   #dash .scope code { font-family: var(--font-mono); font-size: 12px; overflow-wrap: anywhere; }
   #side .rng { color: var(--accent); font-weight: 600; }
-  #dash .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 24px 26px; margin-bottom: 18px; }
-  #dash .card h3 { margin: 0 0 14px; font-size: 17px; color: var(--amber); display: flex; gap: 10px; align-items: center; }
+  #dash .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: var(--sp-5); margin-bottom: var(--sp-6); }
+  #dash .card h3 { margin: 0 0 var(--sp-3); font-size: 17px; color: var(--amber); display: flex; gap: 10px; align-items: center; }
   #dash .card h3.c { color: var(--cyan); }
-  #dash .strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin: 10px 0 24px; }
+  #dash .strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-5); margin: 0 0 var(--sp-6); }
+  /* Smart Scan: the coverage ring and the four file counts it summarises, on the page's one left axis */
+  #dash .overview { display: grid; grid-template-columns: 220px minmax(0, 600px); gap: var(--sp-7); align-items: center; margin: 0 0 var(--sp-6); }
+  #dash .overview svg { width: 220px; height: 220px; display: block; }
+  #dash .overview .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-6) var(--sp-5); margin: 0; }
   #dash .stat .k { font-size: 11px; letter-spacing: .2em; color: var(--dim); font-weight: 700; text-transform: uppercase; }
+  #dash .stat { min-width: 0; }
+  #dash .stat .s { margin-top: 6px; color: var(--dim); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #dash .strip.five .stat .v { font-size: 28px; white-space: nowrap; letter-spacing: -.01em; }
   #dash .stat .v { font-size: 34px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; }
-  #dash .ringwrap { display: grid; place-items: center; margin: 0 0 26px; }
   #dash .go { background: var(--amber); color: var(--on-amber); border: 0; border-radius: 10px; padding: 14px 26px;
-              font: 700 17px -apple-system, system-ui, sans-serif; cursor: pointer; min-width: 220px; }
+              font: 700 17px var(--font-ui); cursor: pointer; min-width: 220px; }
   #dash .go:disabled { opacity: .55; cursor: default; }
   #dash .ghost { background: var(--hover); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 14px 26px;
-                 font: 600 17px -apple-system, system-ui, sans-serif; cursor: pointer; min-width: 220px; margin-left: 12px; }
-  #dash .note { color: var(--dim); font-size: 13px; margin-top: 14px; }
-  #dash .track { height: 6px; border-radius: 3px; background: var(--line); margin: 16px 0 6px; overflow: hidden; }
+                 font: 600 17px var(--font-ui); cursor: pointer; min-width: 220px; }
+  #dash .ghost:disabled { opacity: .55; cursor: default; }
+  #dash .actions { display: flex; flex-wrap: wrap; gap: var(--sp-3); margin-top: var(--sp-5); }
+  #dash .note { color: var(--dim); font-size: 13px; margin-top: var(--sp-3); }
+  #dash .diff:empty { display: none; }
+  #dash .diff { margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: 1px solid var(--line); font-size: 15px; font-variant-numeric: tabular-nums; }
+  #dash .diff .nums { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-top: 8px; color: var(--dim); font-size: 13px; }
+  #dash .diff .nums b { color: var(--ink); font-size: 15px; }
+  /* the progress track exists only while a run or a check is going */
+  #dash .track { height: 4px; border-radius: 2px; background: var(--line); margin: var(--sp-4) 0 0; overflow: hidden; display: none; }
+  #dash .track.on { display: block; }
   #dash .track i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .4s; }
   #dash .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
   #dash .bank { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px 24px; cursor: pointer; }
@@ -127,7 +144,152 @@
   #dash .lvl { width: 16px; height: 16px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11px; font-weight: 800; color: #1d1405; margin-top: 2px; }
   #dash .head { display: flex; gap: 18px; align-items: center; }
   #dash .head .big { font-size: 40px; }
-  @media (max-width: 900px) { #dash .strip { grid-template-columns: 1fr 1fr; } #dash .grid2 { grid-template-columns: 1fr; } }
+  /* wide screens: Smart Scan gets a side column (totals, recent scans) instead of empty space */
+  #dash .side h3 { margin: 0 0 var(--sp-3); font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  #dash .side .strip { margin-bottom: var(--sp-6); }
+  #dash .side .stat .v { font-size: 26px; white-space: nowrap; }
+  #dash .recent a { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-3); padding: var(--sp-3) 0; border-top: 1px solid var(--line);
+                    color: var(--ink); text-decoration: none; font-size: 14px; font-variant-numeric: tabular-nums; }
+  #dash .recent a:hover .w { color: var(--accent); }
+  #dash .recent a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #dash .recent .m { color: var(--dim); font-size: 13px; text-align: right; }
+  #dash .more { display: inline-block; margin-top: var(--sp-3); color: var(--accent); text-decoration: none; font-size: 14px; }
+  @media (min-width: 1500px) {
+    #dash { max-width: 1640px; }
+    #dash .cols { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--sp-7); align-items: start; }
+    #dash .side .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-5); }
+    #dash .side { position: sticky; top: 72px; } /* below the index and theme buttons */
+  }
+  /* contents (on Smart Scan): every row by kind, .jsonl kind and place; the legend lists the focused ring */
+  /* Smart Scan opens on what the index holds: the donut and its legend, then the file counts */
+  #dash .hero { display: grid; grid-template-columns: 260px minmax(0, 340px); gap: var(--sp-7); align-items: center; justify-content: center; margin: 0 0 var(--sp-6); }
+  #dash .kl .row { display: grid; grid-template-columns: 10px minmax(0, 1fr) 84px 48px; gap: var(--sp-3); align-items: center; width: 100%; padding: 7px var(--sp-2);
+                   border: 0; border-radius: 8px; background: none; color: var(--ink); font: 15px var(--font-ui); font-variant-numeric: tabular-nums; text-align: left; cursor: pointer; }
+  #dash .kl .row:hover, #dash .kl .row:focus-visible { background: var(--hover); outline: none; }
+  #dash .kl .dot { width: 10px; height: 10px; border-radius: 50%; }
+  #dash .kl .n { color: var(--dim); justify-self: start; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; } #dash .kl .row:hover .n { color: var(--ink); }
+  #dash .kl .p { color: var(--dim); text-align: right; font-size: 13px; }
+  #dash .kl .v { text-align: right; }
+  #dash .strip.five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  #dash .donut { display: block; width: 100%; max-width: 300px; margin: 0; padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: 50%; }
+  #dash .donut:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+  #dash .donut svg, #cpop svg { width: 100%; height: auto; display: block; }
+  #dash .donut path, #cpop path { stroke: var(--bg); stroke-width: 1.5; transition: opacity var(--dur-short) var(--ease-out); }
+  #dash .donut svg.hov path:not(.on) { opacity: .5; }
+  #dash .donut .hole { fill: var(--bg); } #cpop .hole { fill: var(--card); } #cpop path { stroke: var(--card); }
+  .ct { font: 700 36px var(--font-ui); letter-spacing: -.01em; fill: var(--ink); pointer-events: none; font-variant-numeric: tabular-nums; }
+  .cs { font: 500 18px var(--font-ui); fill: var(--dim); pointer-events: none; }
+  .pc { font: 700 14px var(--font-ui); pointer-events: none; font-variant-numeric: tabular-nums; }
+  /* the full contents view */
+  #cpop { position: fixed; inset: 0; z-index: 20; font-family: var(--font-ui); }
+  #cpop[hidden] { display: none; }
+  #cpop .scrim { position: absolute; inset: 0; background: rgba(0, 0, 0, .5); }
+  #cpop .box { position: absolute; left: calc(var(--side) + (100vw - var(--side)) / 2); top: 50%; transform: translate(-50%, -50%);
+               width: min(1040px, calc(100vw - var(--side) - 48px)); max-height: calc(100vh - 48px); overflow: auto;
+               background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 16px 40px rgba(0, 0, 0, .4); }
+  #cpop .th { display: flex; align-items: baseline; gap: var(--sp-3); padding: var(--sp-4) var(--sp-3) var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--line); }
+  #cpop .th b { font-size: 18px; } #cpop .th .sp { flex: 1; }
+  #cpop .th button { background: none; border: 0; color: var(--dim); font: 22px/1 var(--font-ui); padding: 4px 10px; border-radius: 6px; cursor: pointer; }
+  #cpop .th button:hover { color: var(--ink); background: var(--hover); } #cpop .th button:focus-visible { outline: 2px solid var(--accent); }
+  #cpop .chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); padding: var(--sp-4) var(--sp-5) 0; }
+  #cpop .chips button { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line);
+                        background: none; color: var(--dim); font: 500 13px var(--font-ui); cursor: pointer; }
+  #cpop .chips button:hover { color: var(--ink); } #cpop .chips button.on { color: var(--ink); background: var(--hover); border-color: var(--accent); }
+  #cpop .chips button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #cpop .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  #cpop .detail { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-6); padding: var(--sp-5); }
+  #cpop h4 { margin: 0 0 var(--sp-3); font: 600 14px var(--font-ui); color: var(--ink); }
+  #cpop .track2 { display: flex; height: 10px; border-radius: 5px; overflow: hidden; gap: 2px; margin-bottom: var(--sp-3); }
+  #cpop .track2 i { display: block; height: 100%; min-width: 2px; }
+  #cpop .row { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto 44px; gap: var(--sp-3); align-items: center; padding: 5px 0; font-size: 14px; font-variant-numeric: tabular-nums; }
+  #cpop .row .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); justify-self: start; text-align: left; max-width: 100%; }
+  #cpop .row .p { color: var(--dim); text-align: right; font-size: 12px; }
+  #cpop .months { grid-column: 1 / -1; }
+  #cpop .mchart { display: flex; align-items: flex-end; gap: 6px; height: 180px; padding-top: 18px; }
+  #cpop .mc { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  #cpop .mc .b { flex: 1; width: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
+  #cpop .mc i { display: block; width: 100%; max-width: 44px; border-radius: 4px 4px 0 0; min-height: 2px; }
+  #cpop .mc .stack { display: flex; flex-direction: column-reverse; width: 100%; max-width: 44px; min-height: 2px; border-radius: 4px 4px 0 0; overflow: hidden; gap: 1px; }
+  #cpop .mc .stack i { max-width: none; border-radius: 0; min-height: 0; }
+  #cpop .mv { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #cpop .ml { font-size: 12px; color: var(--dim); height: 30px; text-align: center; line-height: 1.2; } #cpop .ml b { display: block; font-weight: 600; color: var(--ink); font-size: 11px; }
+  #cpop .foot { grid-column: 1 / -1; margin: 0; color: var(--dim); font-size: 13px; }
+  @media (max-width: 1100px) { #cpop .detail { grid-template-columns: minmax(0, 1fr); } }
+  /* ⌘K: one box over the page's own data; groups of results, each with its actions */
+  #ksearch { background: var(--panel); color: var(--dim); border: 1px solid var(--line); border-radius: 5px; padding: 7px 10px; font: inherit; cursor: pointer; white-space: nowrap; }
+  #ksearch:hover { color: var(--ink); } #ksearch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #kpal { position: fixed; inset: 0; z-index: 30; font-family: var(--font-ui); }
+  #kpal[hidden] { display: none; }
+  #kpal .scrim { position: absolute; inset: 0; background: rgba(0, 0, 0, .45); }
+  #kpal .box { position: absolute; left: calc(var(--side) + (100vw - var(--side)) / 2); top: 12vh; transform: translateX(-50%);
+               width: min(720px, calc(100vw - var(--side) - 32px)); max-height: 72vh; display: flex; flex-direction: column;
+               background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 20px 48px rgba(0, 0, 0, .45); overflow: hidden; }
+  #kpal .in { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--line); }
+  #kpal .in svg { width: 20px; height: 20px; fill: none; stroke: var(--dim); stroke-width: 1.6; stroke-linecap: round; flex: none; }
+  #kpal input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--ink); font: 17px var(--font-ui); }
+  #kpal input::placeholder { color: var(--dim); }
+  #kpal .res { overflow: auto; padding: var(--sp-2) 0 var(--sp-3); }
+  #kpal .grp { padding: var(--sp-3) var(--sp-5) var(--sp-1); font-size: 12px; font-weight: 600; color: var(--dim); }
+  #kpal .it { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-4); align-items: center; padding: 8px var(--sp-5); cursor: pointer; }
+  #kpal .it.on { background: var(--hover); box-shadow: inset 2px 0 0 var(--accent); }
+  #kpal .it .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; color: var(--ink); }
+  #kpal .it .t mark { background: none; color: var(--accent); font-weight: 600; }
+  #kpal .it .d { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--dim); margin-top: 2px; }
+  #kpal .it .acts { display: flex; gap: var(--sp-1); }
+  #kpal .it .acts button { background: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; color: var(--dim); font: 12px var(--font-ui); cursor: pointer; white-space: nowrap; }
+  #kpal .it .acts button:hover, #kpal .it .acts button:focus-visible { color: var(--ink); border-color: var(--accent); outline: none; }
+  #kpal .more { padding: 6px var(--sp-5); font-size: 13px; color: var(--accent); cursor: pointer; }
+  #kpal .none { padding: var(--sp-5); color: var(--dim); font-size: 14px; }
+  #kpal .ft { display: flex; flex-wrap: wrap; gap: var(--sp-4); padding: var(--sp-2) var(--sp-5); border-top: 1px solid var(--line); font-size: 12px; color: var(--dim); }
+  #kpal .ft kbd { font: 11px var(--font-mono); padding: 0 5px; border: 1px solid var(--line); border-radius: 4px; }
+  /* output popup: the server's own terminal output during a run or a check, streamed from /api/log */
+  /* centred over the content (not the sidebar); minimised it is a pill at the bottom that keeps the live line */
+  #term { position: fixed; left: calc(var(--side) + (100vw - var(--side)) / 2); top: 50%; transform: translate(-50%, -50%); z-index: 10;
+          width: min(880px, calc(100vw - var(--side) - 48px)); height: min(540px, 72vh);
+          display: flex; flex-direction: column; background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+          box-shadow: 0 12px 32px rgba(0, 0, 0, .35); font-family: var(--font-ui); }
+  #term[hidden] { display: none; }
+  #term .th, #cpop .th { text-transform: none; letter-spacing: 0; }
+  #term .th { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4); border-bottom: 1px solid var(--line); font-size: 13px; }
+  #term .th b { font-weight: 600; }
+  #term .th span { color: var(--dim); font-variant-numeric: tabular-nums; }
+  #term .th .live::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--amber); margin-right: 6px; vertical-align: 1px; }
+  #term .th .sp { flex: 1; }
+  #term .th .tstop { color: var(--amber); font-size: 13px; border: 1px solid var(--amber); padding: 3px 10px; margin-right: var(--sp-2); }
+  #term .th button { background: none; border: 0; color: var(--dim); font: 20px/1 var(--font-ui); padding: 4px 10px; border-radius: 6px; cursor: pointer; }
+  #term .th button:hover { color: var(--ink); background: var(--hover); }
+  #term .th button:focus-visible { outline: 2px solid var(--accent); }
+  #term pre { flex: 1; margin: 0; overflow: auto; padding: var(--sp-3) var(--sp-4); font: 12px/1.5 var(--font-mono); color: var(--ink); white-space: pre; }
+  #term pre .cur { color: var(--accent); }
+  #term .mini { display: none; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 12px var(--font-mono); color: var(--accent); }
+  #term.min { top: auto; bottom: var(--sp-4); transform: translateX(-50%); height: auto; width: min(640px, calc(100vw - var(--side) - 48px)); border-radius: 999px; }
+  #term.min .th { border-bottom: 0; padding: 6px 6px 6px var(--sp-4); cursor: pointer; }
+  #term.min pre, #term.min .sp { display: none; }
+  #term.min .mini { display: block; }
+  #dash .link { background: none; border: 0; padding: 0 var(--sp-2); font: 500 14px var(--font-ui); color: var(--accent); cursor: pointer; align-self: center; }
+  #dash .link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #dash .link.stop { color: var(--amber); } #dash .link:disabled { color: var(--dim); cursor: default; }
+  /* scan log */
+  #dash .log { padding: 0; overflow: hidden; }
+  #dash .lrow { display: grid; grid-template-columns: 170px 76px repeat(4, minmax(56px, 84px)) 96px 72px minmax(0, 1fr); gap: var(--sp-3);
+                align-items: center; padding: var(--sp-3) var(--sp-5); border-top: 1px solid var(--line); font-size: 14px; font-variant-numeric: tabular-nums; }
+  #dash .lrow.h { border-top: 0; color: var(--dim); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; }
+  #dash .lrow:not(.h) { cursor: pointer; }
+  #dash .lrow:not(.h):hover, #dash .lrow.open { background: var(--hover); }
+  #dash .lrow:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  #dash .lrow .r { text-align: right; } #dash .lrow .z { color: var(--dim); }
+  #dash .lrow .ago { display: block; color: var(--dim); font-size: 12px; }
+  #dash .chip { display: inline-block; padding: 1px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; border: 1px solid var(--line); color: var(--dim); }
+  #dash .chip.index { color: var(--accent); border-color: var(--accent); }
+  #dash .ldiff { padding: var(--sp-4) var(--sp-5) var(--sp-5); border-top: 1px solid var(--line); background: var(--bg); }
+  #dash .ld { display: grid; grid-template-columns: 96px 110px minmax(0, 1fr); gap: var(--sp-3); padding: 3px 0; font-size: 13px; align-items: baseline; }
+  #dash .ld .r { text-align: right; font-variant-numeric: tabular-nums; color: var(--dim); }
+  #dash .ld code { font-family: var(--font-mono); font-size: 12px; overflow-wrap: anywhere; }
+  #dash .st-new { color: var(--green); } #dash .st-grown { color: var(--cyan); } #dash .st-rewritten { color: var(--amber); } #dash .st-gone { color: var(--dim); }
+  @media (max-width: 1100px) { #dash .lrow { grid-template-columns: 130px 64px repeat(4, minmax(0, 1fr)) 80px; } #dash .lrow .x { display: none; } }
+  @media (max-width: 900px) { #dash .strip { grid-template-columns: 1fr 1fr; } #dash .grid2 { grid-template-columns: 1fr; }
+    #dash .overview, #dash .hero { grid-template-columns: minmax(0, 1fr); gap: var(--sp-5); } #dash .donut { max-width: 240px; }
+    #dash .strip.five { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   #panel { scrollbar-width: thin; z-index: 3; }
   #idx { background: var(--panel); color: var(--accent); border: 1px solid var(--line); border-radius: 5px; padding: 7px 10px; font: inherit; cursor: pointer; white-space: nowrap; }
   #idx:disabled { color: var(--dim); cursor: default; }
@@ -162,7 +324,7 @@
 <div id="dash"></div>
 <canvas id="c"></canvas>
 <div id="bar"><span id="tabs"></span><input id="q" spellcheck="false" autocomplete="off"
-  placeholder="query: words · repo:neo · tier:main · home:mirror · month:2026-07 · rows>1000 · think>0 · errors>=20 · -tier:wf"><span id="count"></span><button id="idx" title="index new transcripts now (incremental)" style="display:none"></button><button id="theme" title="theme: auto / dark / light"></button></div>
+  placeholder="query: words · repo:neo · tier:main · home:mirror · month:2026-07 · rows>1000 · think>0 · errors>=20 · -tier:wf"><span id="count"></span><button id="ksearch" title="search sessions, repos, homes, files, scans (⌘K or /)">⌕ search ⌘K</button><button id="idx" title="index new transcripts now (incremental)" style="display:none"></button><button id="theme" title="theme: auto / dark / light"></button></div>
 <div id="tree"></div>
 <div id="legend"></div>
 <div id="panel"></div>
@@ -176,10 +338,10 @@ const LIGHT = THEME_PICK === "light" || (THEME_PICK === "auto" && matchMedia("(p
 document.documentElement.dataset.theme = LIGHT ? "light" : "dark";
 // one page, three views: /map, /tree and /paths when served, ?view=tree|paths when opened as a file
 // served: / is Smart Scan; opened as a file (no server, no index button): the map
-const VIEWS = ["scan", "banks", "health", "map", "tree", "paths"];
+const VIEWS = ["scans", "scan", "banks", "health", "map", "tree", "paths"];
 const VIEW = VIEWS.find(v => location.pathname.endsWith("/" + v) || new URLSearchParams(location.search).get("view") === v)
   || (location.protocol.startsWith("http") && /\/$/.test(location.pathname) ? "scan" : "map");
-const DASH = ["scan", "banks", "health"].includes(VIEW);
+const DASH = ["scan", "scans", "banks", "health"].includes(VIEW);
 const S = D.s, N = S.sid.length, BKK = 7 * 3600;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -508,7 +670,7 @@ function tabs() {
   const ago = D.last_run ? agoText(Date.now() / 1000 - D.last_run) : "never";
   $("side").innerHTML = `<div class="brand"><div class="logo"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/><circle cx="18" cy="6" r="1.6" fill="currentColor" stroke="none"/></svg></div><div class="t"><b>RELIC</b><i>scan</i></div></div>`
     + `<nav aria-label="Views">`
-    + item("scan", "scan", "Smart Scan") + item("banks", "banks", "Banks & Repos") + item("health", "health", "Health")
+    + item("scan", "scan", "Smart Scan") + item("banks", "banks", "Banks & Repos") + item("health", "health", "Health") + item("scans", "log", "Scan log")
     + `<div class="sep"></div>` + item("map", "map", "Session map") + item("tree", "tree", "Tree") + item("paths", "paths", "Paths")
     + `</nav>`
     + `<div class="foot"><div><span class="dot" id="sdot"></span><b id="sstate">RELIC READY</b></div>
@@ -521,9 +683,12 @@ const ICONS = {
   health: `<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>`,
   map: `<circle cx="5.5" cy="17" r="1.8"/><circle cx="10" cy="6.5" r="1.8"/><circle cx="18.5" cy="9.5" r="1.8"/><circle cx="15" cy="18.5" r="1.8"/><path d="M6.3 15.3l2.9-7M11.7 7.1l5.1 1.8M17.8 11.2l-2.1 5.6"/>`,
   tree: `<path d="M5 4v14a2 2 0 0 0 2 2h3M5 8h5"/><rect x="11" y="5.5" width="8" height="5" rx="1.5"/><rect x="11" y="16" width="8" height="5" rx="1.5"/>`,
+  search: `<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>`,
+  log: `<path d="M4 6h11M4 12h6M4 18h8"/><circle cx="17" cy="16" r="4"/><path d="M17 14.2v1.9l1.2 1"/>`,
   paths: `<path d="M3.5 7.5a2 2 0 0 1 2-2h3.8l2 2.5h7.2a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>`,
 };
 // which folder this page shows; a ranged folder (run --month/--day/--from/--to) says so, so it is never read as the full index
+const rangeChip = () => D.range ? ` <span class="rchip">${esc(D.range.label)} only</span>` : "";
 const scopeLine = () => `<p class="scope">${D.range ? `<b>Only ${esc(D.range.human)}</b> · ` : ""}<code>${esc(D.out || "")}</code></p>`;
 const agoText = d => d < 90 ? "just now" : d < 5400 ? Math.round(d / 60) + " min ago" : d < 129600 ? Math.round(d / 3600) + " h ago" : Math.round(d / 86400) + " days ago";
 
@@ -768,19 +933,7 @@ function pdetail(i) {
 // ---------- dashboards: Smart Scan, Banks & Repos, Health (the Relic Studio shell, from this index's own numbers) ----------
 const SC = D.scan || { discovered: 0, indexed: 0, skipped: 0, vault: 0, loose: 0, loose_transcripts: 0, unknown: 0, empty: 0, bytes: 0 };
 const gbs = b => (b / 1e9).toFixed(1) + " GB";
-function ring(frac, big, label, pct) {
-  const R = 118, C = 2 * Math.PI * R, arc = `stroke-dasharray="${C * Math.max(0.002, Math.min(1, frac))} ${C}" transform="rotate(-90 160 160)"`;
-  return `<svg width="320" height="320" viewBox="0 0 320 320" role="img" aria-label="${label} ${big}, ${pct}">
-    <circle cx="160" cy="160" r="${R + 24}" fill="none" stroke="var(--line)" stroke-dasharray="1 7"/>
-    <circle cx="160" cy="160" r="${R}" fill="none" stroke="var(--line)" stroke-width="22"/>
-    <circle cx="160" cy="160" r="${R}" fill="none" stroke="var(--accent)" stroke-width="22" stroke-linecap="round" ${arc}/>
-    <text x="160" y="152" text-anchor="middle" font-size="42" font-weight="800" fill="var(--ink)">${big}</text>
-    <text x="160" y="178" text-anchor="middle" font-size="14" font-weight="600" fill="var(--cyan)">${label}</text>
-    <line x1="115" x2="205" y1="196" y2="196" stroke="var(--line)"/>
-    <text x="160" y="222" text-anchor="middle" font-size="17" font-weight="700" fill="var(--dim)">${pct}</text>
-    <text x="160" y="242" text-anchor="middle" font-size="10" letter-spacing="3" font-weight="700" fill="var(--dim)">COVERAGE</text></svg>`;
-}
-const stat = (k, v, c) => `<div class="stat"><div class="k">${k}</div><div class="v" style="color:${c}">${v}</div></div>`;
+const stat = (k, v, c, sub) => `<div class="stat"><div class="k">${k}</div><div class="v" style="color:${c}">${v}</div>${sub ? `<div class="s">${sub}</div>` : ""}</div>`;
 function totals() {
   let rows = 0, t = [0, 0, 0], ty = TYPES.map(() => 0), undated = 0, orphans = 0, sats = 0;
   const months = new Set();
@@ -792,17 +945,31 @@ function totals() {
   return { rows, t, ty, undated, orphans, sats, months: months.size };
 }
 function dashScan() {
+  const file = location.protocol === "file:";
   const T = totals(), cov = SC.indexed / Math.max(1, SC.indexed + SC.loose_transcripts);
-  return `<div class="eyebrow">Memory intake</div><h1>Smart Scan</h1>
+  return `<div class="eyebrow">Memory intake</div><h1>Smart Scan${rangeChip()}</h1>
     <p class="sub">Find every agent transcript on this machine, read only the bytes that are new, and rebuild the months, the meta and these views.</p>${scopeLine()}
-    <div class="ringwrap">${ring(cov, fmt(SC.indexed), "files indexed", (100 * cov).toFixed(2) + "%")}</div>
+    <div class="cols"><div class="main">
+    <div class="hero"><button class="donut" id="sunmini" aria-label="Rows by kind. Open the full contents view"></button><div class="kl" id="sunleg"></div></div>
+    <div class="strip five">${(() => {
+      // what the index holds and how fresh it is; the file accounting lives in Index controls and Health
+      let lo = Infinity, hi = -Infinity; for (let k = 0; k < N; k++) if (S.t0[k] != null) { lo = Math.min(lo, S.t0[k]); hi = Math.max(hi, S.t1[k] ?? S.t0[k]); }
+      const months = lo < Infinity ? monthIdx(hi) - monthIdx(lo) + 1 : 0, mon = t => new Date((t + BKK) * 1000).toLocaleString("en", { month: "short", year: "numeric", timeZone: "UTC" });
+      return stat("Rows", fmt(T.rows), "var(--ink)", `≈${Math.round(T.rows / Math.max(1, SC.indexed)).toLocaleString()} per file`)
+        + stat("Sessions", fmt(N), "var(--ink)", `${short(T.t[0])} main · ${short(T.t[1])} sub · ${short(T.t[2])} wf`)
+        + stat("Files indexed", fmt(SC.indexed), "var(--ink)", `${gbs(SC.bytes)} · ${(100 * cov).toFixed(2)}% covered`)
+        + stat("Newest row", hi > -Infinity ? agoText(Date.now() / 1000 - hi) : "—", "var(--ink)", hi > -Infinity ? bkk(hi) : "")
+        + stat("Span", months ? `${months} months` : "—", "var(--ink)", lo < Infinity ? `${mon(lo)} → ${mon(hi)}` : "");
+    })()}</div>
     <div class="card"><h3>Index controls</h3>
       <div>The last run indexed <b>${fmt(SC.indexed)}</b> transcript files (${gbs(SC.bytes)}) out of <b>${fmt(SC.discovered)}</b> .jsonl discovered.
         ${fmt(SC.skipped)} in agent homes are not transcripts${SC.before_range ? `; ${fmt(SC.before_range)} were last written before ${esc(D.range.from)}, so they were not read` : ""}; ${fmt(SC.vault + SC.loose)} sit outside every home.</div>
-      <div style="margin-top:18px"><button class="go" id="dgo" ${SERVED ? "" : "disabled title='open it through relic-scan serve or the app'"}>▶&nbsp; Index now</button><button class="ghost" id="dref">↻&nbsp; Refresh status</button></div>
-      <div class="track"><i id="dbar"></i></div><div class="note" id="dmsg">Refresh only reads. Index now is the one write action, and it runs only when you click it; a run reads new bytes only.</div></div>
-    <div class="strip">${stat("Files indexed", fmt(SC.indexed), "var(--green)")}${stat("Files discovered", fmt(SC.discovered), "var(--cyan)")}${SC.before_range ? stat("Before the range", fmt(SC.before_range), "var(--dim)") : stat("Not transcripts", fmt(SC.skipped), "var(--amber)")}${stat("Outside homes", fmt(SC.vault + SC.loose), "var(--amber)")}</div>
-    <div class="strip">${stat("Sessions", fmt(N), "var(--ink)")}${stat("Rows", fmt(T.rows), "var(--ink)")}${stat("Indexed size", gbs(SC.bytes), "var(--ink)")}${stat("Last run", D.last_run ? agoText(Date.now() / 1000 - D.last_run) : "never", "var(--ink)")}</div>`;
+      <div class="actions"><button class="go" id="dgo" ${SERVED ? "" : "disabled title='open it through relic-scan serve or the app'"}>Index now</button><button class="ghost" id="dchk" ${SERVED ? "" : "disabled"}>Check changes</button>${SERVED ? `<button class="link" id="dout">Show output</button><button class="link stop" id="dstop" hidden>Stop</button>` : ""}</div>
+      <div class="track"><i id="dbar"></i></div><div class="diff" id="ddiff"></div>
+      <div class="note" id="dmsg">Check changes scans and compares with the index; it changes nothing in it and only adds a line to the scan log. Index now runs the same scan, then reads only what changed.</div></div>
+    </div><aside class="side">
+    <h3>Recent scans</h3><div class="recent" id="srecent"><div class="muted">${SERVED ? "loading…" : "open it through relic-scan serve or the app"}</div></div>
+    <a class="more" href="${file ? "?view=scans" : "/scans"}">Scan log →</a></aside></div>`;
 }
 function homeStats() {
   const H = D.homes.map(() => ({ n: 0, last: 0 }));
@@ -831,7 +998,7 @@ function dashBanks() {
   const list = repos.slice(0, repoCap).map(([c, r]) => `<div class="repo" data-go="/map#repo:${encodeURIComponent(/\s/.test(c) ? '"' + c + '"' : c)}">
       <span style="color:var(--cyan)">▰</span><div class="r"><b>${esc(c)}</b><code>${esc(orgRepo(r.k))}</code></div>
       <div class="x"><b>${fmt(r.n)}</b><div>sessions · ${fmt(r.rows)} rows</div></div></div>`).join("");
-  return `<div class="eyebrow">Memory topology</div><h1>Banks &amp; Repositories</h1>
+  return `<div class="eyebrow">Memory topology</div><h1>Banks &amp; Repositories${rangeChip()}</h1>
     <p class="sub">Where the transcripts live on this machine, and which repositories hold the most of them. A session copied into several banks counts in each.</p>${scopeLine()}
     <div class="grid2">${banks}</div>
     <div class="card" style="margin-top:22px"><h3 class="c">Repository index · ${fmt(repos.length)}</h3>${list}
@@ -854,7 +1021,7 @@ function dashHealth() {
   ];
   const warns = checks.filter(c => c[0] === "warn").length;
   const L = { ok: ["var(--green)", "✓"], warn: ["var(--amber)", "!"], info: ["var(--cyan)", "i"] };
-  return `<div class="eyebrow">System readiness</div><h1>Health</h1>
+  return `<div class="eyebrow">System readiness</div><h1>Health${rangeChip()}</h1>
     <p class="sub">Signals computed from this index itself: nothing here is estimated.</p>${scopeLine()}
     <div class="card head"><span class="big" style="color:${warns ? "var(--amber)" : "var(--green)"}">${warns ? "⚠" : "✓"}</span>
       <div><b style="font-size:18px">${warns ? `${warns} warning${warns > 1 ? "s" : ""} reported` : "All clear"}</b>
@@ -864,19 +1031,227 @@ function dashHealth() {
       <div>${txt}</div>${link ? `<a href="${link[0]}">${link[1]} →</a>` : "<span></span>"}</div>`).join("")}</div>`;
 }
 function renderDash() {
-  $("dash").innerHTML = VIEW === "scan" ? dashScan() : VIEW === "banks" ? dashBanks() : dashHealth();
+  $("dash").innerHTML = VIEW === "scan" ? dashScan() : VIEW === "scans" ? dashScans() : VIEW === "banks" ? dashBanks() : dashHealth();
+  if (VIEW === "scans") loadScans();
+  if (VIEW === "scan") contentsMini();
   for (const el of $("dash").querySelectorAll("[data-go]")) el.onclick = () => { location.href = el.dataset.go; };
   const more = $("rmore"); if (more) more.onclick = e => { e.preventDefault(); repoCap += 100; renderDash(); };
   if ($("dgo")) {
     $("dgo").onclick = () => $("idx").click();
-    $("dref").onclick = () => location.reload();
+    $("dchk").onclick = () => window.relicCheck && window.relicCheck();
+    if ($("dout")) $("dout").onclick = () => window.relicTerm && window.relicTerm();
+    if ($("dstop")) $("dstop").onclick = () => window.relicStop && window.relicStop();
   }
+}
+// the last check (a dry run in the server): what Index now would read
+function showCheck(c) {
+  if (!$("ddiff") || !c) return;
+  const n = x => (x || 0).toLocaleString(), ago = agoText(Date.now() / 1000 - c.at);
+  const head = c.files ? `Index now would read <b>${n(c.files)}</b> files, <b>${(c.bytes / 1e9).toFixed(2)} GB</b>.`
+    : `<b>Nothing changed</b> since the last index.`;
+  $("ddiff").innerHTML = `${head} <span class="muted">Checked ${ago}, scan ${c.scan_secs.toFixed(1)}s.</span>
+    <div class="nums"><span><b>${n(c.new)}</b> new</span><span><b>${n(c.grown)}</b> grown</span><span><b>${n(c.rewritten)}</b> rewritten</span>
+    <span><b>${n(c.gone)}</b> gone</span><span><b>${n(c.unchanged)}</b> unchanged</span>${c.before_range ? `<span><b>${n(c.before_range)}</b> before the range</span>` : ""}
+    ${c.log != null && (c.files || c.gone) ? `<a class="more" href="/scans#${c.log}">see the files →</a>` : ""}</div>`;
+}
+
+// ---------- contents: every row as a sunburst over three small groupings, never repos or sessions ----------
+// rings: what the row is (7 kinds) · what kind of .jsonl holds it (main session, subagent, workflow agent) · where that
+// file lives (own home, mirror, archive, rescue, copy). Tool errors are a subset of tool results, so "tool results" is
+// the results without an error. A session copied into several homes counts once, under its first home.
+const KINDS = [["user", "user text"], ["asst", "AI text"], ["think", "thinking"], ["calls", "tool calls"], ["ok", "tool results"],
+               ["errors", "tool errors"], ["other", "other rows"]];
+const kcolor = key => key === "ok" ? TYPES[4][2] : key === "other" ? (LIGHT ? "#9aa3b5" : "#6f7a96") : TYPES.find(t => t[0] === key)[2];
+const kval = (key, k) => key === "ok" ? S.results[k] - S.errors[k]
+  : key === "other" ? Math.max(0, S.rows[k] - S.user[k] - S.asst[k] - S.think[k] - S.calls[k] - S.results[k]) : S[key][k];
+const FILES = [["main sessions", 0], ["subagents", 1], ["workflow agents", 2]];
+const PLACE = { own: "own homes", mirror: "mirrors", archive: "archives", rescue: "rescued", copy: "copies" };
+// one pass: rows per (kind, file kind, place); everything the chart shows is a sum over this small table
+let SUN_AGG = null;
+function sunAgg() {
+  if (SUN_AGG) return SUN_AGG;
+  const m = new Map();
+  for (let k = 0; k < N; k++) {
+    const h = D.homes[S.homes[k][0]] || {}, place = PLACE[h.origin] || h.origin || "other places", agent = h.agent || "other";
+    const month = S.t0[k] == null ? "undated" : bkk(S.t0[k]).slice(0, 7);
+    for (const [key] of KINDS) {
+      const v = kval(key, k);
+      if (v) { const id = [key, S.tier[k], place, agent, month].join("|"); m.set(id, (m.get(id) || 0) + v); }
+    }
+  }
+  return SUN_AGG = [...m].map(([id, v]) => { const [type, tier, place, agent, month] = id.split("|"); return { type, tier: +tier, place, agent, month, v }; });
+}
+// the kind the contents popup is showing (null: every row)
+let CONT_SEL = null;
+const sunSum = f => sunAgg().reduce((t, r) => t + (Object.entries(f).every(([d, v]) => r[d] === v) ? r.v : 0), 0);
+function arc(r0, r1, a0, a1) {
+  const p = (r, a) => `${(r * Math.sin(a)).toFixed(2)} ${(-r * Math.cos(a)).toFixed(2)}`, big = a1 - a0 > Math.PI ? 1 : 0;
+  if (a1 - a0 >= 2 * Math.PI - 1e-6) a1 = a0 + 2 * Math.PI - 1e-4;
+  return `M${p(r1, a0)}A${r1} ${r1} 0 ${big} 1 ${p(r1, a1)}L${p(r0, a1)}A${r0} ${r0} 0 ${big} 0 ${p(r0, a0)}Z`;
+}
+const short = v => v >= 1e6 ? (v / 1e6).toFixed(2) + " M" : v >= 1e4 ? (v / 1e3).toFixed(1) + " k" : v.toLocaleString();
+// the small donut on Smart Scan: hover names a slice in the centre, a click opens the full view
+function contentsMini() {
+  const total = sunSum({}), kinds = KINDS.map(([key, label]) => ({ key, label, value: sunSum({ type: key }), color: kcolor(key) }))
+    .filter(k => k.value).sort((a, b) => b.value - a.value), onColor = LIGHT ? "#ffffff" : "#0b0e14";
+  let a = 0;
+  const slices = kinds.map(k => { const w = 2 * Math.PI * k.value / total, s0 = a; a += w; return { ...k, a0: s0, a1: a }; });
+  const centre = k => `<text class="ct" text-anchor="middle" y="${k ? -4 : 8}">${short(k ? k.value : total)}</text>
+    <text class="cs" text-anchor="middle" y="${k ? 26 : 36}">${k ? esc(k.label) : "rows"}</text>${k ? `<text class="cs" text-anchor="middle" y="50">${(100 * k.value / total).toFixed(1)}%</text>` : ""}`;
+  $("sunmini").innerHTML = `<svg viewBox="-170 -170 340 340" aria-hidden="true">
+    ${slices.map((k, i) => `<path data-i="${i}" d="${arc(108, 162, k.a0, k.a1)}" fill="${k.color}"><title>${esc(k.label)}: ${k.value.toLocaleString()} rows (${(100 * k.value / total).toFixed(1)}%)</title></path>`).join("")}
+    ${slices.map(k => { if (k.a1 - k.a0 < 0.3) return ""; const m = (k.a0 + k.a1) / 2;
+      return `<text class="pc" x="${(135 * Math.sin(m)).toFixed(1)}" y="${(-135 * Math.cos(m) + 5).toFixed(1)}" text-anchor="middle" fill="${onColor}">${Math.round(100 * k.value / total)}%</text>`; }).join("")}
+    <circle class="hole" r="106"/><g class="mid">${centre(null)}</g></svg>`;
+  const svg = $("sunmini").firstElementChild;
+  for (const el of svg.querySelectorAll("path[data-i]")) {
+    const k = slices[+el.dataset.i];
+    el.onmouseenter = () => { svg.classList.add("hov"); el.classList.add("on"); svg.querySelector(".mid").innerHTML = centre(k); };
+    el.onmouseleave = () => { svg.classList.remove("hov"); el.classList.remove("on"); svg.querySelector(".mid").innerHTML = centre(null); };
+  }
+  $("sunmini").onclick = () => openContents();
+  const hover = (i, on) => { const el = svg.querySelector(`path[data-i="${i}"]`); if (el) (on ? el.onmouseenter : el.onmouseleave)(); };
+  $("sunleg").innerHTML = slices.map((k, i) => `<button class="row" data-i="${i}"><span class="dot" style="background:${k.color}"></span>
+      <span class="n">${esc(k.label)}</span><span class="v">${k.value.toLocaleString()}</span><span class="p">${(100 * k.value / total).toFixed(1)}%</span></button>`).join("");
+  for (const b of $("sunleg").querySelectorAll("button.row")) {
+    b.onmouseenter = () => hover(b.dataset.i, true); b.onmouseleave = () => hover(b.dataset.i, false);
+    b.onfocus = b.onmouseenter; b.onblur = b.onmouseleave;
+    b.onclick = () => openContents(slices[+b.dataset.i].key);
+  }
+}
+// the popup shows what the donut cannot: for one kind of row (or every row), the kind of .jsonl, where the file
+// lives, the agent, and the month each session started. Chips switch the kind; the donut itself stays on the page.
+function openContents(kind) {
+  let pop = $("cpop");
+  if (!pop) {
+    pop = document.createElement("div"); pop.id = "cpop";
+    pop.innerHTML = `<div class="scrim"></div><div class="box" role="dialog" aria-modal="true" aria-labelledby="cpt">
+      <div class="th"><b id="cpt"></b><span class="muted" id="cps"></span><span class="sp"></span><button id="cpx" aria-label="Close">×</button></div>
+      <div class="chips" id="cpc"></div><div class="detail" id="cpd"></div></div>`;
+    document.body.append(pop);
+    const close = () => { pop.hidden = true; $("sunmini").focus(); };
+    pop.querySelector(".scrim").onclick = close; $("cpx").onclick = close;
+    pop.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+  }
+  pop.hidden = false; CONT_SEL = kind || null; contentsFull(); $("cpx").focus();
+}
+function contentsFull() {
+  const total = sunSum({}), sel = CONT_SEL, f = sel ? { type: sel } : {}, here = sunSum(f);
+  const label = sel ? KINDS.find(k => k[0] === sel)[1] : "Every row";
+  $("cpt").textContent = label;
+  $("cps").textContent = `${here.toLocaleString()} rows${sel ? ` · ${(100 * here / total).toFixed(1)}% of all` : ""}`;
+  $("cpc").innerHTML = [[null, "every row", "var(--ink)"]].concat(KINDS.map(([k, l]) => [k, l, kcolor(k)]))
+    .map(([k, l, c]) => `<button class="${k === sel ? "on" : ""}" data-k="${k || ""}" aria-pressed="${k === sel}"><span class="dot" style="background:${c}"></span>${esc(l)}</button>`).join("");
+  for (const b of $("cpc").querySelectorAll("button")) b.onclick = () => { CONT_SEL = b.dataset.k || null; contentsFull(); };
+  const group = dim => { const m = new Map(); for (const r of sunAgg()) if (!sel || r.type === sel) m.set(r[dim], (m.get(r[dim]) || 0) + r.v);
+    return [...m].map(([key, v]) => ({ key, v })).sort((a, b) => b.v - a.v); };
+  // a bar: one hue, darker to lighter by size, so it never reads as the donut's colours
+  const bar = (title, parts, hue, name) => {
+    const tot = Math.max(1, parts.reduce((t, p) => t + p.v, 0)), shade = i => `color-mix(in oklab, ${hue} ${Math.max(28, 100 - i * 22)}%, var(--card))`;
+    return `<section><h4>${title}</h4>
+      <div class="track2">${parts.map((p, i) => `<i style="width:${(100 * p.v / tot).toFixed(2)}%;background:${shade(i)}" title="${esc(name(p.key))}: ${p.v.toLocaleString()}"></i>`).join("")}</div>
+      ${parts.map((p, i) => `<div class="row"><span class="dot" style="background:${shade(i)}"></span><span class="n">${esc(name(p.key))}</span>
+        <span class="v">${p.v.toLocaleString()}</span><span class="p">${(100 * p.v / tot).toFixed(1)}%</span></div>`).join("")}</section>`;
+  };
+  const months = group("month").sort((a, b) => a.key < b.key ? -1 : 1), top = Math.max(1, ...months.map(m => m.v));
+  // every row: each month's column is stacked by kind (tool calls at the bottom, as in the chips' order reversed)
+  const byMonthKind = new Map(); if (!sel) for (const r of sunAgg()) { const id = r.month + "|" + r.type; byMonthKind.set(id, (byMonthKind.get(id) || 0) + r.v); }
+  const mname = k => k === "undated" ? "undated" : new Date(k + "-01T00:00:00Z").toLocaleString("en", { month: "short", timeZone: "UTC" });
+  const colour = sel ? kcolor(sel) : "var(--accent)";
+  $("cpd").innerHTML = `${bar("Kind of .jsonl", group("tier"), "var(--accent)", t => FILES[t][0])}
+    ${bar("Where the file lives", group("place"), "var(--green)", p => p)}
+    ${bar("Agent", group("agent"), "var(--amber)", a => a)}
+    <section class="months"><h4>By month <span class="muted">· the month each session started (Bangkok)${sel ? "" : " · stacked by kind"}</span></h4>
+      <div class="mchart">${months.map(m => `<div class="mc" title="${m.key}: ${m.v.toLocaleString()} rows">
+        <div class="b"><span class="mv">${short(m.v)}</span>${sel ? `<i style="height:${(82 * m.v / top).toFixed(1)}%;background:${colour}"></i>`
+          : `<div class="stack" style="height:${(82 * m.v / top).toFixed(1)}%">${KINDS.map(([key, l]) => { const v = byMonthKind.get(m.key + "|" + key) || 0;
+              return v ? `<i style="flex:${v};background:${kcolor(key)}" title="${m.key} · ${esc(l)}: ${v.toLocaleString()}"></i>` : ""; }).join("")}</div>`}</div>
+        <span class="ml">${mname(m.key)}${m.key.endsWith("-01") || m === months[0] ? `<b>${m.key.slice(0, 4)}</b>` : ""}</span></div>`).join("")}</div></section>
+    <p class="foot">A line copied into several homes is one row, under the first home that holds it.</p>`;
+}
+
+// ---------- scan log: every index and check (OUT/_scans.jsonl through /api/scans) ----------
+const when = at => { const d = new Date(at * 1000), p = x => String(x).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+const human = b => b >= 1e9 ? (b / 1e9).toFixed(2) + " GB" : b >= 1e6 ? (b / 1e6).toFixed(1) + " MB" : Math.round(b / 1e3) + " KB";
+const zn = x => x ? x.toLocaleString() : `<span class="z">0</span>`;
+const scanWhat = e => e.files ? `${e.files.toLocaleString()} files · ${human(e.bytes)}` : e.gone ? `${e.gone.toLocaleString()} gone` : "nothing changed";
+function dashScans() {
+  return `<div class="eyebrow">History</div><h1>Scan log${rangeChip()}</h1>
+    <p class="sub">Every index and every check, newest first. Open one to see the files it read, or would read, and the files gone from disk.</p>${scopeLine()}
+    <div class="card log" id="slog"><div class="muted" style="padding:24px">${SERVED ? "loading…" : "The scan log needs the server: open this page through relic-scan serve or the app."}</div></div>`;
+}
+let LOG = [];
+async function loadScans() {
+  if (!SERVED) return;
+  LOG = (await (await fetch("/api/scans")).json()).entries;
+  if (!LOG.length) { $("slog").innerHTML = `<div class="muted" style="padding:24px">No scans yet. Every Index now and every Check changes adds one.</div>`; return; }
+  // rows added: an index's total minus the total of the index before it
+  const prevRows = i => { for (let k = i + 1; k < LOG.length; k++) if (LOG[k].job === "index" && LOG[k].rows != null) return LOG[k].rows; return null; };
+  $("slog").innerHTML = `<div class="lrow h"><span>When</span><span>Job</span><span class="r">New</span><span class="r">Grown</span><span class="r">Rewritten</span><span class="r">Gone</span><span class="r">Read</span><span class="r">Time</span><span class="x">Result</span></div>`
+    + LOG.map((e, k) => { const pr = e.job === "index" ? prevRows(k) : null, d = pr != null && e.rows != null ? e.rows - pr : null;
+      return `<div class="lrow" tabindex="0" role="button" aria-expanded="false" data-i="${e.i}">
+        <span>${when(e.at)}<span class="ago">${agoText(Date.now() / 1000 - e.at)}${e.range ? " · " + esc(e.range) : ""}</span></span>
+        <span><span class="chip ${e.job}">${e.job}</span></span>
+        <span class="r">${zn(e.new)}</span><span class="r">${zn(e.grown)}</span><span class="r">${zn(e.rewritten)}</span><span class="r">${zn(e.gone)}</span>
+        <span class="r">${e.bytes ? human(e.bytes) : `<span class="z">—</span>`}</span><span class="r">${e.secs.toFixed(1)}s</span>
+        <span class="x muted">${e.job === "index" ? (d != null ? `${d >= 0 ? "+" : ""}${d.toLocaleString()} rows` : `${(e.rows || 0).toLocaleString()} rows`) : (e.files ? "would read " : "") + scanWhat(e)}</span></div>`; }).join("");
+  for (const r of $("slog").querySelectorAll(".lrow[data-i]")) {
+    r.onclick = () => openScan(r);
+    r.onkeydown = ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); openScan(r); } };
+  }
+  const want = location.hash.slice(1);
+  const hit = want && $("slog").querySelector(`.lrow[data-i="${CSS.escape(want)}"]`);
+  if (hit) { openScan(hit); hit.scrollIntoView({ block: "center" }); }
+}
+async function openScan(r) {
+  const next = r.nextElementSibling;
+  if (next && next.classList.contains("ldiff")) { next.remove(); r.classList.remove("open"); r.setAttribute("aria-expanded", "false"); return; }
+  r.classList.add("open"); r.setAttribute("aria-expanded", "true");
+  history.replaceState(null, "", "#" + r.dataset.i);
+  const box = document.createElement("div"); box.className = "ldiff"; box.innerHTML = `<div class="muted">loading…</div>`; r.after(box);
+  const e = await (await fetch("/api/scans/" + r.dataset.i)).json();
+  const list = e.diff || [], cap = 300;
+  const line = ([st, p, size, from]) => `<div class="ld"><span class="st-${st}">${st}</span>
+    <span class="r">${st === "grown" ? "+" + human(size - from) : st === "gone" ? "was " + human(from) : human(size)}</span><code>${esc(ptilde2(p))}</code></div>`;
+  const draw = all => {
+    box.innerHTML = (list.length ? (all ? list : list.slice(0, cap)).map(line).join("") : `<div class="muted">No file changed.</div>`)
+      + (!all && list.length > cap ? `<button class="ghost" style="margin-top:12px;min-width:0;padding:8px 16px;font-size:14px">show all ${list.length.toLocaleString()}</button>` : "")
+      + (e.diff_total > list.length ? `<div class="note">The log keeps the ${list.length.toLocaleString()} biggest reads of ${e.diff_total.toLocaleString()}.</div>` : "");
+    const b = box.querySelector("button"); if (b) b.onclick = () => draw(true);
+  };
+  draw(false);
+}
+const ptilde2 = s => D.home && s.startsWith(D.home) ? "~" + s.slice(D.home.length) : s;
+async function loadRecent() {
+  if (!SERVED || !$("srecent")) return;
+  const es = (await (await fetch("/api/scans")).json()).entries.slice(0, 6);
+  $("srecent").innerHTML = es.length ? es.map(e => `<a href="/scans#${e.i}"><span><span class="w">${e.job === "index" ? "Index" : "Check"}</span>
+      <span class="muted"> · ${agoText(Date.now() / 1000 - e.at)}</span></span><span class="m">${scanWhat(e)}</span></a>`).join("")
+    : `<div class="muted">No scans yet.</div>`;
 }
 // a run's progress, from the index button's poll: the sidebar state and the Smart Scan card follow it
 window.onRun = st => {
-  if ($("sstate")) { $("sstate").textContent = st.running ? "INDEXING" : "RELIC READY"; $("sdot").style.background = st.running ? "var(--amber)" : "var(--green)"; }
-  if (!$("dgo") || !st.running) return;
-  $("dgo").disabled = true; $("dgo").textContent = "Indexing…";
+  const checking = st.running && st.job === "check";
+  if ($("sstate")) { $("sstate").textContent = checking ? "CHECKING" : st.running ? "INDEXING" : "RELIC READY"; $("sdot").style.background = st.running ? "var(--amber)" : "var(--green)"; }
+  if (!$("dgo")) return;
+  $("dbar").parentNode.classList.toggle("on", !!st.running);
+  if ($("dstop")) { $("dstop").hidden = !st.running; $("dstop").disabled = !!st.stopping || st.phase === "merge" || st.phase === "meta";
+    $("dstop").textContent = st.stopping ? "Stopping…" : st.phase === "merge" || st.phase === "meta" ? "Finishing (cannot stop now)" : "Stop"; }
+  if (!st.running) {
+    $("dgo").disabled = !SERVED; $("dgo").textContent = "Index now"; $("dchk").disabled = !SERVED; $("dchk").textContent = "Check changes";
+    if (st.stopped) $("dmsg").textContent = `The last ${st.job} was stopped before it wrote anything; the index is as it was.`;
+    showCheck(st.check);
+    loadRecent();
+    return;
+  }
+  $("dgo").disabled = true; $("dchk").disabled = true;
+  if (checking) {
+    $("dchk").textContent = "Checking…";
+    $("dmsg").textContent = `scan · ${st.walked.toLocaleString()} entries walked · ${st.listed.toLocaleString()} .jsonl listed · ${Math.round(st.secs || 0)}s · nothing is written`;
+    return;
+  }
+  $("dgo").textContent = "Indexing…";
   const f = st.phase === "parse" && st.total ? st.done / st.total : st.phase === "scan" ? 0.03 : st.phase === "merge" ? 0.92 : st.phase === "meta" ? 0.97 : 0;
   $("dbar").style.width = (100 * f).toFixed(1) + "%";
   $("dmsg").textContent = st.phase === "scan" ? `scan · ${st.walked.toLocaleString()} entries walked · ${st.listed.toLocaleString()} .jsonl listed`
@@ -937,16 +1312,77 @@ if (SERVED) {
   const poll = async () => {
     const s = await (await fetch("/api/status")).json();
     window.onRun(s);
+    if (s.running && s.job === "check") { b.disabled = true; b.textContent = "⟳ checking…"; return setTimeout(poll, 700); }
     if (s.running) {
       b.disabled = true;
       b.textContent = s.phase === "parse" && s.total ? `⟳ parse ${Math.round(100 * s.done / s.total)}% · ${gb(s.done)}/${gb(s.total)} GB`
         : s.phase === "scan" ? `⟳ scan · ${s.listed.toLocaleString()} .jsonl` : `⟳ ${s.phase}…`;
       return setTimeout(poll, 700);
     }
-    if (b.disabled) { if (s.last_error) { b.disabled = false; b.textContent = "⟳ failed: " + s.last_error.slice(0, 40); } else location.reload(); }
+    if (!b.disabled) return;
+    if (s.last_error) { b.disabled = false; b.textContent = "⟳ failed: " + s.last_error.slice(0, 40); }
+    else if (s.job === "check" || s.stopped) { b.disabled = false; b.textContent = "⟳ index"; }
+    else location.reload();
+  };
+  // the output popup: lines from /api/log, colours from the CLI's own escape codes
+  const term = document.createElement("div");
+  term.id = "term"; term.hidden = true; term.setAttribute("role", "log"); term.setAttribute("aria-label", "relic-scan output");
+  term.innerHTML = `<div class="th"><b>Output</b><span id="tst"></span><span class="sp"></span><span class="mini" id="tmini"></span>
+    <button id="tstop" class="tstop" title="stop the run (nothing is written)" hidden>stop</button><button id="tmin" aria-label="Minimise output" title="minimise">–</button><button id="tclose" aria-label="Close output" title="close">×</button></div><pre id="tout"></pre>`;
+  document.body.append(term);
+  const ansi = t => {
+    let out = "", open = 0;
+    for (const part of t.split(/(\x1b\[[0-9;]*[A-Za-z])/)) {
+      const m = part.match(/^\x1b\[([0-9;]*)m$/);
+      if (m) {
+        const c = m[1].split(";");
+        if (m[1] === "0" || m[1] === "") { out += "</span>".repeat(open); open = 0; }
+        else if (c[0] === "38" && c[1] === "2") { out += `<span style="color:rgb(${c[2]},${c[3]},${c[4]})">`; open++; }
+        else if (c[0] === "1") { out += `<span style="font-weight:700">`; open++; }
+      } else if (!/^\x1b/.test(part)) out += esc(part);
+    }
+    return out + "</span>".repeat(open);
+  };
+  let tnext = 0, tlines = [], ttimer = 0;
+  const tdraw = (live, st) => {
+    const pre = $("tout"), stick = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 24;
+    pre.innerHTML = tlines.map(ansi).join("\n") + (live ? (tlines.length ? "\n" : "") + `<span class="cur">${ansi(live)}</span>` : "");
+    if (stick) pre.scrollTop = pre.scrollHeight;
+    // minimised: the live line, or else the last line with words in it (the card's frame lines carry none)
+    const words = [...tlines].reverse().find(l => /[A-Za-z]/.test(l.replace(/\x1b\[[0-9;]*m/g, ""))) || "";
+    $("tmini").innerHTML = ansi((live || words).replace(/[│╭╮╰╯]/g, "").trim());
+    $("tst").className = st.running ? "live" : "";
+    $("tstop").hidden = !st.running || st.phase === "merge" || st.phase === "meta"; $("tstop").textContent = st.stopping ? "stopping…" : "stop";
+    $("tst").textContent = st.running ? `${st.job} · live` : st.stopped ? `last ${st.job} · stopped, nothing written` : st.job ? `last ${st.job} · done` : "nothing has run in this server yet";
+  };
+  const tpoll = async () => {
+    clearTimeout(ttimer);
+    const r = await (await fetch("/api/log?from=" + tnext)).json();
+    if (r.next < tnext) tlines = []; // a new job started: the server dropped the old output
+    tlines = tlines.concat(r.lines); tnext = r.next;
+    tdraw(r.live, r);
+    if (r.running && !term.hidden) ttimer = setTimeout(tpoll, 300);
+  };
+  window.relicTerm = () => { term.hidden = false; tpoll(); };
+  const tfresh = () => { tnext = 0; tlines = []; window.relicTerm(); setTimeout(tpoll, 400); };
+  $("tstop").onclick = e => { e.stopPropagation(); window.relicStop(); };
+  $("tclose").onclick = e => { e.stopPropagation(); term.hidden = true; term.classList.remove("min"); clearTimeout(ttimer); };
+  const tmin = on => { term.classList.toggle("min", on); $("tmin").textContent = on ? "□" : "–";
+    $("tmin").setAttribute("aria-label", on ? "Restore output" : "Minimise output"); };
+  $("tmin").onclick = e => { e.stopPropagation(); tmin(!term.classList.contains("min")); };
+  term.querySelector(".th").onclick = () => { if (term.classList.contains("min")) tmin(false); };
+  addEventListener("keydown", e => { if (e.key === "Escape" && !term.hidden) $("tclose").click(); });
+  window.relicStop = async () => { await fetch("/api/stop", { method: "POST", headers: { "X-Relic": "1" } }); poll(); };
+  window.relicCheck = async () => {
+    b.disabled = true; b.textContent = "⟳ checking…";
+    tfresh();
+    const r = await fetch("/api/check", { method: "POST", headers: { "X-Relic": "1" } });
+    if (!r.ok && r.status !== 409) { b.disabled = false; b.textContent = "⟳ " + ((await r.json()).error || r.status); return; }
+    poll();
   };
   b.onclick = async () => {
     b.disabled = true; b.textContent = "⟳ starting…";
+    tfresh();
     const r = await fetch("/api/run", { method: "POST", headers: { "X-Relic": "1" } });
     if (!r.ok && r.status !== 409) { b.disabled = false; b.textContent = "⟳ " + ((await r.json()).error || r.status); return; }
     poll();
@@ -969,6 +1405,168 @@ if (DASH) {
   legend();
   run($("q").value);
 }
+
+// ---------- ⌘K: search what the page holds (views, actions, sessions, repos, homes, files, scans, filters) ----------
+// every result opens something; some also carry actions (copy the resume command, export, check or index just that path)
+const KFILE = location.protocol === "file:";
+const kHref = (v, hash) => (KFILE ? `?view=${v}` : `/${v}`) + (hash ? "#" + encodeURIComponent(hash) : "");
+let KP = null, KSEL = 0, KITEMS = [], KMORE = new Set(), KPATHS = null;
+// a rank for how well `q` matches `s`: 0 starts it, 1 starts a word in it, 2 is inside it, 3 is a scattered match
+function kScore(s, q) {
+  s = s.toLowerCase();
+  if (s.startsWith(q)) return 0;
+  const i = s.indexOf(q);
+  if (i > 0) return /[\s\/\-_.:·]/.test(s[i - 1]) ? 1 : 2;
+  let j = 0; for (const c of s) if (c === q[j]) j++;
+  return j === q.length ? 3 : null;
+}
+const kMark = (s, q) => { const i = q ? s.toLowerCase().indexOf(q) : -1;
+  return i < 0 ? esc(s) : esc(s.slice(0, i)) + "<mark>" + esc(s.slice(i, i + q.length)) + "</mark>" + esc(s.slice(i + q.length)); };
+const kMonths = k => { if (S.t0[k] == null) return ["undated"]; const a = monthIdx(S.t0[k]), b = monthIdx(S.t1[k] ?? S.t0[k]), out = [];
+  for (let m = a; m <= b && out.length < 24; m++) out.push(mLabel(m)); return out; };
+// show a file or folder in Finder (the server checks that the index holds it)
+const kReveal = q => fetch("/api/reveal?" + q, { method: "POST", headers: { "X-Relic": "1" } }).then(r => r.ok);
+// a session's own file, from /paths.json (by name: <sid>.jsonl); the first copy outside mirrors and archives
+let KBYNAME = null;
+const kFileOf = k => { if (!KPATHS || !KPATHS.f) return null;
+  if (!KBYNAME) { KBYNAME = new Map(); for (let i = 0; i < KPATHS.f.n.length; i++) { const n = KPATHS.f.n[i], p = KPATHS.dirs[KPATHS.f.d[i]] + "/" + n;
+    const old = KBYNAME.get(n); if (!old || (/mirror|archive|_bak/.test(old) && !/mirror|archive|_bak/.test(p))) KBYNAME.set(n, p); } }
+  return KBYNAME.get(S.sid[k] + ".jsonl") || null; };
+const kTilde = p => p.replace(D.home || "\u0000", "~");
+const kRun = async (path, dry) => {
+  if (!SERVED) return;
+  const r = await fetch(`/api/${dry ? "check" : "run"}?only=${encodeURIComponent(path)}`, { method: "POST", headers: { "X-Relic": "1" } });
+  if (window.relicTerm) window.relicTerm();
+  return r.ok;
+};
+function kGroups(qRaw) {
+  const q = qRaw.trim().toLowerCase(), G = [];
+  const add = (name, items, cap = 6) => { if (items.length) G.push({ name, items, cap }); };
+  const views = [["scan", "Smart Scan"], ["banks", "Banks & Repos"], ["health", "Health"], ["scans", "Scan log"], ["map", "Session map"], ["tree", "Tree"], ["paths", "Paths"]];
+  const rank = (arr, text) => arr.map(x => [x, q ? kScore(text(x), q) : 0]).filter(([, r]) => r != null).sort((a, b) => a[1] - b[1]).map(([x]) => x);
+  add("Go to", rank(views, v => v[1]).map(([v, l]) => ({ t: l, d: VIEW === v ? "you are here" : "", go: () => { location.href = kHref(v); } })));
+  const acts = [
+    SERVED && { t: "Index now", d: "scan, then read only what changed", go: () => $("idx").click() },
+    SERVED && { t: "Check changes", d: "scan and compare; the index stays as it is", go: () => window.relicCheck && window.relicCheck() },
+    SERVED && { t: "Show output", d: "the server's output during a run or check", go: () => window.relicTerm && window.relicTerm() },
+    { t: "Contents", d: "rows by kind, file kind, place, agent and month", go: () => VIEW === "scan" ? openContents() : (location.href = kHref("scan", "contents")) },
+    { t: "Switch theme", d: "auto → dark → light", go: () => $("theme").click() },
+  ].filter(Boolean);
+  add("Do", rank(acts, a => a.t));
+  // a filter: the query language of the map and the tree
+  if (/[a-z]+(:|>=|<=|>|<|=)\S/i.test(q)) {
+    G.push({ name: "Filter", cap: 2, items: [
+      { t: `Sessions on the map: ${qRaw.trim()}`, d: "the star map, filtered", go: () => { location.href = kHref("map", qRaw.trim()); } },
+      { t: `Sessions in the tree: ${qRaw.trim()}`, d: "home → repo → session, filtered", go: () => { location.href = kHref("tree", qRaw.trim()); } }] });
+  }
+  // sessions: by id, project or repo; an empty box shows the latest
+  let ses = [];
+  if (!q) { const idx = [...Array(N).keys()].filter(k => S.tier[k] === 0 && S.t1[k] != null).sort((a, b) => S.t1[b] - S.t1[a]); ses = idx.slice(0, 60); }
+  else if (q.length >= 2) {
+    const hits = [];
+    for (let k = 0; k < N; k++) { const r = Math.min(...[S.sid[k], proj(k), cat(k)].map(x => kScore(x, q) ?? 9)); if (r < 9 && !(r === 3 && q.length < 4)) hits.push([k, r]); }
+    hits.sort((a, b) => a[1] - b[1] || S.tier[a[0]] - S.tier[b[0]] || S.rows[b[0]] - S.rows[a[0]]); ses = hits.slice(0, 60).map(h => h[0]);
+  }
+  add(q ? "Sessions" : "Latest sessions", ses.map(k => { const f = kFileOf(k);
+    return { t: `${cat(k)} · ${S.sid[k].slice(0, 8)}`, mt: q,
+      d: `${TIER[S.tier[k]]} · ${S.t0[k] != null ? bkk(S.t1[k] ?? S.t0[k]).slice(0, 10) : "undated"} · ${S.rows[k].toLocaleString()} rows${f ? " · " + kTilde(f) : ""}`,
+      go: () => { location.href = kHref("tree", "sid:" + S.sid[k]); },
+      acts: [SERVED && ["open folder", () => kReveal("sid=" + encodeURIComponent(S.sid[k]))],
+             S.tier[k] === 0 && ["copy resume", () => navigator.clipboard.writeText(`claude --resume ${S.sid[k]}`)]].filter(Boolean) }; }));
+  if (q.length >= 2) {
+    const repos = new Map(); for (let k = 0; k < N; k++) { const c = S.cat[k]; const r = repos.get(c) || repos.set(c, [0, 0]).get(c); r[0]++; r[1] += S.rows[k]; }
+    add("Repos", rank([...repos].filter(([c]) => c >= 0), ([c]) => D.cats[c]).slice(0, 60).map(([c, [n, rows]]) => ({
+      t: D.cats[c], mt: q, d: `${n.toLocaleString()} sessions · ${rows.toLocaleString()} rows`,
+      go: () => { location.href = kHref("tree", `repo:"${D.cats[c]}"`); } })));
+    add("Homes", rank(D.homes.map((h, i) => [h, i]), ([h]) => h.path + " " + h.origin + " " + (h.agent || "")).slice(0, 40).map(([h]) => ({
+      t: kTilde(h.path), mt: q, d: `${h.agent || "agent?"} · ${h.origin} · ${h.files.toLocaleString()} files · ${h.rows.toLocaleString()} rows`,
+      go: () => { location.href = kHref("tree", `home:"${h.path}"`); },
+      acts: [SERVED && ["open folder", () => kReveal("path=" + encodeURIComponent(h.path))],
+             SERVED && ["check", () => kRun(h.path, true)], SERVED && ["index", () => kRun(h.path, false)]].filter(Boolean) })));
+  }
+  if (q.length >= 3 && KPATHS) {
+    const hits = [];
+    for (let i = 0; i < KPATHS.f.n.length && hits.length < 400; i++) { const p = KPATHS.dirs[KPATHS.f.d[i]] + "/" + KPATHS.f.n[i]; if (p.toLowerCase().includes(q)) hits.push(i); }
+    const st = i => KPATHS.f.pl[i] === 0 ? (KPATHS.f.ok[i] ? "indexed" : "skipped") : KPATHS.f.pl[i] === 1 ? "vault" : "loose";
+    add("Files", hits.map(i => { const p = KPATHS.dirs[KPATHS.f.d[i]] + "/" + KPATHS.f.n[i], tp = p.replace(D.home || "\u0000", "~");
+      return { t: tp, mt: q, d: `${st(i)} · ${(KPATHS.f.size[i] / 1e6).toFixed(1)} MB${KPATHS.f.rows[i] >= 0 ? ` · ${KPATHS.f.rows[i].toLocaleString()} rows` : ""}`,
+        go: () => { location.href = kHref("paths", `"${tp}"`); },
+        acts: [SERVED && ["open folder", () => kReveal("path=" + encodeURIComponent(p))], ["copy path", () => navigator.clipboard.writeText(p)],
+               SERVED && ["check", () => kRun(p, true)], SERVED && ["index", () => kRun(p, false)]].filter(Boolean) }; }));
+  } else if (q.length >= 3 && SERVED && KPATHS === null) {
+    KPATHS = false; fetch("/paths.json").then(r => r.json()).then(d => { KPATHS = d; kRender(); }).catch(() => {});
+    G.push({ name: "Files", cap: 1, items: [{ t: "loading every .jsonl path…", d: "", go: () => {} }] });
+  }
+  if (KSCANS && (q.startsWith("#") || q.length >= 3)) {
+    const want = q.replace(/^#/, "");
+    add("Scans", KSCANS.filter(e => String(e.i) === want || `${e.job} ${when(e.at)}`.includes(want)).slice(0, 30).map(e => ({
+      t: `#${e.i} · ${e.job} · ${when(e.at)}`, d: scanWhat(e), go: () => { location.href = kHref("scans", String(e.i)); } })));
+  }
+  return G;
+}
+let KSCANS = null;
+function kRender() {
+  const q = $("kq").value.trim().toLowerCase(), G = kGroups($("kq").value);
+  KITEMS = [];
+  let html = "";
+  for (const g of G) {
+    const all = KMORE.has(g.name), shown = all ? g.items : g.items.slice(0, g.cap);
+    html += `<div class="grp">${esc(g.name)}${g.items.length > g.cap ? ` · ${g.items.length.toLocaleString()}${g.items.length >= 60 ? "+" : ""}` : ""}</div>`;
+    for (const it of shown) {
+      const n = KITEMS.push(it) - 1;
+      html += `<div class="it" data-n="${n}" role="option"><div><div class="t">${it.mt ? kMark(it.t, it.mt) : esc(it.t)}</div>${it.d ? `<div class="d">${esc(it.d)}</div>` : ""}</div>
+        <div class="acts">${(it.acts || []).map((a, j) => `<button data-n="${n}" data-a="${j}" tabindex="-1">${esc(a[0])}</button>`).join("")}</div></div>`;
+    }
+    if (!all && g.items.length > g.cap) html += `<div class="more" data-g="${esc(g.name)}">show all in ${esc(g.name)}</div>`;
+  }
+  $("kres").innerHTML = html || `<div class="none">Nothing matches “${esc(q)}”. Try a repo, a session id, a path, or a filter like repo:neo month:2026-10.</div>`;
+  KSEL = Math.min(KSEL, Math.max(0, KITEMS.length - 1));
+  kMark2();
+  for (const el of $("kres").querySelectorAll(".it")) { el.onclick = () => kGo(+el.dataset.n); el.onmousemove = () => { KSEL = +el.dataset.n; kMark2(); }; }
+  for (const b of $("kres").querySelectorAll(".acts button")) b.onclick = e => { e.stopPropagation(); kAct(+b.dataset.n, +b.dataset.a, b); };
+  for (const m of $("kres").querySelectorAll(".more")) m.onclick = () => { KMORE.add(m.dataset.g); kRender(); };
+}
+function kMark2() {
+  for (const el of $("kres").querySelectorAll(".it")) el.classList.toggle("on", +el.dataset.n === KSEL);
+  const on = $("kres").querySelector(".it.on"); if (on) on.scrollIntoView({ block: "nearest" });
+}
+function kGo(n) { const it = KITEMS[n]; if (!it) return; kClose(); it.go(); }
+function kAct(n, a, btn) {
+  const it = KITEMS[n]; if (!it || !it.acts || !it.acts[a]) return;
+  const r = it.acts[a][1]();
+  if (btn) { const old = btn.textContent; btn.textContent = "done"; setTimeout(() => { btn.textContent = old; }, 1200); }
+  return r;
+}
+function kOpen() {
+  if (!KP) {
+    KP = document.createElement("div"); KP.id = "kpal"; KP.hidden = true;
+    KP.innerHTML = `<div class="scrim"></div><div class="box" role="dialog" aria-modal="true" aria-label="Search">
+      <div class="in"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.search}</svg><input id="kq" placeholder="Search sessions, repos, homes, files, scans, or type a filter like repo:neo" autocomplete="off" spellcheck="false" role="combobox" aria-controls="kres"></div>
+      <div class="res" id="kres" role="listbox"></div>
+      <div class="ft"><span><kbd>↑</kbd> <kbd>↓</kbd> move</span><span><kbd>↵</kbd> open</span><span><kbd>⌘↵</kbd> open folder</span><span><kbd>esc</kbd> close</span></div></div>`;
+    document.body.append(KP);
+    KP.querySelector(".scrim").onclick = kClose;
+    $("kq").oninput = () => { KSEL = 0; KMORE.clear(); kRender(); };
+    $("kq").onkeydown = e => {
+      if (e.key === "ArrowDown") { e.preventDefault(); KSEL = Math.min(KITEMS.length - 1, KSEL + 1); kMark2(); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); KSEL = Math.max(0, KSEL - 1); kMark2(); }
+      else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); kAct(KSEL, 0, $("kres").querySelector(`.acts button[data-n="${KSEL}"]`)); }
+      else if (e.key === "Enter") { e.preventDefault(); kGo(KSEL); }
+      else if (e.key === "Escape") { e.preventDefault(); kClose(); }
+    };
+  }
+  if (SERVED && KPATHS === null) { KPATHS = false; fetch("/paths.json").then(r => r.json()).then(d => { KPATHS = d; KBYNAME = null; if (!KP.hidden) kRender(); }).catch(() => {}); }
+  if (SERVED && !KSCANS) fetch("/api/scans").then(r => r.json()).then(d => { KSCANS = d.entries; if (!KP.hidden) kRender(); }).catch(() => {});
+  KP.hidden = false; $("kq").value = ""; KSEL = 0; KMORE.clear(); kRender(); $("kq").focus();
+}
+function kClose() { if (KP) KP.hidden = true; }
+$("ksearch").onclick = () => kOpen();
+addEventListener("keydown", e => {
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName);
+  if ((e.key === "k" || e.key === "K") && (e.metaKey || e.ctrlKey)) { e.preventDefault(); KP && !KP.hidden ? kClose() : kOpen(); }
+  else if (e.key === "/" && !typing && (!KP || KP.hidden)) { e.preventDefault(); kOpen(); }
+});
+if (VIEW === "scan" && location.hash === "#contents") setTimeout(() => openContents(), 0);
 </script>
 </body>
 </html>

@@ -1,13 +1,23 @@
 //! `relic-scan serve` / `up`, and the desktop app's window: OUT/meta/map.html on 127.0.0.1 only. One page, three views:
 //!   /  /scan   Smart Scan: the files indexed, the index button        /banks  homes and repositories
+//!   /scans    the scan log; Smart Scan also holds the contents sunburst (rows by kind, .jsonl kind, place)
 //!   /health  checks computed from the index                            /map    the session star map
 //!   /tree     homes -> repos -> sessions -> satellites
 //!   /paths    every .jsonl the scan saw, by folder: indexed or not, and why (data: /paths.json)
-//! and two endpoints for the page's "index" button:
-//!   GET  /api/status   {"running", "phase", "done", "total", "secs", "last_secs", "last_error", "runs", "ready"}
-//!   POST /api/run      starts an incremental run in this process (202), or 409 when one is running.
-//!                      It needs an `X-Relic: 1` header: a page on another site cannot send one without a CORS
-//!                      preflight this server never answers, so only this page (or curl) can start a run.
+//! and three endpoints for the page's "index" and "check changes" buttons:
+//!   GET  /api/status   {"running", "job", "phase", "done", "total", "secs", "last_secs", "last_error", "runs", "ready", "check"}
+//!   POST /api/run      starts an incremental run in this process (202), or 409 when a run or a check is going.
+//!   POST /api/check    starts a dry run (202): scan and compare with the state, write nothing; the result is
+//!                      "check" in the status (new, grown, rewritten, unchanged, gone, files, bytes, at) until a run.
+//!   GET  /api/log?from=N  the server's output while a run or check goes (lines from N on, the next N, the live line)
+//!   GET  /api/export?sid=…&months=…&fmt=md|jsonl  one session's rows as a download (Markdown or JSON lines)
+//!   POST /api/run?only=…, /api/check?only=…  the same, over the files whose path holds that text
+//!   POST /api/reveal?path=…|sid=…  show an indexed file (or a folder holding one) in Finder; other paths are refused
+//!   POST /api/stop     stop the run or check going on: it stops with nothing written, unless its merge has started
+//!   GET  /api/scans    the scan log (OUT/_scans.jsonl), newest first, without file lists
+//!   GET  /api/scans/N  one entry with its file list (the files the run read, or a check would read, and gone ones)
+//!                      Both POSTs need an `X-Relic: 1` header: a page on another site cannot send one without a CORS
+//!                      preflight this server never answers, so only this page (or curl) can start them.
 //! Before the first run there is no map.html; every view then shows a welcome page with the same button.
 //! The page is read from disk on every request, so a `relic-scan run` in another shell shows up on reload.
 
@@ -27,6 +37,9 @@ struct Job {
     last_secs: Option<f64>,
     last_error: Option<String>,
     runs: u64,
+    job: &'static str,                // "run" or "check": what is going, or went last
+    check: Option<crate::Report>,     // the last check, until a run makes it stale
+    stopped: bool,                    // the last run or check ended on Stop, with nothing written
 }
 
 struct Ctx {
@@ -49,8 +62,8 @@ fn status(c: &Ctx) -> serde_json::Value {
     let j = c.job.lock().unwrap();
     let phase = ["idle", "scan", "parse", "merge", "meta"][crate::PHASE.load(Relaxed).min(4) as usize];
     serde_json::json!({
-        "running": j.running,
-        "phase": phase,
+        "running": j.running, "job": j.job, "stopping": j.running && crate::CANCEL.load(Relaxed), "stopped": !j.running && j.stopped,
+        "phase": phase, "check": j.check,
         "walked": crate::scan::WALKED.load(Relaxed), "listed": crate::scan::LISTED.load(Relaxed),
         "done": crate::parse::DONE.load(Relaxed), "total": crate::parse::TOTAL.load(Relaxed),
         "secs": j.started.filter(|_| j.running).map(|t| t.elapsed().as_secs_f64()),
@@ -60,14 +73,77 @@ fn status(c: &Ctx) -> serde_json::Value {
     })
 }
 
-/// Start a run in a thread; Err(status, message) when it cannot start.
-fn start(c: &Arc<Ctx>) -> Result<(), String> {
+/// What `/api/reveal` may show: a file this index holds (by path, or a session by id), or a folder holding one.
+/// Anything else is refused, so the button can never be used to open an arbitrary path.
+fn reveal_target(out: &Path, q: &std::collections::HashMap<String, String>) -> Option<(String, bool)> {
+    let st = crate::state::load(out);
+    if let Some(sid) = q.get("sid").filter(|s| !s.is_empty() && !s.contains('/')) {
+        let tail = format!("/{sid}.jsonl");
+        let mut hits: Vec<&String> = st.keys().filter(|k| k.ends_with(&tail)).collect();
+        hits.sort_by_key(|k| (k.contains("mirror") || k.contains("archive") || k.contains("_bak"), k.len()));
+        return hits.first().map(|p| (p.to_string(), true));
+    }
+    let p = q.get("path")?.trim_end_matches('/').to_string();
+    if st.contains_key(&p) {
+        return Some((p, true));
+    }
+    let dir = format!("{p}/");
+    st.keys().any(|k| k.starts_with(&dir)).then_some((p, false))
+}
+
+/// Show a file in the desktop's file manager (selected), or open a folder.
+fn reveal(path: &str, file: bool) -> std::io::Result<()> {
+    let mut cmd = if cfg!(target_os = "macos") {
+        let mut c = std::process::Command::new("open");
+        if file { c.arg("-R"); }
+        c.arg(path);
+        c
+    } else {
+        let mut c = std::process::Command::new("xdg-open");
+        c.arg(if file { Path::new(path).parent().map(|d| d.display().to_string()).unwrap_or_default() } else { path.to_string() });
+        c
+    };
+    cmd.stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn().map(|_| ())
+}
+
+/// The query string of a request line, %-decoded (`+` is a space).
+fn query(line: &str) -> std::collections::HashMap<String, String> {
+    let target = line.split_whitespace().nth(1).unwrap_or("");
+    let q = target.split_once('?').map(|(_, q)| q).unwrap_or("").split('#').next().unwrap_or("");
+    let dec = |s: &str| {
+        let b = s.as_bytes();
+        let mut out = Vec::with_capacity(b.len());
+        let mut i = 0;
+        while i < b.len() {
+            match b[i] {
+                b'+' => out.push(b' '),
+                b'%' if i + 2 < b.len() => match std::str::from_utf8(&b[i + 1..i + 3]).ok().and_then(|h| u8::from_str_radix(h, 16).ok()) {
+                    Some(v) => {
+                        out.push(v);
+                        i += 2;
+                    }
+                    None => out.push(b'%'),
+                },
+                c => out.push(c),
+            }
+            i += 1;
+        }
+        String::from_utf8_lossy(&out).into_owned()
+    };
+    q.split('&').filter(|p| !p.is_empty()).map(|p| { let (k, v) = p.split_once('=').unwrap_or((p, "")); (dec(k), dec(v)) }).collect()
+}
+
+/// Start a run (or, with `dry`, a check that writes nothing) in a thread, over every file or only the files whose
+/// path holds `only`; Err(message) when it cannot start.
+fn start(c: &Arc<Ctx>, dry: bool, only: Option<String>) -> Result<(), String> {
     let mut j = c.job.lock().unwrap();
     if j.running {
-        return Err("a run is already going".into());
+        return Err(format!("a {} is already going", j.job));
     }
-    let lock = crate::try_lock_out(&c.out)?;
+    // a check takes no lock: it only reads, so it may run beside a `relic-scan run` in another shell
+    let lock = if dry { None } else { Some(crate::try_lock_out(&c.out)?) };
     j.running = true;
+    j.job = if dry { "check" } else { "run" };
     j.started = Some(Instant::now());
     j.last_error = None;
     drop(j);
@@ -75,14 +151,29 @@ fn start(c: &Arc<Ctx>) -> Result<(), String> {
     std::thread::spawn(move || {
         let args = crate::RunArgs {
             out: c.out.display().to_string(), roots: vec![], depth: 8, threads: 0, exclude: vec![], full: false, agent: None,
-            jt_compat: false, only: vec![], kind: c.kind.clone(), month: None, day: None, from: None, to: None,
+            jt_compat: false, only: only.into_iter().collect(), kind: c.kind.clone(), month: None, day: None, from: None, to: None, dry_run: dry,
         };
-        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| crate::run_with(args, Some(lock))));
+        // the run's own output (scan ticker, parse bar, summary card) goes to the page's output popup as well
+        let cap = crate::tee::start();
+        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| crate::run_inner(args, lock, true)));
+        if let Some(cap) = cap {
+            crate::tee::stop(cap);
+        }
         crate::PHASE.store(0, Relaxed);
         let mut j = c.job.lock().unwrap();
         j.running = false;
-        j.runs += 1;
-        j.last_secs = j.started.map(|t| t.elapsed().as_secs_f64());
+        j.stopped = matches!(&r, Ok(rep) if rep.stopped);
+        crate::CANCEL.store(false, Relaxed);
+        if !dry && !j.stopped {
+            j.runs += 1;
+            j.last_secs = j.started.map(|t| t.elapsed().as_secs_f64());
+        }
+        match &r {
+            Ok(_) if j.stopped => {}
+            Ok(rep) if dry => j.check = Some(rep.clone()),
+            Ok(_) => j.check = None, // the index now holds what the check saw
+            Err(_) => {}
+        }
         if let Err(e) = r {
             j.last_error = Some(e.downcast_ref::<String>().cloned().or_else(|| e.downcast_ref::<&str>().map(|s| s.to_string()))
                 .unwrap_or_else(|| "the run panicked".into()));
@@ -114,7 +205,7 @@ fn handle(s: TcpStream, c: &Arc<Ctx>) {
     let path = path.split(['?', '#']).next().unwrap_or("/");
     let page = c.out.join("meta").join("map.html");
     match (method, path) {
-        ("GET", "/" | "/scan" | "/banks" | "/health" | "/map" | "/tree" | "/paths" | "/map.html") => match std::fs::read(&page) {
+        ("GET", "/" | "/scan" | "/scans" | "/banks" | "/health" | "/map" | "/tree" | "/paths" | "/map.html") => match std::fs::read(&page) {
             Ok(b) => reply(s, "200 OK", "text/html; charset=utf-8", &b),
             Err(_) => reply(s, "200 OK", "text/html; charset=utf-8", WELCOME.replace("{OUT}", &c.out.display().to_string()).as_bytes()),
         },
@@ -126,8 +217,67 @@ fn handle(s: TcpStream, c: &Arc<Ctx>) {
             }
         }
         ("GET", "/api/status") => json(s, "200 OK", status(c)),
-        ("POST", "/api/run") if !relic_header => json(s, "403 Forbidden", serde_json::json!({"error": "needs the X-Relic header"})),
-        ("POST", "/api/run") => match start(c) {
+        ("GET", "/api/log") => {
+            // /api/log?from=N: the output lines from N on, the next N, and the line being redrawn
+            let from = line.split_whitespace().nth(1).and_then(|u| u.split_once("from=")).and_then(|(_, v)| v.split('&').next())
+                .and_then(|v| v.parse().ok()).unwrap_or(0);
+            let (lines, next, live) = crate::tee::since(from);
+            let j = c.job.lock().unwrap();
+            json(s, "200 OK", serde_json::json!({"lines": lines, "next": next, "live": live, "running": j.running, "job": j.job}))
+        }
+        ("GET", "/api/export") => {
+            // /api/export?sid=…&months=2026-09,2026-10&fmt=md|jsonl&title=…: one session's rows, as a download
+            let q = query(&line);
+            let sid = q.get("sid").cloned().unwrap_or_default();
+            let months: Vec<String> = q.get("months").map(|m| m.split(',').map(str::to_string).collect()).unwrap_or_default();
+            let md = q.get("fmt").map(String::as_str) != Some("jsonl");
+            if sid.is_empty() || sid.contains(['/', '\\', '"']) {
+                return json(s, "400 Bad Request", serde_json::json!({"error": "needs a session id"}));
+            }
+            match crate::export::session(&c.out, &sid, &months) {
+                Ok(rows) => {
+                    let body = if md { crate::export::markdown(q.get("title").map(String::as_str).unwrap_or(&sid), &sid, &rows) } else { crate::export::jsonl(&rows) };
+                    let (ctype, ext) = if md { ("text/markdown; charset=utf-8", "md") } else { ("application/x-ndjson", "jsonl") };
+                    let head = format!("HTTP/1.1 200 OK\r\nContent-Type: {ctype}\r\nContent-Disposition: attachment; filename=\"{sid}.{ext}\"\r\nContent-Length: {}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n", body.len());
+                    let mut s = s;
+                    let _ = s.write_all(head.as_bytes()).and_then(|_| s.write_all(body.as_bytes()));
+                }
+                Err(e) => json(s, "500 Internal Server Error", serde_json::json!({"error": e})),
+            }
+        }
+        ("GET", "/api/scans") => {
+            let mut all = crate::scanlog::read(&c.out);
+            all.reverse();
+            all.truncate(500);
+            json(s, "200 OK", serde_json::json!({"entries": all.iter().map(crate::scanlog::summary).collect::<Vec<_>>()}))
+        }
+        ("GET", p) if p.starts_with("/api/scans/") => {
+            let i: Option<u64> = p["/api/scans/".len()..].parse().ok();
+            match crate::scanlog::read(&c.out).into_iter().find(|e| e["i"].as_u64() == i && i.is_some()) {
+                Some(e) => json(s, "200 OK", e),
+                None => json(s, "404 Not Found", serde_json::json!({"error": "no such scan"})),
+            }
+        }
+        ("POST", "/api/stop") if !relic_header => json(s, "403 Forbidden", serde_json::json!({"error": "needs the X-Relic header"})),
+        ("POST", "/api/stop") => {
+            // Stop: honoured during the walk and the parse; once the merge has started the run finishes
+            let running = c.job.lock().unwrap().running;
+            let merging = crate::PHASE.load(Relaxed) >= 3;
+            if running && !merging {
+                crate::CANCEL.store(true, Relaxed);
+            }
+            json(s, if running && !merging { "202 Accepted" } else { "409 Conflict" }, status(c))
+        }
+        ("POST", "/api/reveal") if !relic_header => json(s, "403 Forbidden", serde_json::json!({"error": "needs the X-Relic header"})),
+        ("POST", "/api/reveal") => match reveal_target(&c.out, &query(&line)) {
+            Some((p, file)) => match reveal(&p, file) {
+                Ok(()) => json(s, "200 OK", serde_json::json!({"path": p})),
+                Err(e) => json(s, "500 Internal Server Error", serde_json::json!({"error": e.to_string()})),
+            },
+            None => json(s, "404 Not Found", serde_json::json!({"error": "not a file or folder this index holds"})),
+        },
+        ("POST", "/api/run" | "/api/check") if !relic_header => json(s, "403 Forbidden", serde_json::json!({"error": "needs the X-Relic header"})),
+        ("POST", "/api/run" | "/api/check") => match start(c, path == "/api/check", query(&line).remove("only").filter(|o| !o.is_empty())) {
             Ok(()) => json(s, "202 Accepted", status(c)),
             Err(e) => json(s, "409 Conflict", serde_json::json!({"error": e})),
         },
@@ -160,4 +310,17 @@ pub fn serve(out: &Path, port: u16, kind: Vec<String>) {
     eprintln!("serve: http://127.0.0.1:{port}/map · /tree · /paths  ({}{})  ctrl-c to stop", out.display(),
               if ready { "" } else { ", not indexed yet: the page has an index button" });
     serve_on(l, out, kind);
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn query_strings_decode() {
+        let q = super::query("GET /api/export?sid=ab-1&title=neo%20oracle+x&months=2026-09%2C2026-10&bad=%zz HTTP/1.1");
+        assert_eq!(q["sid"], "ab-1");
+        assert_eq!(q["title"], "neo oracle x");
+        assert_eq!(q["months"], "2026-09,2026-10");
+        assert_eq!(q["bad"], "%zz");
+        assert!(super::query("POST /api/run HTTP/1.1").is_empty());
+    }
 }
