@@ -1,4 +1,4 @@
-"""Compare relic4-scan's month Parquet files with relic4 truth (DuckDB), row by row.
+"""Compare relic-scan's month Parquet files with relic4 truth (DuckDB), row by row.
 
   uv run --project <agent-relic-v4> python verify/rust_vs_truth.py OUT_DIR [--sample-index FILE N]
 

@@ -1,4 +1,4 @@
-//! Phase 1, `relic4-scan scan`: find every agent home under the roots, then index every .jsonl inside them.
+//! Phase 1, `relic-scan scan`: find every agent home under the roots, then index every .jsonl inside them.
 //!
 //! A home is a directory whose NAME says it holds agent transcripts, whatever the copy was called:
 //!   .claude .claude2 .claude_bak .claudebak .claude-old …   (any `.claude*`)
@@ -13,6 +13,10 @@
 //!
 //! Then every *.jsonl under each home is listed with size, mtime and (dev, inode). One inode reachable twice
 //! (a symlinked or hard-linked copy) counts once: the first home in sorted order keeps it, like jt does.
+//!
+//! The same walk also keeps every *.jsonl it passes OUTSIDE the homes ("loose"): in an oracle's ψ vault, in a
+//! repo, anywhere under the roots. They are not parsed into months; they are listed in meta/jsonl.parquet with
+//! a verdict, so every .jsonl on the machine is accounted for in one pass.
 
 use std::collections::HashSet;
 use std::os::unix::fs::MetadataExt;
@@ -22,6 +26,11 @@ use std::time::{Instant, UNIX_EPOCH};
 
 use ignore::{WalkBuilder, WalkState};
 use serde::Serialize;
+
+/// Live counters for the progress line while a scan runs (the walk takes ~10 s on m5 and prints nothing else).
+pub static WALKED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+pub static HOMES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+pub static LISTED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 /// Directory names never worth entering while looking for homes (or while listing a home's files).
 const SKIP: &[&str] = &[
@@ -102,21 +111,10 @@ pub struct FileEntry {
     pub ino: u64,
 }
 
-/// main / subagent / workflow-agent / other, from the file path (same rules as relic4's sql.tier_of).
+/// main / subagent / workflow-agent / other, from the file path. One classifier for the whole crate: relic4's
+/// sql.tier_of rules, in meta.rs (the scan table, the sniff and meta/*.parquet must never disagree).
 pub fn tier(path: &str) -> &'static str {
-    if path.contains("/subagents/workflows/") && path.ends_with(".jsonl") && file_name(path).starts_with("agent-") {
-        "workflow-agent"
-    } else if path.contains("/subagents/") && file_name(path).starts_with("agent-") {
-        "subagent"
-    } else if is_uuid_jsonl(file_name(path)) || (file_name(path).starts_with("rollout-") && path.ends_with(".jsonl")) {
-        "main"
-    } else {
-        "other"
-    }
-}
-
-fn file_name(p: &str) -> &str {
-    p.rsplit('/').next().unwrap_or(p)
+    crate::meta::tier_of(path)
 }
 
 fn is_uuid_jsonl(n: &str) -> bool {
@@ -129,11 +127,7 @@ fn is_uuid_jsonl(n: &str) -> bool {
 }
 
 fn expand(p: &str) -> PathBuf {
-    match p.strip_prefix("~/") {
-        Some(rest) => PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(rest),
-        None if p == "~" => PathBuf::from(std::env::var("HOME").unwrap_or_default()),
-        None => PathBuf::from(p),
-    }
+    PathBuf::from(crate::expand(p))
 }
 
 fn walker(root: &Path, depth: Option<usize>, threads: usize) -> WalkBuilder {
@@ -162,15 +156,17 @@ fn shape_root(p: &Path) -> Option<(PathBuf, &'static str)> {
 }
 
 /// Every home under the roots, sorted by path: named homes, then shape homes not inside a named one.
-pub fn find_homes(roots: &[String], depth: usize, threads: usize, exclude: &[String]) -> Vec<(PathBuf, &'static str)> {
+/// Also returns every *.jsonl the walk passed outside the named homes (shape homes are filtered out later).
+pub fn find_homes(roots: &[String], depth: usize, threads: usize, exclude: &[String]) -> (Vec<(PathBuf, &'static str)>, Vec<PathBuf>) {
     let found: Arc<Mutex<Vec<(PathBuf, &'static str)>>> = Arc::default();
     let shaped: Arc<Mutex<Vec<(PathBuf, &'static str)>>> = Arc::default();
+    let loose: Arc<Mutex<Vec<PathBuf>>> = Arc::default();
     for r in roots {
         let root = expand(r);
         if !root.is_dir() {
             continue;
         }
-        let (f, sh) = (found.clone(), shaped.clone());
+        let (f, sh, lo) = (found.clone(), shaped.clone(), loose.clone());
         let ex: Vec<String> = exclude.to_vec();
         walker(&root, Some(depth), threads)
             .filter_entry(move |e| {
@@ -183,21 +179,24 @@ pub fn find_homes(roots: &[String], depth: usize, threads: usize, exclude: &[Str
             })
             .build_parallel()
             .run(|| {
-                let (f, sh) = (f.clone(), sh.clone());
+                let (f, sh, lo) = (f.clone(), sh.clone(), lo.clone());
                 Box::new(move |res| {
                     let Ok(e) = res else { return WalkState::Continue };
                     if e.depth() == 0 {
                         return WalkState::Continue;
                     }
+                    WALKED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     if e.file_type().is_some_and(|t| t.is_dir()) {
                         if let Some(kind) = e.file_name().to_str().and_then(agent_kind) {
                             f.lock().unwrap().push((e.path().to_path_buf(), kind));
+                            HOMES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                             return WalkState::Skip; // a home's own subfolders are not homes
                         }
                     } else if e.path().extension().is_some_and(|x| x == "jsonl") {
                         if let Some(h) = shape_root(e.path()) {
                             sh.lock().unwrap().push(h);
                         }
+                        lo.lock().unwrap().push(e.path().to_path_buf());
                     }
                     WalkState::Continue
                 })
@@ -217,7 +216,15 @@ pub fn find_homes(roots: &[String], depth: usize, threads: usize, exclude: &[Str
     v.extend(outer);
     v.sort();
     v.dedup_by(|a, b| a.0 == b.0);
-    v
+    let mut lo = std::mem::take(&mut *loose.lock().unwrap());
+    lo.sort();
+    lo.dedup();
+    (v, lo)
+}
+
+/// The ψ vault a path sits in: the path up to and including its last `ψ` folder.
+pub fn vault_of(path: &str) -> Option<&str> {
+    path.rfind("/ψ/").map(|i| &path[..i + "/ψ".len()])
 }
 
 /// Every *.jsonl under one home (no depth limit).
@@ -249,6 +256,7 @@ fn list_home(home: &Path, kind: &'static str, threads: usize, by_shape: bool) ->
                     return WalkState::Continue;
                 }
                 let mtime = md.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map(|d| d.as_millis() as i64).unwrap_or(0);
+                LISTED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 o.lock().unwrap().push(FileEntry {
                     path: e.path().to_string_lossy().to_string(),
                     home: label.clone(),
@@ -271,13 +279,15 @@ fn list_home(home: &Path, kind: &'static str, threads: usize, by_shape: bool) ->
 pub struct ScanResult {
     pub homes: Vec<Home>,
     pub files: Vec<FileEntry>,
+    /// every *.jsonl outside the homes: home = its ψ vault ("" when none), kind = "vault" | "other"
+    pub loose: Vec<FileEntry>,
     pub secs_homes: f64,
     pub secs_files: f64,
 }
 
 pub fn run(roots: &[String], depth: usize, threads: usize, exclude: &[String], full: bool) -> ScanResult {
     let t0 = Instant::now();
-    let homes = find_homes(roots, depth, threads, exclude);
+    let (homes, loose_paths) = find_homes(roots, depth, threads, exclude);
     let secs_homes = t0.elapsed().as_secs_f64();
     let t1 = Instant::now();
     let mut seen: HashSet<(u64, u64)> = HashSet::new();
@@ -325,7 +335,31 @@ pub fn run(roots: &[String], depth: usize, threads: usize, exclude: &[String], f
         }
         out.push(h);
     }
-    ScanResult { homes: out, files, secs_homes, secs_files: t1.elapsed().as_secs_f64() }
+    // loose: not under a kept home, not an inode a home already holds; a dead link or a folder named *.jsonl drops
+    let kept: Vec<String> = out.iter().map(|h| format!("{}/", h.path)).collect();
+    let mut loose = vec![];
+    // the inodes kept homes hold (a dropped shape home's files are loose again)
+    let mut held: HashSet<(u64, u64)> = files.iter().map(|f| (f.dev, f.ino)).collect();
+    for p in loose_paths {
+        let ps = p.to_string_lossy().to_string();
+        if kept.iter().any(|k| ps.starts_with(k.as_str())) {
+            continue;
+        }
+        let Ok(md) = std::fs::metadata(&p) else { continue };
+        if !md.is_file() || !held.insert((md.dev(), md.ino())) {
+            continue;
+        }
+        let mtime = md.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map(|d| d.as_millis() as i64).unwrap_or(0);
+        let vault = vault_of(&ps).map(str::to_string);
+        loose.push(FileEntry {
+            kind: if vault.is_some() { "vault".into() } else { "other".into() }, home: vault.unwrap_or_default(), path: ps,
+            agent: String::new(), verdict: String::new(), size: md.len(), mtime, dev: md.dev(), ino: md.ino(),
+        });
+    }
+    // loose files are few (12k on m5 vs 91k in homes): always read their first lines, even in the light scan, so a
+    // transcript that sits outside every home is named, not guessed
+    sniff_all(&mut loose, threads, true);
+    ScanResult { homes: out, files, loose, secs_homes, secs_files: t1.elapsed().as_secs_f64() }
 }
 
 /// Content verdict for every file, in parallel (64 KB read + parse per file).
@@ -348,5 +382,40 @@ fn sniff_all(files: &mut [FileEntry], threads: usize, full: bool) {
             f.agent = a;
             f.verdict = v;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn homes_by_name() {
+        for (n, k) in [(".claude", "claude"), (".claude_bak", "claude"), (".claude2", "claude"), ("claude-backup", "claude"),
+                       (".codex", "codex"), (".omx", "omx"), (".omx-runs", "omx-ops"), (".pi", "pi"), (".gemini", "gemini")] {
+            assert_eq!(agent_kind(n), Some(k), "{n}");
+        }
+        for n in ["claude", "claude-code", ".pip", "src"] {
+            assert_eq!(agent_kind(n), None, "{n}");
+        }
+    }
+
+    #[test]
+    fn origins() {
+        assert_eq!(origin("/Users/x/.claude"), "own");
+        assert_eq!(origin("/Users/x/.relic-mirrors/white/.claude"), "mirror");
+        assert_eq!(origin("/Users/x/.claude_bak"), "rescue");
+        assert_eq!(origin("/Users/x/Downloads/old/.claude"), "copy");
+    }
+
+    #[test]
+    fn shapes_and_vaults() {
+        let u = "0b867d73-405b-4b03-8c46-aee7648f1bd7";
+        assert!(is_uuid_jsonl(&format!("{u}.jsonl")));
+        assert!(!is_uuid_jsonl("agent-1.jsonl"));
+        assert_eq!(shape_root(Path::new(&format!("/m/projects/p/{u}.jsonl"))).unwrap(), (PathBuf::from("/m/projects"), "claude"));
+        assert_eq!(shape_root(Path::new("/m/sessions/2026/07/01/rollout-a.jsonl")).unwrap(), (PathBuf::from("/m/sessions"), "codex"));
+        assert_eq!(vault_of("/r/neo/ψ/memory/x.jsonl"), Some("/r/neo/ψ"));
+        assert_eq!(vault_of("/r/neo/x.jsonl"), None);
     }
 }

@@ -1,0 +1,944 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>relic-scan · session star map</title>
+<style>
+  :root { --bg: #05070d; --ink: #d9dde8; --dim: #7c8496; --line: #1c2333; --panel: rgba(10, 13, 22, .92);
+          --focus: #3a4766; --hover: #121827; --sel: #2a1a17; --track: #1a2030; --barbg: #2a3550; --barfg: #6b7fb0;
+          --btn: #111727; --code: #c9d4ff; --link: #8fa3d6; color-scheme: dark; }
+  :root[data-theme="light"] { --bg: #f5f6fa; --ink: #1c2233; --dim: #5d667a; --line: #d6dbe7; --panel: rgba(255, 255, 255, .95);
+          --focus: #7d8bb5; --hover: #e9edf6; --sel: #fde6dc; --track: #e1e5ee; --barbg: #dde2ed; --barfg: #5b6fa6;
+          --btn: #ffffff; --code: #2f47a6; --link: #3554b5; color-scheme: light; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+               font: 13px/1.45 ui-monospace, "SF Mono", Menlo, monospace; overflow: hidden; }
+  canvas { position: fixed; inset: 0; display: block; cursor: crosshair; }
+  :root { --side: 232px; --amber: #f5b73b; --cyan: #67c8ef; --green: #6fd6a0; --card: #12151c; --sideb: #13161d; }
+  :root[data-theme="light"] { --amber: #b7791f; --cyan: #1f7fbf; --green: #1f9d63; --card: #ffffff; --sideb: #eceff5; }
+  @media (max-width: 1100px) { :root { --side: 64px; } #side .lbl, #side .brand .t, #side .foot { display: none; } }
+  #bar { position: fixed; left: calc(var(--side) + 14px); top: 12px; right: 374px; display: flex; gap: 10px; align-items: center; }
+  #q { flex: 1; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px;
+       padding: 9px 12px; font: inherit; outline: none; }
+  #q:focus { border-color: var(--focus); }
+  #count { color: var(--dim); white-space: nowrap; }
+  #legend { position: fixed; left: calc(var(--side) + 14px); bottom: 12px; display: flex; gap: 14px; color: var(--dim); align-items: center; flex-wrap: wrap; }
+  #legend b { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+  #legend button { background: none; border: 1px solid var(--line); color: var(--dim); border-radius: 4px; padding: 3px 8px; font: inherit; cursor: pointer; }
+  #legend button.on { color: var(--ink); border-color: var(--focus); }
+  #panel { overflow-x: hidden; position: fixed; top: 0; right: 0; bottom: 0; width: 360px; background: var(--panel); border-left: 1px solid var(--line);
+           padding: 14px 16px; overflow-y: auto; }
+  #panel h2 { font-size: 13px; margin: 14px 0 6px; color: var(--dim); font-weight: normal; text-transform: uppercase; letter-spacing: .06em; }
+  #panel h2:first-child { margin-top: 0; }
+  .kv { display: grid; grid-template-columns: 92px 1fr; gap: 2px 10px; }
+  .kv span:nth-child(odd) { color: var(--dim); }
+  .kv span { overflow-wrap: anywhere; }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; overflow-wrap: anywhere; padding: 2px 4px; border-radius: 3px; cursor: pointer; }
+  .row:hover { background: var(--hover); }
+  .row .n { color: var(--dim); text-align: right; }
+  .bar { height: 3px; background: var(--barbg); margin: 0 4px 3px; border-radius: 2px; }
+  .bar i { display: block; height: 100%; background: var(--barfg); border-radius: 2px; }
+  .muted { color: var(--dim); }
+  .btn { background: var(--btn); border: 1px solid var(--line); color: var(--ink); border-radius: 4px; padding: 4px 8px; font: inherit; cursor: pointer; margin: 6px 6px 0 0; }
+  .btn:hover { border-color: var(--focus); }
+  code { color: var(--code); }
+  #tabs { display: flex; gap: 4px; }
+  #tabs a { color: var(--dim); text-decoration: none; border: 1px solid var(--line); border-radius: 5px; padding: 7px 11px; background: var(--panel); }
+  #tabs a.on { color: var(--ink); border-color: var(--focus); }
+  #tree { margin: 0 360px 0 var(--side); padding: 62px 14px 56px; display: none; }
+  /* tree and paths: the page is the one scroll area (no scroll box inside the page) */
+  html.doc, html.doc body { overflow-x: hidden; overflow-y: auto; height: auto; }
+  html.doc #bar { top: 0; left: var(--side); padding: 12px 14px 8px; background: var(--bg); z-index: 2; }
+  html.doc #legend { background: var(--bg); padding: 6px 8px; left: calc(var(--side) + 6px); bottom: 6px; border-radius: 6px; }
+  /* sidebar: the Relic Studio shell */
+  #side { position: fixed; left: 0; top: 0; bottom: 0; width: var(--side); background: var(--sideb); border-right: 1px solid var(--line);
+          z-index: 5; display: flex; flex-direction: column; padding: 22px 12px 18px; font-family: -apple-system, system-ui, sans-serif; }
+  #side .brand { display: flex; gap: 12px; align-items: center; padding: 0 8px 26px; }
+  #side .logo { width: 46px; height: 46px; border-radius: 12px; flex: none; display: grid; place-items: center;
+                background: linear-gradient(135deg, #ff3cac, #00d6ff); color: #fff; font: 800 22px/1 -apple-system, system-ui, sans-serif; }
+  #side .t b { display: block; font-size: 21px; letter-spacing: .06em; color: var(--ink); }
+  #side .t i { display: block; font-style: normal; font-size: 11px; letter-spacing: .32em; color: var(--amber); font-weight: 700; }
+  #side a { display: flex; gap: 12px; align-items: center; color: var(--ink); text-decoration: none; padding: 10px 12px; border-radius: 9px;
+            font-size: 15px; margin-bottom: 3px; border-left: 3px solid transparent; }
+  #side a:hover { background: var(--hover); }
+  #side a.on { background: var(--hover); border-left-color: var(--cyan); font-weight: 600; }
+  #side .ic { width: 22px; text-align: center; color: var(--cyan); font-size: 17px; }
+  #side .sep { height: 1px; background: var(--line); margin: 10px 8px 12px; }
+  #side .foot { margin-top: auto; padding: 0 10px; font-size: 12px; color: var(--dim); line-height: 1.5; }
+  #side .foot b { color: var(--ink); letter-spacing: .14em; font-size: 11px; }
+  #side .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-right: 8px; }
+  /* dashboard views: scan, banks, health */
+  #dash { display: none; margin-left: var(--side); padding: 44px 48px 60px; max-width: 1180px; font-family: -apple-system, system-ui, sans-serif; }
+  #dash .eyebrow { color: var(--amber); font-size: 12px; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; }
+  #dash h1 { font-size: 44px; line-height: 1.1; margin: 8px 0 8px; font-weight: 800; letter-spacing: -.01em; }
+  #dash .sub { color: var(--dim); font-size: 17px; margin: 0 0 30px; }
+  #dash .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 24px 26px; margin-bottom: 18px; }
+  #dash .card h3 { margin: 0 0 14px; font-size: 17px; color: var(--amber); display: flex; gap: 10px; align-items: center; }
+  #dash .card h3.c { color: var(--cyan); }
+  #dash .strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin: 10px 0 24px; }
+  #dash .stat .k { font-size: 11px; letter-spacing: .2em; color: var(--dim); font-weight: 700; text-transform: uppercase; }
+  #dash .stat .v { font-size: 34px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  #dash .ringwrap { display: grid; place-items: center; margin: 0 0 26px; }
+  #dash .go { background: linear-gradient(180deg, #f7c04f, #e9a92a); color: #1d1405; border: 0; border-radius: 10px; padding: 14px 26px;
+              font: 700 17px -apple-system, system-ui, sans-serif; cursor: pointer; min-width: 220px; }
+  #dash .go:disabled { opacity: .55; cursor: default; }
+  #dash .ghost { background: var(--hover); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 14px 26px;
+                 font: 600 17px -apple-system, system-ui, sans-serif; cursor: pointer; min-width: 220px; margin-left: 12px; }
+  #dash .note { color: var(--dim); font-size: 13px; margin-top: 14px; }
+  #dash .track { height: 6px; border-radius: 3px; background: var(--line); margin: 16px 0 6px; overflow: hidden; }
+  #dash .track i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ff3cac, #00d6ff); transition: width .4s; }
+  #dash .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  #dash .bank { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px 24px; cursor: pointer; }
+  #dash .bank:hover { border-color: var(--focus); }
+  #dash .bank .n { color: var(--amber); font-weight: 700; font-size: 17px; margin-bottom: 4px; overflow-wrap: anywhere; }
+  #dash .bank .p { color: var(--dim); font-size: 12px; margin-bottom: 14px; font-family: ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
+  #dash .bank .nums { display: flex; gap: 28px; }
+  #dash .bank .nums b { display: block; font-size: 19px; font-variant-numeric: tabular-nums; }
+  #dash .bank .nums span { font-size: 10px; letter-spacing: .18em; color: var(--dim); font-weight: 700; }
+  #dash .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-left: 8px; vertical-align: 2px;
+                 background: var(--hover); color: var(--dim); font-weight: 600; letter-spacing: .04em; }
+  #dash .repo { display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; align-items: center; padding: 14px 4px; border-top: 1px solid var(--line); cursor: pointer; }
+  #dash .repo:first-of-type { border-top: 0; }
+  #dash .repo:hover { background: var(--hover); }
+  #dash .repo .r b { display: block; font-size: 15px; }
+  #dash .repo .r code { font-size: 13px; color: var(--dim); }
+  #dash .repo .x { text-align: right; } #dash .repo .x b { font-size: 18px; } #dash .repo .x div { color: var(--dim); font-size: 12px; }
+  #dash .warn { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; padding: 9px 0; align-items: start; font-size: 15px; }
+  #dash .warn a { color: var(--cyan); font-size: 13px; text-decoration: none; white-space: nowrap; }
+  #dash .lvl { width: 16px; height: 16px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11px; font-weight: 800; color: #1d1405; margin-top: 2px; }
+  #dash .head { display: flex; gap: 18px; align-items: center; }
+  #dash .head .big { font-size: 40px; }
+  @media (max-width: 900px) { #dash .strip { grid-template-columns: 1fr 1fr; } #dash .grid2 { grid-template-columns: 1fr; } }
+  #panel { scrollbar-width: thin; z-index: 3; }
+  #idx { background: var(--panel); color: var(--sub, #7fd3ff); border: 1px solid var(--line); border-radius: 5px; padding: 7px 10px; font: inherit; cursor: pointer; white-space: nowrap; }
+  #idx:disabled { color: var(--dim); cursor: default; }
+  #theme { background: var(--panel); color: var(--dim); border: 1px solid var(--line); border-radius: 5px; padding: 7px 10px; font: inherit; cursor: pointer; }
+  #theme:hover { color: var(--ink); }
+  .tn { display: grid; grid-template-columns: minmax(0, 1fr) 112px 132px 132px 92px; gap: 10px; align-items: center;
+        padding: 3px 6px; border-radius: 3px; cursor: pointer; white-space: nowrap; }
+  .tn:hover { background: var(--hover); }
+  .tn.sel { background: var(--sel); }
+  .tn .nm { overflow: hidden; text-overflow: ellipsis; }
+  .tn .c { color: var(--dim); text-align: right; }
+  .tn .tw { color: var(--dim); font-size: 11px; }
+  .tb { display: flex; height: 7px; border-radius: 2px; overflow: hidden; background: var(--track); }
+  .tb i { display: block; height: 100%; }
+  .th { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  .th:hover { background: none; cursor: default; }
+  /* narrow windows: keep name, count and rows; drop the type bar and the date */
+  @media (max-width: 1400px) {
+    .tn { grid-template-columns: minmax(0, 1fr) 112px 132px; }
+    .tn > :nth-child(4), .tn > :nth-child(5) { display: none; }
+  }
+  .more { color: var(--link); padding: 3px 6px; cursor: pointer; }
+  #tip { position: fixed; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 5px;
+         padding: 6px 9px; display: none; max-width: 340px; }
+  .help { color: var(--dim); font-size: 12px; }
+  .help code { color: var(--ink); }
+</style>
+</head>
+<body>
+<nav id="side"></nav>
+<div id="dash"></div>
+<canvas id="c"></canvas>
+<div id="bar"><span id="tabs"></span><input id="q" spellcheck="false" autocomplete="off"
+  placeholder="query: words · repo:neo · tier:main · home:mirror · month:2026-07 · rows>1000 · think>0 · errors>=20 · -tier:wf"><span id="count"></span><button id="idx" title="index new transcripts now (incremental)" style="display:none"></button><button id="theme" title="theme: auto / dark / light"></button></div>
+<div id="tree"></div>
+<div id="legend"></div>
+<div id="panel"></div>
+<div id="tip"></div>
+<script>
+const D = /*DATA*/null;
+const SERVED = location.protocol.startsWith("http");
+// theme: auto (follows the system), dark or light; a choice is kept in localStorage
+const THEME_PICK = localStorage.getItem("relic-theme") || "auto";
+const LIGHT = THEME_PICK === "light" || (THEME_PICK === "auto" && matchMedia("(prefers-color-scheme: light)").matches);
+document.documentElement.dataset.theme = LIGHT ? "light" : "dark";
+// one page, three views: /map, /tree and /paths when served, ?view=tree|paths when opened as a file
+// served: / is Smart Scan; opened as a file (no server, no index button): the map
+const VIEWS = ["scan", "banks", "health", "map", "tree", "paths"];
+const VIEW = VIEWS.find(v => location.pathname.endsWith("/" + v) || new URLSearchParams(location.search).get("view") === v)
+  || (location.protocol.startsWith("http") && /\/$/.test(location.pathname) ? "scan" : "map");
+const DASH = ["scan", "banks", "health"].includes(VIEW);
+const S = D.s, N = S.sid.length, BKK = 7 * 3600;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = n => n.toLocaleString("en-US");
+const TIER = ["main", "subagent", "workflow-agent"];
+// rows by type: [key in the data, label, colour]; errors are a subset of results
+const TYPES = LIGHT
+  ? [["user", "user text", "#c98a00"], ["asst", "assistant text", "#8a6d1f"], ["think", "thinking", "#c2407a"],
+     ["calls", "tool calls", "#1f8ac0"], ["results", "tool results", "#245f9e"], ["errors", "tool errors", "#d4441c"]]
+  : [["user", "user text", "#ffd166"], ["asst", "assistant text", "#ffe6a8"], ["think", "thinking", "#ff9ec7"],
+     ["calls", "tool calls", "#7fd3ff"], ["results", "tool results", "#5aa9e6"], ["errors", "tool errors", "#ff7a59"]];
+const TYPE_KEYS = new Set(TYPES.map(t => t[0]).concat(["rows", "text", "msgs", "copies", "tools"]));
+const tools = k => S.calls[k] + S.results[k];
+const COLOR = LIGHT ? ["#b26b00", "#1f7fbf", "#6a4bd1"] : ["#ffe6a8", "#7fd3ff", "#b89cff"];
+// canvas colours that are not data: rings, labels, links, the hover ring; stars add up as light on dark, ink on light
+const INK = LIGHT
+  ? { ring: "#e2e6ef", year: "#b9c2d6", month: "#8a93a8", label: "#4f5870", link: "rgba(60,80,140,.25)", sel: "rgba(212,68,28,.6)",
+      hover: "#1c2233", hit: "#d4441c", off: "#c3c9d6", blend: "source-over", alpha: [0.85, 0.45, 0.06] }
+  : { ring: "#141a28", year: "#2b3550", month: "#4a5470", label: "#6f7a96", link: "rgba(140,160,220,.18)", sel: "rgba(255,122,89,.55)",
+      hover: "#ffffff", hit: "#ff7a59", off: "#3a4258", blend: "lighter", alpha: [0.8, 0.32, 0.04] };
+const cat = k => S.cat[k] < 0 ? "(none)" : D.cats[S.cat[k]];
+const proj = k => S.proj[k] < 0 ? "" : D.projs[S.proj[k]];
+const bkk = t => t == null ? "—" : new Date((t + BKK) * 1000).toISOString().slice(0, 16).replace("T", " ");
+
+// ---------- layout: ring = month, sector = repo, satellites orbit their parent ----------
+function hash(str, salt) {
+  let h = 2166136261 ^ salt;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  // murmur3 finaliser: without it, sequential ids (agent-…01, …02) land on a straight line
+  h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+const monthIdx = t => { const d = new Date((t + BKK) * 1000); return d.getUTCFullYear() * 12 + d.getUTCMonth(); };
+const mLabel = m => `${Math.floor(m / 12)}-${String(m % 12 + 1).padStart(2, "0")}`;
+let m0 = Infinity, m1 = -Infinity;
+for (let k = 0; k < N; k++) if (S.t0[k] != null) { const m = monthIdx(S.t0[k]); m0 = Math.min(m0, m); m1 = Math.max(m1, m); }
+const R0 = 140, DR = 64, RINGS = m1 - m0 + 1, ROUT = R0 + RINGS * DR;
+const radius = t => {
+  if (t == null) return ROUT + 46;
+  const m = monthIdx(t), y = Math.floor(m / 12), mo = m % 12;
+  const a = Date.UTC(y, mo, 1) / 1000 - BKK, b = Date.UTC(y, mo + 1, 1) / 1000 - BKK;
+  return R0 + (m - m0 + (t - a) / (b - a)) * DR;
+};
+// sectors: repos sorted by sessions, width ~ sessions^0.8; repos under SMALL sessions share one sector
+const SMALL = 12, OTHER = -2;
+const perCat = new Map();
+for (let k = 0; k < N; k++) perCat.set(S.cat[k], (perCat.get(S.cat[k]) || 0) + 1);
+const secOf = new Map([...perCat].map(([c, n]) => [c, n < SMALL ? OTHER : c]));
+const perSec = new Map();
+for (const [c, n] of perCat) perSec.set(secOf.get(c), (perSec.get(secOf.get(c)) || 0) + n);
+const cats = [...perSec.entries()].sort((a, b) => (a[0] === OTHER) - (b[0] === OTHER) || b[1] - a[1]);
+const GAP = 0.006, total = cats.reduce((a, [, n]) => a + n ** 0.8, 0);
+const sector = new Map();
+let a0 = -Math.PI / 2 + 0.02;
+for (const [c, n] of cats) {
+  const w = (n ** 0.8 / total) * (2 * Math.PI - 0.04 - GAP * cats.length);
+  sector.set(c, [a0, w, n]); a0 += w + GAP;
+}
+const smallRepos = [...perCat].filter(([, n]) => n < SMALL).length;
+const secName = c => c === OTHER ? `${smallRepos} small repos` : c < 0 ? "(none)" : D.cats[c];
+const X = new Float32Array(N), Y = new Float32Array(N), SIZE = new Float32Array(N);
+const kids = Array.from({ length: N }, () => []);
+for (let pass = 0; pass < 2; pass++) for (let k = 0; k < N; k++) {
+  const sat = S.tier[k] > 0 && S.parent[k] >= 0;
+  if ((pass === 0) === sat) continue;
+  const lr = Math.log10(1 + S.rows[k]);
+  if (sat) {
+    const p = S.parent[k], o = 2.5 + 7 * hash(S.sid[k], 7), a = 2 * Math.PI * hash(S.sid[k], 3);
+    X[k] = X[p] + o * Math.cos(a); Y[k] = Y[p] + o * Math.sin(a);
+    SIZE[k] = 0.45 + 0.3 * lr; kids[p].push(k);
+  } else {
+    const [s0, w] = sector.get(secOf.get(S.cat[k])), a = s0 + w * (0.06 + 0.88 * hash(S.sid[k], 1)), r = radius(S.t0[k]);
+    X[k] = r * Math.cos(a); Y[k] = r * Math.sin(a);
+    SIZE[k] = S.tier[k] === 0 ? 0.8 + 0.75 * lr : 0.5 + 0.35 * lr;
+  }
+}
+
+// ---------- query ----------
+const match = new Uint8Array(N).fill(1);
+let active = false;
+const TIERS = { main: 0, sub: 1, subagent: 1, wf: 2, workflow: 2, "workflow-agent": 2 };
+function test(k, key, op, val) {
+  const v = val.toLowerCase();
+  switch (key) {
+    case "tier": return S.tier[k] === TIERS[v];
+    case "repo": case "cat": return cat(k).toLowerCase().includes(v);
+    case "proj": return proj(k).toLowerCase().includes(v);
+    case "sid": return S.sid[k].toLowerCase().startsWith(v);
+    case "home": return S.homes[k].some(h => (D.homes[h].path + " " + D.homes[h].origin).toLowerCase().includes(v));
+    case "month": return S.t0[k] != null && mLabel(monthIdx(S.t0[k])).startsWith(v);
+    case "after": return S.t0[k] != null && bkk(S.t0[k]) >= v;
+    case "before": return S.t0[k] != null && bkk(S.t0[k]) < v;
+    case "rows": case "text": case "msgs": case "copies": case "user": case "asst": case "think": case "calls": case "results": case "errors": case "tools": {
+      return cmp(key === "tools" ? tools(k) : S[key][k], op, Number(v));
+    }
+  }
+  return true;
+}
+// terms: word · key:value · key>n · key:"value with spaces" · "phrase" · a leading - negates
+function parseQuery(q) {
+  return (q.match(/-?[a-z]+(?::|>=|<=|>|<|=)"[^"]*"?|-?"[^"]*"?|\S+/gi) || []).map(t => {
+    const neg = t.startsWith("-") && t.length > 1; if (neg) t = t.slice(1);
+    const m = t.match(/^([a-z]+)(:|>=|<=|>|<|=)(.+)$/i);
+    const unq = v => v.replace(/^"|"$/g, "");
+    return m ? { neg, key: m[1].toLowerCase(), op: m[2], val: unq(m[3]) } : { neg, word: unq(t).toLowerCase() };
+  }).filter(t => t.word !== "");
+}
+const cmp = (x, op, n) => op === ">" ? x > n : op === "<" ? x < n : op === ">=" ? x >= n : op === "<=" ? x <= n : x === n;
+function run(q) {
+  if (VIEW === "paths") return prun(q);
+  const terms = parseQuery(q);
+  active = terms.length > 0;
+  for (let k = 0; k < N; k++) {
+    let ok = true;
+    for (const t of terms) {
+      const r = t.word != null ? (cat(k) + " " + proj(k) + " " + S.sid[k]).toLowerCase().includes(t.word) : test(k, t.key, t.op, t.val);
+      if (r === t.neg) { ok = false; break; }
+    }
+    match[k] = ok && tierOn[S.tier[k]] ? 1 : 0;
+  }
+  history.replaceState(null, "", location.pathname + location.search + (q ? "#" + encodeURIComponent(q) : ""));
+  summary(); tabs();
+  if (VIEW === "tree") renderTree(); else draw();
+}
+
+// ---------- view ----------
+const cv = $("c"), ctx = cv.getContext("2d");
+let W, H, DPR, SIDE = 0, scale, ox, oy, sel = -1, hover = -1;
+const tierOn = [true, true, true];
+let colorBy = "tier";
+function fit() {
+  SIDE = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--side")) || 0;
+  DPR = window.devicePixelRatio || 1; W = innerWidth - 360 - SIDE; H = innerHeight;
+  cv.width = innerWidth * DPR; cv.height = H * DPR; cv.style.width = innerWidth + "px"; cv.style.height = H + "px";
+}
+function home() { scale = Math.min(W, H - 60) / (2 * (ROUT + 190)); ox = SIDE + W / 2; oy = H / 2 + 22; }
+const sx = k => ox + X[k] * scale, sy = k => oy + Y[k] * scale;
+function hue(k) {
+  if (colorBy === "repo") return `hsl(${(S.cat[k] * 137.508) % 360} 75% ${LIGHT ? 42 : 70}%)`;
+  if (colorBy === "tools%") {
+    // share of the session's rows that are tool traffic: text-heavy = warm, tool-heavy = cold
+    const f = S.rows[k] ? tools(k) / S.rows[k] : 0;
+    return `hsl(${40 + 170 * f} 85% ${(LIGHT ? 46 : 72) - 12 * f}%)`;
+  }
+  if (S.think && colorBy === "thinking") return S.think[k] > 0 ? TYPES[2][2] : INK.off;
+  if (colorBy === "age") {
+    const t = S.t1[k] ?? S.t0[k]; if (t == null) return "#555";
+    const age = (Date.now() / 1000 - t) / 86400;
+    return age < 2 ? INK.hit : age < 14 ? TYPES[0][2] : age < 60 ? TYPES[3][2] : LIGHT ? "#8a93a8" : "#5a6a9a";
+  }
+  return COLOR[S.tier[k]];
+}
+let grid = new Map();
+function draw() {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, innerWidth, H);
+  // rings + month labels
+  ctx.lineWidth = 1; ctx.font = "11px ui-monospace, Menlo, monospace"; ctx.textAlign = "center";
+  for (let i = 0; i <= RINGS; i++) {
+    const r = (R0 + i * DR) * scale;
+    ctx.strokeStyle = (m0 + i) % 12 === 0 ? INK.year : INK.ring; // a stronger ring where a year starts
+    ctx.beginPath(); ctx.arc(ox, oy, r, 0, 2 * Math.PI); ctx.stroke();
+    if (i < RINGS && DR * scale > 14) { ctx.fillStyle = INK.month; ctx.fillText(mLabel(m0 + i), ox, oy - (R0 + (i + 0.5) * DR) * scale + 4); }
+  }
+  // repo labels at the rim
+  ctx.fillStyle = INK.label;
+  let shown = 0;
+  for (const [c, [s0, w, n]] of sector) {
+    if (w * (ROUT + 30) * scale < 26 && shown > 8) continue;
+    const a = s0 + w / 2, r = (ROUT + 22) * scale;
+    ctx.save(); ctx.translate(ox + r * Math.cos(a), oy + r * Math.sin(a));
+    let rot = a; ctx.textAlign = "left";
+    if (Math.cos(a) < 0) { rot += Math.PI; ctx.textAlign = "right"; }
+    ctx.rotate(rot); ctx.fillText(`${secName(c)} ${n}`, 0, 4); ctx.restore(); shown++;
+  }
+  // constellation lines for a small query result, and for the selection
+  const few = active && countMatched < 4000;
+  ctx.lineWidth = 0.6;
+  if (few) {
+    ctx.strokeStyle = INK.link; ctx.beginPath();
+    for (let k = 0; k < N; k++) if (match[k] && S.parent[k] >= 0 && match[S.parent[k]]) { ctx.moveTo(sx(k), sy(k)); ctx.lineTo(sx(S.parent[k]), sy(S.parent[k])); }
+    ctx.stroke();
+  }
+  if (sel >= 0) {
+    const root = S.parent[sel] >= 0 ? S.parent[sel] : sel;
+    ctx.strokeStyle = INK.sel; ctx.beginPath();
+    for (const k of kids[root]) { ctx.moveTo(sx(root), sy(root)); ctx.lineTo(sx(k), sy(k)); }
+    ctx.stroke();
+  }
+  // stars
+  ctx.globalCompositeOperation = INK.blend;
+  grid = new Map();
+  const zoom = Math.pow(scale / homeScale, 0.45);
+  for (let k = 0; k < N; k++) {
+    const x = sx(k), y = sy(k);
+    if (x < SIDE - 10 || y < -10 || x > SIDE + W + 10 || y > H + 10) continue;
+    if (!tierOn[S.tier[k]]) continue;
+    const on = match[k] === 1;
+    // unmatched satellites are skipped: 100 of them at 4% each around one parent add up to a bright false halo
+    if (!on && S.tier[k] > 0) continue;
+    ctx.globalAlpha = !on ? INK.alpha[2] : S.tier[k] === 0 ? INK.alpha[0] : INK.alpha[1];
+    const r = Math.max(0.6, SIZE[k] * zoom);
+    ctx.fillStyle = hue(k);
+    if (r < 1.3) ctx.fillRect(x - r, y - r, 2 * r, 2 * r);
+    else { ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * Math.PI); ctx.fill(); }
+    if (on || !active) {
+      const g = `${Math.floor(x / 12)},${Math.floor(y / 12)}`;
+      (grid.get(g) || grid.set(g, []).get(g)).push(k);
+    }
+  }
+  ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1;
+  for (const [k, c] of [[hover, INK.hover], [sel, INK.hit]]) if (k >= 0) {
+    ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.beginPath();
+    ctx.arc(sx(k), sy(k), Math.max(5, SIZE[k] * zoom + 4), 0, 2 * Math.PI); ctx.stroke();
+  }
+}
+let queued = false;
+const redraw = () => { if (!queued) { queued = true; requestAnimationFrame(() => { queued = false; draw(); }); } };
+function nearest(x, y) {
+  let best = -1, bd = 100;
+  const gx = Math.floor(x / 12), gy = Math.floor(y / 12);
+  for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const k of grid.get(`${gx + i},${gy + j}`) || []) {
+    const d = (sx(k) - x) ** 2 + (sy(k) - y) ** 2; if (d < bd) { bd = d; best = k; }
+  }
+  return best;
+}
+
+// ---------- panel ----------
+let countMatched = N;
+function bars(items, total, onclick) {
+  return items.map(([label, n, extra]) => `<div class="row" data-q="${esc(onclick(label))}"><span>${esc(label)}</span><span class="n">${extra ?? fmt(n)}</span></div>
+    <div class="bar"><i style="width:${Math.max(1, 100 * n / total)}%"></i></div>`).join("");
+}
+// one bar per type, its share of all rows (errors: share of results)
+function typeBars(ty, rows) {
+  return TYPES.map(([key, label, color], j) => {
+    const base = key === "errors" ? ty[4] : rows, pct = base ? 100 * ty[j] / base : 0;
+    return `<div class="row" data-q="${key}>0"><span><b style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:6px"></b>${label}</span>
+      <span class="n">${fmt(ty[j])} · ${pct.toFixed(1)}%${key === "errors" ? " of results" : ""}</span></div>
+      <div class="bar"><i style="width:${Math.max(0.5, pct)}%;background:${color}"></i></div>`;
+  }).join("");
+}
+function summary() {
+  if (sel >= 0) return detail(sel);
+  let n = 0, rows = 0, t = [0, 0, 0], lo = Infinity, hi = -Infinity;
+  const ty = TYPES.map(() => 0);
+  const byCat = new Map(), byHome = new Map();
+  for (let k = 0; k < N; k++) if (match[k]) {
+    n++; rows += S.rows[k]; t[S.tier[k]]++;
+    TYPES.forEach(([key], j) => { ty[j] += S[key][k]; });
+    if (S.t0[k] != null) { lo = Math.min(lo, S.t0[k]); hi = Math.max(hi, S.t1[k] ?? S.t0[k]); }
+    byCat.set(cat(k), (byCat.get(cat(k)) || 0) + 1);
+    for (const h of S.homes[k]) byHome.set(h, (byHome.get(h) || 0) + 1);
+  }
+  countMatched = n;
+  $("count").textContent = active ? `${fmt(n)} / ${fmt(N)} sessions` : `${fmt(N)} sessions`;
+  const topCats = [...byCat.entries()].sort((a, b) => b[1] - a[1]).slice(0, 18);
+  const topHomes = [...byHome.entries()].sort((a, b) => b[1] - a[1]).slice(0, 16)
+    .map(([h, c]) => { const x = D.homes[h]; return [x.path.replace(/^\/Users\/[^/]+/, "~"), c, `${fmt(c)} · ${(x.bytes / 1e9).toFixed(2)} GB · ${x.origin}`]; });
+  $("panel").innerHTML = `
+    <h2>${active ? "query result" : "all sessions"} · ${esc(D.agent)}</h2>
+    <div class="kv">
+      <span>sessions</span><span>${fmt(n)}</span>
+      <span>main</span><span>${fmt(t[0])}</span>
+      <span>subagent</span><span>${fmt(t[1])}</span>
+      <span>workflow</span><span>${fmt(t[2])}</span>
+      <span>rows</span><span>${fmt(rows)}</span>
+      <span>span (BKK)</span><span>${lo < Infinity ? bkk(lo).slice(0, 10) + " → " + bkk(hi).slice(0, 10) : "—"}</span>
+    </div>
+    <h2>rows by type</h2>${typeBars(ty, rows)}
+    <h2>repos</h2>${bars(topCats, topCats[0]?.[1] || 1, l => `repo:${l}`)}
+    <h2>jsonl homes (sessions · size · origin)</h2>${bars(topHomes, topHomes[0]?.[1] || 1, l => `home:${l.replace(/^~/, "")}`)}
+    <h2>query</h2>
+    <div class="help">words match repo, project and sid. <code>repo:</code> <code>proj:</code> <code>sid:</code> <code>home:</code>
+    <code>tier:main|sub|wf</code> <code>month:2026-07</code> <code>after:2026-09-01</code> <code>before:</code>
+    <code>rows&gt;1000</code> <code>text</code> <code>msgs</code> <code>copies</code>
+    <code>user</code> <code>asst</code> <code>think</code> <code>calls</code> <code>results</code> <code>errors</code> <code>tools</code>, e.g. <code>think&gt;0</code> <code>errors&gt;=20</code>. A leading <code>-</code> negates. Terms AND.
+    Click a star for its session, drag to pan, wheel to zoom, double-click to reset.</div>
+    <div class="help" style="margin-top:8px">built ${esc(D.built)} · ${fmt(D.homes.length)} homes · rings = month started (BKK), inside = oldest</div>`;
+  for (const el of $("panel").querySelectorAll("[data-q]")) el.onclick = () => addTerm(el.dataset.q);
+}
+// click a repo, a home, a status or a folder: add it to the query (quoted when it has spaces)
+function addTerm(raw) {
+  const ci = raw.indexOf(":");
+  const term = raw.startsWith('"') || !/\s/.test(raw) ? raw : ci < 0 ? `"${raw}"` : `${raw.slice(0, ci)}:"${raw.slice(ci + 1)}"`;
+  const q = $("q").value.trim();
+  $("q").value = (q ? q + " " : "") + term;
+  run($("q").value);
+}
+function detail(k) {
+  const root = S.parent[k] >= 0 ? S.parent[k] : k, sid = S.sid[k];
+  const homes = S.homes[k].map(h => `${esc(D.homes[h].path.replace(/^\/Users\/[^/]+/, "~"))} <span class="muted">(${D.homes[h].origin})</span>`).join("<br>");
+  const ks = kids[root].slice().sort((a, b) => (S.t0[a] ?? 0) - (S.t0[b] ?? 0));
+  $("panel").innerHTML = `
+    <h2>${TIER[S.tier[k]]} session</h2>
+    <div class="kv">
+      <span>sid</span><span><code>${esc(sid)}</code></span>
+      <span>repo</span><span>${esc(cat(k))}</span>
+      <span>project</span><span>${esc(proj(k) || "—")}</span>
+      <span>started</span><span>${bkk(S.t0[k])}</span>
+      <span>last</span><span>${bkk(S.t1[k])}</span>
+      <span>rows</span><span>${fmt(S.rows[k])} (text ${fmt(S.text[k])} · msgs ${fmt(S.msgs[k])})</span>
+      ${TYPES.map(([key, label, color]) => `<span style="color:${color}">${label}</span><span>${fmt(S[key][k])}</span>`).join("")}
+      <span>copies</span><span>${S.copies[k]} · ${(S.bytes[k] / 1e6).toFixed(1)} MB largest</span>
+      <span>homes</span><span>${homes || "—"}</span>
+      ${root !== k ? `<span>parent</span><span class="row" data-k="${root}"><code>${esc(S.sid[root])}</code></span>` : ""}
+    </div>
+    <button class="btn" data-copy="${esc(sid)}">copy sid</button>
+    ${S.tier[k] === 0 ? `<button class="btn" data-copy="claude --resume ${esc(sid)}">copy resume</button>` : ""}
+    <button class="btn" id="back">back</button>
+    <h2>${root === k ? "satellites" : "siblings"} · ${ks.length}</h2>
+    ${ks.slice(0, 300).map(c => `<div class="row" data-k="${c}"><span style="color:${COLOR[S.tier[c]]}">${esc(S.sid[c].slice(0, 22))}</span><span class="n">${fmt(S.rows[c])}</span></div>`).join("")}`;
+  for (const el of $("panel").querySelectorAll("[data-k]")) el.onclick = () => select(+el.dataset.k);
+  for (const el of $("panel").querySelectorAll("[data-copy]")) el.onclick = () => navigator.clipboard.writeText(el.dataset.copy).then(() => { el.textContent = "copied"; });
+  $("back").onclick = () => select(-1);
+}
+function select(k) { sel = k; summary(); if (VIEW === "tree") renderTree(); else redraw(); }
+
+// ---------- tabs: map | tree | paths; a session query travels in the hash between map and tree ----------
+function tabs() {
+  const file = location.protocol === "file:";
+  // a session query carries between map and tree; paths has its own words; the dashboards take none
+  const h = v => ["map", "tree"].includes(v) && ["map", "tree"].includes(VIEW) ? location.hash : "";
+  const href = v => file ? `?view=${v}${h(v)}` : `/${v}${h(v)}`;
+  const item = (v, ic, l) => `<a class="${VIEW === v ? "on" : ""}" href="${href(v)}" title="${l}"><span class="ic">${ic}</span><span class="lbl">${l}</span></a>`;
+  const ago = D.last_run ? agoText(Date.now() / 1000 - D.last_run) : "never";
+  $("side").innerHTML = `<div class="brand"><div class="logo">◎</div><div class="t"><b>RELIC</b><i>SCAN</i></div></div>`
+    + item("scan", "✦", "Smart Scan") + item("banks", "⌂", "Banks & Repos") + item("health", "✚", "Health")
+    + `<div class="sep"></div>` + item("map", "✺", "Session map") + item("tree", "☰", "Tree") + item("paths", "▤", "Paths")
+    + `<div class="foot"><div><span class="dot" id="sdot"></span><b id="sstate">RELIC READY</b></div>
+       <div>Index runs only when you click it.</div><div>last run ${ago}</div></div>`;
+}
+const agoText = d => d < 90 ? "just now" : d < 5400 ? Math.round(d / 60) + " min ago" : d < 129600 ? Math.round(d / 3600) + " h ago" : Math.round(d / 86400) + " days ago";
+
+// ---------- tree: jsonl home -> repo -> session -> satellites ----------
+// a session sits under every home that holds a copy of it; counts are over the sessions the query matches
+const roots = new Map(); // "home|cat" -> root sessions (mains, and satellites whose parent is unknown)
+for (let k = 0; k < N; k++) if (!(S.tier[k] > 0 && S.parent[k] >= 0))
+  for (const h of S.homes[k]) { const key = h + "|" + S.cat[k]; (roots.get(key) || roots.set(key, []).get(key)).push(k); }
+const open = new Set(), cap = new Map();
+let treeAuto = false;
+const newAgg = () => ({ n: 0, rows: 0, ty: [0, 0, 0, 0, 0, 0], last: 0 });
+function addAgg(a, k) {
+  a.n++; a.rows += S.rows[k]; TYPES.forEach(([key], j) => { a.ty[j] += S[key][k]; });
+  a.last = Math.max(a.last, S.t1[k] ?? S.t0[k] ?? 0);
+}
+// five segments (user, assistant, thinking, calls, results) as shares of the rows
+function typeBar(ty, rows) {
+  if (!rows) return `<span class="tb"></span>`;
+  return `<span class="tb" title="${TYPES.map(([, l], j) => `${l} ${fmt(ty[j])}`).join(" · ")}">`
+    + TYPES.slice(0, 5).map(([, , c], j) => `<i style="width:${100 * ty[j] / rows}%;background:${c}"></i>`).join("") + `</span>`;
+}
+function tnode(key, depth, label, a, count) {
+  const opn = open.has(key) ? "▾" : "▸";
+  return `<div class="tn${key === "s:" + sel ? " sel" : ""}" data-key="${key}" style="padding-left:${6 + depth * 18}px">
+    <span class="nm">${opn} ${label}</span><span class="c">${count ?? fmt(a.n) + " sess"}</span><span class="c">${fmt(a.rows)} rows</span>
+    ${typeBar(a.ty, a.rows)}<span class="c">${a.last ? bkk(a.last).slice(0, 10) : "—"}</span></div>`;
+}
+function sessRow(k, depth) {
+  const ks = kids[k].filter(c => match[c]);
+  const a = newAgg(); addAgg(a, k);
+  const label = `<span style="color:${COLOR[S.tier[k]]}">${esc(S.sid[k].slice(0, 36))}</span> <span class="tw">${bkk(S.t0[k]).slice(0, 16)}</span>`;
+  let h = tnode("s:" + k, depth, label, a, ks.length ? `${fmt(ks.length)} sat` : "—");
+  if (open.has("s:" + k)) for (const c of ks.sort((x, y) => (S.t0[x] ?? 0) - (S.t0[y] ?? 0))) {
+    const b = newAgg(); addAgg(b, c);
+    h += tnode("s:" + c, depth + 1, `<span style="color:${COLOR[S.tier[c]]}">${esc(S.sid[c].slice(0, 36))}</span> <span class="tw">${TIER[S.tier[c]]}</span>`, b, "");
+  }
+  return h;
+}
+function renderTree() {
+  const H = new Map(), HR = new Map();
+  for (let k = 0; k < N; k++) if (match[k]) for (const h of S.homes[k]) {
+    addAgg(H.get(h) || H.set(h, newAgg()).get(h), k);
+    const key = h + "|" + S.cat[k];
+    addAgg(HR.get(key) || HR.set(key, newAgg()).get(key), k);
+  }
+  // a small result opens itself down to the repos
+  if (active && countMatched <= 400 && !treeAuto) { for (const key of HR.keys()) { open.add("h:" + key.split("|")[0]); open.add("r:" + key); } treeAuto = true; }
+  if (!active) treeAuto = false;
+  let html = `<div class="tn th"><span>jsonl home → repo → session → satellites</span><span class="c">sessions</span><span class="c">rows</span><span>by type</span><span class="c">last (BKK)</span></div>`;
+  for (const [h, a] of [...H].sort((x, y) => y[1].rows - x[1].rows)) {
+    const home = D.homes[h];
+    html += tnode("h:" + h, 0, `${esc(home.path.replace(/^\/Users\/[^/]+/, "~"))} <span class="tw">${home.origin} · ${fmt(home.files)} files · ${(home.bytes / 1e9).toFixed(2)} GB</span>`, a);
+    if (!open.has("h:" + h)) continue;
+    const repos = [...HR].filter(([key]) => key.startsWith(h + "|")).sort((x, y) => y[1].rows - x[1].rows);
+    for (const [key, b] of repos) {
+      const c = +key.split("|")[1];
+      html += tnode("r:" + key, 1, esc(c < 0 ? "(none)" : D.cats[c]), b);
+      if (!open.has("r:" + key)) continue;
+      const list = (roots.get(key) || []).filter(k => match[k] || kids[k].some(x => match[x]))
+        .sort((x, y) => (S.t0[y] ?? 0) - (S.t0[x] ?? 0));
+      const n = cap.get(key) || 200;
+      for (const k of list.slice(0, n)) html += sessRow(k, 2);
+      if (list.length > n) html += `<div class="more" data-more="${key}" style="padding-left:${6 + 2 * 18}px">… ${fmt(list.length - n)} more (newest first)</div>`;
+    }
+  }
+  $("tree").innerHTML = html;
+}
+$("tree").addEventListener("click", e => {
+  if (VIEW === "paths") {
+    const pmore = e.target.closest("[data-pmore]");
+    if (pmore) { const id = +pmore.dataset.pmore; pcap.set(id, (pcap.get(id) || 200) + 1000); return prender(); }
+    const n = e.target.closest("[data-key]"); if (!n) return;
+    const [t, v] = n.dataset.key.split(":");
+    if (t === "f") { psel = +v; psummary(); return prender(); }
+    if (popen.has(+v)) popen.delete(+v); else popen.add(+v);
+    return prender();
+  }
+  const more = e.target.closest("[data-more]");
+  if (more) { cap.set(more.dataset.more, (cap.get(more.dataset.more) || 200) + 500); return renderTree(); }
+  const n = e.target.closest("[data-key]"); if (!n) return;
+  const key = n.dataset.key;
+  if (open.has(key)) open.delete(key); else open.add(key);
+  if (key.startsWith("s:")) select(+key.slice(2)); else renderTree();
+});
+
+// ---------- paths: every .jsonl the scan saw, as a folder tree (data from /paths.json, loaded only here) ----------
+// status: indexed (parsed into the months) · skipped (in a home, but the sniff said not a transcript)
+//         vault (in a ψ vault, not parsed) · loose (anywhere else under the roots, not parsed)
+const STATUS = [["indexed", COLOR[1]], ["skipped", INK.hit], ["vault", COLOR[2]], ["loose", LIGHT ? "#8a93a8" : "#7c8496"]];
+let P = null, PN = 0, pm, pdir, plow, pact = false, pcount = 0, psel = -1;
+const nodes = []; // folder trie: { name, parent, kids: Map(name -> id), files: [] }
+const popen = new Set([0]), pcap = new Map();
+const pstat = i => P.f.pl[i] === 0 ? (P.f.ok[i] ? 0 : 1) : P.f.pl[i] === 1 ? 2 : 3;
+const ptilde = s => P.home && s.startsWith(P.home) ? "~" + s.slice(P.home.length) : s;
+const ppath = i => P.dirs[P.f.d[i]] + "/" + P.f.n[i];
+const mb = b => b >= 1e9 ? (b / 1e9).toFixed(2) + " GB" : (b / 1e6).toFixed(1) + " MB";
+let agg; // per trie node: [files, bytes, rows, indexed, skipped, vault, loose]
+function loadPaths() {
+  $("tree").innerHTML = `<div class="muted" style="padding:20px">loading paths…</div>`;
+  fetch("/paths.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(d => {
+    P = d; PN = P.f.n.length; pm = new Uint8Array(PN);
+    nodes.push({ name: "", parent: -1, kids: new Map(), files: [] });
+    pdir = P.dirs.map(dp => {
+      let id = 0;
+      for (const part of dp.split("/").filter(Boolean)) {
+        let k = nodes[id].kids.get(part);
+        if (k == null) { k = nodes.length; nodes.push({ name: part, parent: id, kids: new Map(), files: [] }); nodes[id].kids.set(part, k); }
+        id = k;
+      }
+      return id;
+    });
+    for (let i = 0; i < PN; i++) nodes[pdir[P.f.d[i]]].files.push(i);
+    plow = Array.from({ length: PN }, (_, i) => (ptilde(ppath(i)) + " " + ppath(i)).toLowerCase());
+    prun($("q").value);
+  }).catch(e => {
+    $("tree").innerHTML = `<div style="padding:20px">The paths view needs <code>relic-scan serve</code> (or <code>up</code>): it loads
+      <code>/paths.json</code>, which a page opened as a file cannot read. (${esc(String(e))})</div>`;
+  });
+}
+function ptest(i, t) {
+  const v = t.val.toLowerCase();
+  switch (t.key) {
+    case "is": case "status": return STATUS[pstat(i)][0].startsWith(v);
+    case "verdict": return (P.verdicts[P.f.v[i]] || "").includes(v);
+    case "name": return P.f.n[i].toLowerCase().includes(v);
+    case "size": return cmp(P.f.size[i], t.op, Number(v));
+    case "mb": return cmp(P.f.size[i] / 1e6, t.op, Number(v));
+    case "rows": return cmp(P.f.rows[i], t.op, Number(v));
+    case "after": return bkk(P.f.mt[i]) >= v;
+    case "before": return bkk(P.f.mt[i]) < v;
+  }
+  return true;
+}
+function prun(q) {
+  if (!P) return;
+  const terms = parseQuery(q);
+  pact = terms.length > 0; pcount = 0;
+  for (let i = 0; i < PN; i++) {
+    let ok = true;
+    for (const t of terms) if ((t.word != null ? plow[i].includes(t.word) : ptest(i, t)) === t.neg) { ok = false; break; }
+    pm[i] = ok ? 1 : 0; pcount += ok;
+  }
+  agg = Array.from({ length: nodes.length }, () => [0, 0, 0, 0, 0, 0, 0]);
+  for (let i = 0; i < PN; i++) if (pm[i]) {
+    const st = pstat(i);
+    for (let id = pdir[P.f.d[i]]; id >= 0; id = nodes[id].parent) {
+      const a = agg[id]; a[0]++; a[1] += P.f.size[i]; a[2] += Math.max(0, P.f.rows[i]); a[3 + st]++;
+    }
+  }
+  // a small result opens every folder it touches
+  if (pact && pcount <= 3000) for (let id = 0; id < nodes.length; id++) if (agg[id][0]) popen.add(id);
+  history.replaceState(null, "", location.pathname + location.search + (q ? "#" + encodeURIComponent(q) : ""));
+  $("count").textContent = pact ? `${fmt(pcount)} / ${fmt(PN)} .jsonl` : `${fmt(PN)} .jsonl`;
+  tabs(); psummary(); prender();
+}
+function statBar(a) {
+  if (!a[0]) return `<span class="tb"></span>`;
+  return `<span class="tb" title="${STATUS.map(([l], j) => `${l} ${fmt(a[3 + j])}`).join(" · ")}">`
+    + STATUS.map(([, c], j) => `<i style="width:${100 * a[3 + j] / a[0]}%;background:${c}"></i>`).join("") + `</span>`;
+}
+function prow(key, depth, label, cols, sel) {
+  return `<div class="tn${sel ? " sel" : ""}" data-key="${key}" style="padding-left:${6 + depth * 18}px"><span class="nm">${label}</span>${cols}</div>`;
+}
+function pnode(id, depth, out) {
+  // fold a chain of folders that hold nothing but one sub-folder: ~/.claude/projects reads as one row
+  let label = nodes[id].name, end = id;
+  for (;;) {
+    const kids = [...nodes[end].kids.values()].filter(k => agg[k][0]);
+    if (kids.length !== 1 || nodes[end].files.some(i => pm[i])) break;
+    end = kids[0]; label += "/" + nodes[end].name;
+  }
+  const a = agg[end], opn = popen.has(end);
+  if (id === 0) label = label || "/";
+  else if (nodes[id].parent === 0) label = ptilde("/" + label); // /Users/me/… reads ~/…
+  out.push(prow("d:" + end, depth, `${opn ? "▾" : "▸"} ${esc(label)}`, `<span class="c">${fmt(a[0])} files</span><span class="c">${fmt(a[2])} rows</span>${statBar(a)}<span class="c">${mb(a[1])}</span>`));
+  if (!opn) return;
+  const kids = [...nodes[end].kids.values()].filter(k => agg[k][0]).sort((x, y) => agg[y][0] - agg[x][0]);
+  for (const k of kids) pnode(k, depth + 1, out);
+  const files = nodes[end].files.filter(i => pm[i]).sort((x, y) => P.f.size[y] - P.f.size[x]);
+  const n = pcap.get(end) || 200;
+  for (const i of files.slice(0, n)) {
+    const [st, c] = STATUS[pstat(i)];
+    out.push(prow("f:" + i, depth + 1, `<span style="color:${c}">●</span> ${esc(P.f.n[i])} <span class="tw">${st}</span>`,
+      `<span class="c">${P.f.rows[i] >= 0 ? fmt(P.f.rows[i]) + " rows" : "—"}</span><span class="c">${esc(P.verdicts[P.f.v[i]] || "")}</span><span class="c tw">${bkk(P.f.mt[i]).slice(0, 10)}</span><span class="c">${mb(P.f.size[i])}</span>`, i === psel));
+  }
+  if (files.length > n) out.push(`<div class="more" data-pmore="${end}" style="padding-left:${6 + (depth + 1) * 18}px">… ${fmt(files.length - n)} more (biggest first)</div>`);
+}
+function prender() {
+  const out = [`<div class="tn th"><span>folder → .jsonl (biggest first)</span><span class="c">files</span><span class="c">rows</span><span>status</span><span class="c">size</span></div>`];
+  if (agg[0][0]) pnode(0, 0, out); else out.push(`<div class="muted" style="padding:12px">no .jsonl matches</div>`);
+  $("tree").innerHTML = out.join("");
+}
+function psummary() {
+  if (psel >= 0) return pdetail(psel);
+  const a = agg[0], byV = new Map(), byDir = new Map();
+  for (let i = 0; i < PN; i++) if (pm[i]) {
+    const v = P.verdicts[P.f.v[i]] || "—"; byV.set(v, (byV.get(v) || 0) + 1);
+    byDir.set(P.f.d[i], (byDir.get(P.f.d[i]) || 0) + 1);
+  }
+  const vs = [...byV].sort((x, y) => y[1] - x[1]);
+  const ds = [...byDir].sort((x, y) => y[1] - x[1]).slice(0, 14).map(([d, c]) => [ptilde(P.dirs[d]), c]);
+  $("panel").innerHTML = `
+    <h2>${pact ? "query result" : "every .jsonl the scan saw"}</h2>
+    <div class="kv">
+      <span>files</span><span>${fmt(a[0])}</span>
+      <span>size</span><span>${mb(a[1])}</span>
+      <span>rows</span><span>${fmt(a[2])} (indexed files)</span>
+    </div>
+    <h2>status</h2>${STATUS.map(([l, c], j) => `<div class="row" data-q="is:${l}"><span><b style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c};margin-right:6px"></b>${l}</span>
+      <span class="n">${fmt(a[3 + j])}</span></div><div class="bar"><i style="width:${Math.max(0.5, a[0] ? 100 * a[3 + j] / a[0] : 0)}%;background:${c}"></i></div>`).join("")}
+    <h2>verdict (content sniff)</h2>${bars(vs, vs[0]?.[1] || 1, l => `verdict:${l}`)}
+    <h2>busiest folders</h2>${bars(ds, ds[0]?.[1] || 1, l => `"${l}/"`)}
+    <h2>query</h2>
+    <div class="help">words match the path (<code>~/…</code> or full). <code>is:indexed|skipped|vault|loose</code>
+    <code>verdict:not-transcript</code> <code>name:agent-</code> <code>mb&gt;100</code> <code>size&gt;1e9</code> <code>rows&gt;10000</code>
+    <code>rows=0</code> <code>after:2026-10-01</code> <code>before:</code>. A leading <code>-</code> negates. Terms AND.
+    Click a folder to open it, a file for its details.</div>
+    <div class="help" style="margin-top:8px">built ${esc(P.built)} · indexed = parsed into the months; skipped = in a home, but not a transcript;
+    vault / loose = outside every home, listed only</div>`;
+  for (const el of $("panel").querySelectorAll("[data-q]")) el.onclick = () => addTerm(el.dataset.q);
+}
+function pdetail(i) {
+  const [st, c] = STATUS[pstat(i)], full = ppath(i);
+  $("panel").innerHTML = `
+    <h2>.jsonl</h2>
+    <div class="kv">
+      <span>name</span><span><code>${esc(P.f.n[i])}</code></span>
+      <span>folder</span><span>${esc(ptilde(P.dirs[P.f.d[i]]))}</span>
+      <span>status</span><span style="color:${c}">${st}</span>
+      <span>verdict</span><span>${esc(P.verdicts[P.f.v[i]] || "—")}</span>
+      <span>place</span><span>${["agent home", "ψ vault", "elsewhere"][P.f.pl[i]]}</span>
+      <span>size</span><span>${mb(P.f.size[i])} (${fmt(P.f.size[i])} B)</span>
+      <span>rows</span><span>${P.f.rows[i] >= 0 ? fmt(P.f.rows[i]) : "— (not indexed)"}</span>
+      <span>modified</span><span>${bkk(P.f.mt[i])} BKK</span>
+    </div>
+    <button class="btn" data-copy="${esc(full)}">copy path</button>
+    <button class="btn" id="back">back</button>`;
+  for (const el of $("panel").querySelectorAll("[data-copy]")) el.onclick = () => navigator.clipboard.writeText(el.dataset.copy).then(() => { el.textContent = "copied"; });
+  $("back").onclick = () => { psel = -1; psummary(); prender(); };
+}
+
+// ---------- dashboards: Smart Scan, Banks & Repos, Health (the Relic Studio shell, from this index's own numbers) ----------
+const SC = D.scan || { discovered: 0, indexed: 0, skipped: 0, vault: 0, loose: 0, loose_transcripts: 0, unknown: 0, empty: 0, bytes: 0 };
+const gbs = b => (b / 1e9).toFixed(1) + " GB";
+function ring(frac, big, label, pct) {
+  const R = 118, C = 2 * Math.PI * R, arc = `stroke-dasharray="${C * Math.max(0.002, Math.min(1, frac))} ${C}" transform="rotate(-90 160 160)"`;
+  return `<svg width="320" height="320" viewBox="0 0 320 320" role="img" aria-label="${label} ${big}, ${pct}">
+    <defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5fd0f3"/><stop offset="1" stop-color="#f3ef8a"/></linearGradient>
+      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter></defs>
+    <circle cx="160" cy="160" r="${R + 24}" fill="none" stroke="var(--line)" stroke-dasharray="1 7"/>
+    <circle cx="160" cy="160" r="${R}" fill="none" stroke="var(--line)" stroke-width="22"/>
+    <circle cx="160" cy="160" r="${R}" fill="none" stroke="url(#rg)" stroke-width="22" stroke-linecap="round" ${arc} filter="url(#glow)" opacity=".55"/>
+    <circle cx="160" cy="160" r="${R}" fill="none" stroke="url(#rg)" stroke-width="22" stroke-linecap="round" ${arc}/>
+    <text x="160" y="152" text-anchor="middle" font-size="42" font-weight="800" fill="var(--ink)">${big}</text>
+    <text x="160" y="178" text-anchor="middle" font-size="14" font-weight="600" fill="var(--cyan)">${label}</text>
+    <line x1="115" x2="205" y1="196" y2="196" stroke="var(--line)"/>
+    <text x="160" y="222" text-anchor="middle" font-size="17" font-weight="700" fill="var(--dim)">${pct}</text>
+    <text x="160" y="242" text-anchor="middle" font-size="10" letter-spacing="3" font-weight="700" fill="var(--dim)">COVERAGE</text></svg>`;
+}
+const stat = (k, v, c) => `<div class="stat"><div class="k">${k}</div><div class="v" style="color:${c}">${v}</div></div>`;
+function totals() {
+  let rows = 0, t = [0, 0, 0], ty = TYPES.map(() => 0), undated = 0, orphans = 0, sats = 0;
+  const months = new Set();
+  for (let k = 0; k < N; k++) {
+    rows += S.rows[k]; t[S.tier[k]]++; TYPES.forEach(([key], j) => { ty[j] += S[key][k]; });
+    if (S.t0[k] == null) undated++; else months.add(monthIdx(S.t0[k]));
+    if (S.tier[k] > 0) { sats++; if (S.parent[k] < 0) orphans++; }
+  }
+  return { rows, t, ty, undated, orphans, sats, months: months.size };
+}
+function dashScan() {
+  const T = totals(), cov = SC.indexed / Math.max(1, SC.indexed + SC.loose_transcripts);
+  return `<div class="eyebrow">Memory intake</div><h1>Smart Scan</h1>
+    <p class="sub">Find every agent transcript on this machine, read only the bytes that are new, and rebuild the months, the meta and these views.</p>
+    <div class="ringwrap">${ring(cov, fmt(SC.indexed), "files indexed", (100 * cov).toFixed(2) + "%")}</div>
+    <div class="card"><h3>▣ Index controls</h3>
+      <div>The last run indexed <b>${fmt(SC.indexed)}</b> transcript files (${gbs(SC.bytes)}) out of <b>${fmt(SC.discovered)}</b> .jsonl discovered.
+        ${fmt(SC.skipped)} in agent homes are not transcripts; ${fmt(SC.vault + SC.loose)} sit outside every home.</div>
+      <div style="margin-top:18px"><button class="go" id="dgo" ${SERVED ? "" : "disabled title='open it through relic-scan serve or the app'"}>▶&nbsp; Index now</button><button class="ghost" id="dref">↻&nbsp; Refresh status</button></div>
+      <div class="track"><i id="dbar"></i></div><div class="note" id="dmsg">Refresh only reads. Index now is the one write action, and it runs only when you click it; a run reads new bytes only.</div></div>
+    <div class="strip">${stat("Files indexed", fmt(SC.indexed), "var(--green)")}${stat("Files discovered", fmt(SC.discovered), "var(--cyan)")}${stat("Not transcripts", fmt(SC.skipped), "var(--amber)")}${stat("Outside homes", fmt(SC.vault + SC.loose), "var(--amber)")}</div>
+    <div class="strip">${stat("Sessions", fmt(N), "var(--ink)")}${stat("Rows", fmt(T.rows), "var(--ink)")}${stat("Indexed size", gbs(SC.bytes), "var(--ink)")}${stat("Last run", D.last_run ? agoText(Date.now() / 1000 - D.last_run) : "never", "var(--ink)")}</div>`;
+}
+function homeStats() {
+  const H = D.homes.map(() => ({ n: 0, last: 0 }));
+  for (let k = 0; k < N; k++) for (const h of S.homes[k]) { H[h].n++; H[h].last = Math.max(H[h].last, S.t1[k] ?? S.t0[k] ?? 0); }
+  return H;
+}
+const orgRepo = k => { // "-opt-Code-github-com-Soul-Brews-Studio-mawjs-oracle" + cat "mawjs-oracle" -> "Soul-Brews-Studio/mawjs-oracle"
+  const p = proj(k), c = cat(k), i = p.toLowerCase().indexOf("github-com-");
+  if (i < 0) return p;
+  const rest = p.slice(i + 11), j = rest.toLowerCase().lastIndexOf("-" + c.toLowerCase());
+  return j > 0 ? rest.slice(0, j) + "/" + rest.slice(j + 1) : rest;
+};
+let repoCap = 30;
+function dashBanks() {
+  const H = homeStats(), order = D.homes.map((_, i) => i).sort((a, b) => D.homes[b].rows - D.homes[a].rows);
+  const name = p => p.replace(/^\/Users\/[^/]+/, "~");
+  const banks = order.map(i => { const h = D.homes[i];
+    return `<div class="bank" data-go="/tree#home:${encodeURIComponent(name(h.path).replace(/^~/, ""))}">
+      <div class="n">⌂ ${esc(name(h.path).split("/").slice(-2).join("/"))}<span class="badge">${h.origin}</span></div><div class="p">${esc(name(h.path))}</div>
+      <div class="nums"><div><b>${fmt(H[i].n)}</b><span>SESSIONS</span></div><div><b>${fmt(h.rows)}</b><span>ROWS</span></div>
+        <div><b>${fmt(h.files)}</b><span>FILES</span></div><div><b>${gbs(h.bytes)}</b><span>SIZE</span></div></div>
+      <div class="note">Newest session: ${H[i].last ? agoText(Date.now() / 1000 - H[i].last) : "—"}</div></div>`; }).join("");
+  const R = new Map();
+  for (let k = 0; k < N; k++) { const c = cat(k); const r = R.get(c) || R.set(c, { n: 0, rows: 0, k }).get(c); r.n++; r.rows += S.rows[k]; if (S.tier[k] === 0) r.k = k; }
+  const repos = [...R].sort((a, b) => b[1].rows - a[1].rows);
+  const list = repos.slice(0, repoCap).map(([c, r]) => `<div class="repo" data-go="/map#repo:${encodeURIComponent(/\s/.test(c) ? '"' + c + '"' : c)}">
+      <span style="color:var(--cyan)">▰</span><div class="r"><b>${esc(c)}</b><code>${esc(orgRepo(r.k))}</code></div>
+      <div class="x"><b>${fmt(r.n)}</b><div>sessions · ${fmt(r.rows)} rows</div></div></div>`).join("");
+  return `<div class="eyebrow">Memory topology</div><h1>Banks &amp; Repositories</h1>
+    <p class="sub">Where the transcripts live on this machine, and which repositories hold the most of them. A session copied into several banks counts in each.</p>
+    <div class="grid2">${banks}</div>
+    <div class="card" style="margin-top:22px"><h3 class="c">⌥ Repository index · ${fmt(repos.length)}</h3>${list}
+      ${repos.length > repoCap ? `<div class="note"><a href="#" id="rmore" style="color:var(--cyan)">show ${fmt(Math.min(100, repos.length - repoCap))} more</a></div>` : ""}</div>`;
+}
+function dashHealth() {
+  const T = totals(), errPct = T.ty[4] ? 100 * T.ty[5] / T.ty[4] : 0, age = D.last_run ? Date.now() / 1000 - D.last_run : Infinity;
+  const mirrors = D.homes.filter(h => h.origin !== "own").length;
+  const checks = [
+    [age > 86400 ? "warn" : "ok", age === Infinity ? "Never indexed." : `Last run ${agoText(age)}${age > 86400 ? ": transcripts written since then are not in the index yet" : ""}.`, age > 86400 ? ["/scan", "index"] : null],
+    [SC.loose_transcripts ? "warn" : "ok", SC.loose_transcripts ? `${fmt(SC.loose_transcripts)} .jsonl outside every agent home look like transcripts. They are listed, not indexed (usually test fixtures).` : "No transcript sits outside an agent home.", SC.loose_transcripts ? ["/paths#-is:indexed verdict:transcript", "see them"] : null],
+    [T.orphans / Math.max(1, T.sats) > 0.01 ? "warn" : "ok", `${fmt(T.sats - T.orphans)} of ${fmt(T.sats)} subagent and workflow sessions found their main session${T.orphans ? `; ${fmt(T.orphans)} have none on disk` : ""}.`, null],
+    [T.undated ? "info" : "ok", T.undated ? `${fmt(T.undated)} sessions carry no timestamp; their rows are in the undated month.` : "Every session has a timestamp.", null],
+    [SC.empty ? "info" : "ok", SC.empty ? `${fmt(SC.empty)} indexed files produced no rows (empty or summary-only sessions).` : "Every indexed file produced rows.", SC.empty ? ["/paths#is:indexed rows=0", "see them"] : null],
+    ["info", `${fmt(SC.skipped)} files in agent homes are not transcripts (workflow journals, prompt logs, omx logs) and were skipped by the content sniff.`, ["/paths#is:skipped", "see them"]],
+    ["info", `${fmt(SC.unknown)} files had no recognised shape and were indexed anyway: a transcript-shaped path is never dropped.`, SC.unknown ? ["/paths#verdict:unknown", "see them"] : null],
+    ["info", `${mirrors} of ${D.homes.length} homes are mirrors, rescues or copies; the same line read twice is folded into one row.`, ["/banks", "banks"]],
+    ["info", `Tool errors: ${fmt(T.ty[5])}, ${errPct.toFixed(1)}% of tool results.`, ["/map#errors>=20", "sessions with 20+"]],
+  ];
+  const warns = checks.filter(c => c[0] === "warn").length;
+  const L = { ok: ["var(--green)", "✓"], warn: ["var(--amber)", "!"], info: ["var(--cyan)", "i"] };
+  return `<div class="eyebrow">System readiness</div><h1>Health</h1>
+    <p class="sub">Signals computed from this index itself: nothing here is estimated.</p>
+    <div class="card head"><span class="big" style="color:${warns ? "var(--amber)" : "var(--green)"}">${warns ? "⚠" : "✓"}</span>
+      <div><b style="font-size:18px">${warns ? `${warns} warning${warns > 1 ? "s" : ""} reported` : "All clear"}</b>
+      <div class="note" style="margin:2px 0 0">Page built ${esc(D.built)} · ${esc(D.out || "")}</div></div></div>
+    <div class="strip">${stat("Rows", fmt(T.rows), "var(--cyan)")}${stat("Sessions", fmt(N), "var(--green)")}${stat("Months", fmt(T.months), "var(--amber)")}${stat("Warnings", warns, warns ? "var(--amber)" : "var(--green)")}</div>
+    <div class="card"><h3>⚑ Checks</h3>${checks.map(([lv, txt, link]) => `<div class="warn"><span class="lvl" style="background:${L[lv][0]}">${L[lv][1]}</span>
+      <div>${txt}</div>${link ? `<a href="${link[0]}">${link[1]} →</a>` : "<span></span>"}</div>`).join("")}</div>`;
+}
+function renderDash() {
+  $("dash").innerHTML = VIEW === "scan" ? dashScan() : VIEW === "banks" ? dashBanks() : dashHealth();
+  for (const el of $("dash").querySelectorAll("[data-go]")) el.onclick = () => { location.href = el.dataset.go; };
+  const more = $("rmore"); if (more) more.onclick = e => { e.preventDefault(); repoCap += 100; renderDash(); };
+  if ($("dgo")) {
+    $("dgo").onclick = () => $("idx").click();
+    $("dref").onclick = () => location.reload();
+  }
+}
+// a run's progress, from the index button's poll: the sidebar state and the Smart Scan card follow it
+window.onRun = st => {
+  if ($("sstate")) { $("sstate").textContent = st.running ? "INDEXING" : "RELIC READY"; $("sdot").style.background = st.running ? "var(--amber)" : "var(--green)"; }
+  if (!$("dgo") || !st.running) return;
+  $("dgo").disabled = true; $("dgo").textContent = "Indexing…";
+  const f = st.phase === "parse" && st.total ? st.done / st.total : st.phase === "scan" ? 0.03 : st.phase === "merge" ? 0.92 : st.phase === "meta" ? 0.97 : 0;
+  $("dbar").style.width = (100 * f).toFixed(1) + "%";
+  $("dmsg").textContent = st.phase === "scan" ? `scan · ${st.walked.toLocaleString()} entries walked · ${st.listed.toLocaleString()} .jsonl listed`
+    : st.phase === "parse" ? `parse · ${(st.done / 1e9).toFixed(1)} / ${(st.total / 1e9).toFixed(1)} GB` : `${st.phase}…`;
+  $("dmsg").textContent += ` · ${Math.round(st.secs || 0)}s`;
+};
+
+// ---------- legend + input ----------
+function legend() {
+  $("legend").innerHTML = TIER.map((t, i) => `<button class="${tierOn[i] ? "on" : ""}" data-t="${i}"><b style="background:${COLOR[i]}"></b>${t}</button>`).join("")
+    + (VIEW === "tree" ? "" : ` <span>color:</span>` + ["tier", "repo", "age", "tools%", "thinking"].map(c => `<button class="${colorBy === c ? "on" : ""}" data-c="${c}">${c}</button>`).join(""));
+  for (const el of $("legend").querySelectorAll("[data-t]")) el.onclick = () => { tierOn[+el.dataset.t] = !tierOn[+el.dataset.t]; legend(); run($("q").value); };
+  for (const el of $("legend").querySelectorAll("[data-c]")) el.onclick = () => { colorBy = el.dataset.c; legend(); redraw(); };
+}
+let timer;
+$("q").addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(() => run($("q").value), 180); });
+$("q").addEventListener("keydown", e => { if (e.key === "Escape") { $("q").value = ""; run(""); } });
+
+let drag = null, moved = false;
+cv.addEventListener("mousedown", e => { drag = [e.clientX, e.clientY, ox, oy]; moved = false; });
+addEventListener("mouseup", e => {
+  if (drag && !moved && e.target === cv) { const k = nearest(e.clientX, e.clientY); select(k); }
+  drag = null;
+});
+addEventListener("mousemove", e => {
+  if (drag) {
+    const dx = e.clientX - drag[0], dy = e.clientY - drag[1];
+    if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
+    ox = drag[2] + dx; oy = drag[3] + dy; redraw(); return;
+  }
+  if (e.target !== cv) return;
+  const k = nearest(e.clientX, e.clientY), tip = $("tip");
+  if (k !== hover) { hover = k; redraw(); }
+  if (k < 0) { tip.style.display = "none"; return; }
+  tip.style.display = "block"; tip.style.left = e.clientX + 14 + "px"; tip.style.top = e.clientY + 12 + "px";
+  tip.innerHTML = `<span style="color:${COLOR[S.tier[k]]}">${TIER[S.tier[k]]}</span> · ${esc(cat(k))}<br>
+    <code>${esc(S.sid[k])}</code><br>${bkk(S.t0[k])} · ${fmt(S.rows[k])} rows · ${S.copies[k]} cop${S.copies[k] === 1 ? "y" : "ies"}`;
+});
+cv.addEventListener("wheel", e => {
+  e.preventDefault();
+  const f = Math.exp(-e.deltaY * 0.0015), x = e.clientX, y = e.clientY;
+  ox = x - (x - ox) * f; oy = y - (y - oy) * f; scale *= f; redraw();
+}, { passive: false });
+cv.addEventListener("dblclick", () => { home(); redraw(); });
+addEventListener("resize", () => { fit(); redraw(); });
+
+if (VIEW !== "map") { cv.style.display = "none"; document.documentElement.classList.add("doc"); }
+if (DASH) {
+  for (const id of ["q", "count", "panel", "legend"]) $(id).style.display = "none";
+  $("bar").style.right = "14px"; $("bar").style.justifyContent = "flex-end"; $("bar").style.background = "transparent";
+  $("dash").style.display = "block";
+} else if (VIEW !== "map") $("tree").style.display = "block";
+$("theme").textContent = { auto: "◐ auto", dark: "● dark", light: "○ light" }[THEME_PICK];
+// served (not opened as a file): an index button that runs an incremental run in the server and reloads when done
+if (SERVED) {
+  const b = $("idx"); b.style.display = ""; b.textContent = "⟳ index";
+  const gb = x => (x / 1e9).toFixed(1);
+  const poll = async () => {
+    const s = await (await fetch("/api/status")).json();
+    window.onRun(s);
+    if (s.running) {
+      b.disabled = true;
+      b.textContent = s.phase === "parse" && s.total ? `⟳ parse ${Math.round(100 * s.done / s.total)}% · ${gb(s.done)}/${gb(s.total)} GB`
+        : s.phase === "scan" ? `⟳ scan · ${s.listed.toLocaleString()} .jsonl` : `⟳ ${s.phase}…`;
+      return setTimeout(poll, 700);
+    }
+    if (b.disabled) { if (s.last_error) { b.disabled = false; b.textContent = "⟳ failed: " + s.last_error.slice(0, 40); } else location.reload(); }
+  };
+  b.onclick = async () => {
+    b.disabled = true; b.textContent = "⟳ starting…";
+    const r = await fetch("/api/run", { method: "POST", headers: { "X-Relic": "1" } });
+    if (!r.ok && r.status !== 409) { b.disabled = false; b.textContent = "⟳ " + ((await r.json()).error || r.status); return; }
+    poll();
+  };
+  poll();
+}
+$("theme").onclick = () => {
+  const next = { auto: "dark", dark: "light", light: "auto" }[THEME_PICK];
+  localStorage.setItem("relic-theme", next); location.reload();
+};
+fit(); home();
+const homeScale = scale;
+$("q").value = decodeURIComponent(location.hash.slice(1));
+if (DASH) {
+  tabs(); renderDash();
+} else if (VIEW === "paths") {
+  $("q").placeholder = "paths: words in the path · is:indexed|skipped|vault|loose · verdict:not-transcript · mb>100 · rows=0 · -word";
+  tabs(); loadPaths();
+} else {
+  legend();
+  run($("q").value);
+}
+</script>
+</body>
+</html>

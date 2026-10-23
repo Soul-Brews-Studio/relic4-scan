@@ -1,14 +1,55 @@
-# relic4-scan
+# relic-scan
 
-One Rust binary. It finds every AI-agent transcript on a machine and writes **one Parquet file per Bangkok month** in the relic4 truth schema. The design is in RESEARCH.md, the lessons from relic v1–v3 in LEARNED.md, and the exact output rules, traced and verified, in OUTPUT-CHAIN.md.
+One Rust binary, `relic-scan` (this repo is still named relic4-scan). It finds every AI-agent transcript on a machine, writes **one Parquet file per Bangkok month** in the relic4 truth schema, and writes the meta beside them: files, sessions, and every `.jsonl` on the machine. The design is in RESEARCH.md, the lessons from relic v1–v3 in LEARNED.md, and the exact output rules, traced and verified, in OUTPUT-CHAIN.md.
 
 Grown in the agent-relic-v4 lab (`lab/relic4-scan` on branch `lab-rust-scan`, history kept). [agent-relic-v4](https://github.com/Soul-Brews-Studio/agent-relic-v4) is the reader: it turns these month files into truth, meta, vectors and search. The verify scripts need its Python environment: `uv run --project <agent-relic-v4> python verify/…`.
 
+## Use it
+**Install.** One command. It needs Rust 1.89 or newer and a gh login, because the repo is private and cargo fetches it through the git CLI. `install.sh` finds cargo even when it is not on PATH, builds in about 30 s and installs to `~/.local/bin/relic-scan`.
 ```
-cargo build --release
-./target/release/relic4-scan run --out months/                       # incremental: scan + parse only new bytes
-./target/release/relic4-scan scan [--full] --index index.tsv        # phase 1 alone: find homes, index files
-./target/release/relic4-scan parse --index index.tsv --out months/   # phase 2 alone, cold: months/YYYY-MM.parquet
+gh api repos/Soul-Brews-Studio/relic4-scan/contents/install.sh -H 'Accept: application/vnd.github.raw' | sh
+```
+To install a branch instead of `main`, pipe to `REF=<branch> sh`. Run the same line again to upgrade.
+
+**Run.**
+```
+relic-scan                         # the logo, what is indexed already, and the commands below
+relic-scan up --kind claude        # index Claude transcripts into ~/.relic-scan/claude, then serve http://127.0.0.1:8787
+relic-scan tui --kind claude       # the same data in the terminal
+```
+The first run reads everything: on m5 that is 83,673 files and 67.6 GB in about 45 s. After that a run reads only new bytes and takes about 10 s, most of it spent walking the homes. Without `--kind`, every agent is indexed into `~/.relic-scan`.
+
+| command | what it does |
+|---|---|
+| `relic-scan up [--kind K] [--port 8787]` | `run`, then `serve` |
+| `relic-scan run [--kind K] [--out DIR]` | Scan, parse only new bytes, then write meta, map and paths. It ends with a summary card. |
+| `relic-scan serve [--kind K]` | Serves `/map`, `/tree` and `/paths` on 127.0.0.1 only. The page is read on every request, so a `run` in another shell shows up on reload. The page's **⟳ index** button runs an incremental run in the server (`POST /api/run`, which needs an `X-Relic: 1` header; progress at `GET /api/status`). Before the first run, every view shows a welcome page with the same button. |
+| `relic-scan tui [--kind K]` | The terminal browser (below). |
+| `relic-scan meta` / `map` | Rebuild only the meta tables, or only the page. |
+| `relic-scan scan [--full] [--index F]` / `parse --index F --out DIR` | The two phases alone, for debugging and benchmarks. |
+
+**Defaults and safety:**
+- **`--out`:** defaults to `~/.relic-scan`. With `--kind` and no `--out` it is `~/.relic-scan/<kind>`, so a kind-only run never shares its state with a run over every agent. `serve`, `tui`, `meta` and `map` take the same `--kind` to find it.
+- **One writer:** a run takes a lock on `OUT/.lock`. A second `run`, `meta` or `map` on the same directory stops with a message instead of racing the first.
+- **Crash safety:** month files, meta tables and `_state.tsv` are written to a temporary file, fsynced, then renamed. The state goes last, so a crash costs a re-read, never a lost or doubled row.
+- **Peak memory:** files are read in 32 MiB chunks (`RELIC_SCAN_CHUNK` bytes to change it). The biggest files are parsed side by side, so reading them whole used to hold gigabytes at once.
+- **Local only:** the server binds 127.0.0.1, and the page makes no network calls.
+
+**Desktop app (Tauri v2):** `desktop/` wraps the same page in a native window.
+- **How it runs:** it starts the server inside its own process on a free 127.0.0.1 port and opens a window on it.
+- **Index button:** runs an incremental run in that process. On a first launch the window shows a welcome page with the button.
+- **`RELIC_SCAN_KIND`:** `all` (the default, the same folder as `relic-scan run`), `claude`, or a comma-separated list.
+- **`RELIC_SCAN_OUT`:** overrides the output directory.
+```
+cd desktop && cargo build --release && ./target/release/relic-scan-desktop    # run it (--view banks|health|map|tree|paths)
+cargo install tauri-cli --version '^2' --locked && cargo tauri build          # Relic Scan.app
+```
+How it compares with Relic Scanner and Relic Studio, the SwiftUI apps over relic3: [docs/COMPARE.md](docs/COMPARE.md).
+
+**Build from a checkout instead:**
+```
+cargo build --release && cargo test --release
+./target/release/relic-scan up --kind claude
 ```
 
 ## run (incremental)
@@ -79,6 +120,110 @@ Verified against truth: **0 lost**. No file that produced a truth row was called
 | all beta@m5 files jt sent | 50,188 | 43 | **17 s** (parse ~11 s, merge 5 s) | 4,228,336 rows found; text/body/red/kind/call_id/name/err/type/role/engine equal on all; sid differs on 2 and ts on 14 (copy-dependent, OUTPUT-CHAIN §3); 776 rows newer than truth |
 
 `--jt-compat` stops a file at a line over 8 MB, as jt does. By default `parse` skips files the scan called not-transcript; `--all` includes them.
+
+## meta
+The last step of `run`, or `relic-scan meta --out DIR` on its own. It reads the month files and `_state.tsv` and writes two tables. It is a Rust port of agent-relic-v4's `relic4 meta --from-scan`, with the same columns and path rules (`sql.py` MACROS), and needs no truth import, Python or DuckDB.
+
+| file | one row per | columns |
+|---|---|---|
+| `DIR/meta/files.parquet` | file in the state | agent, path, home, size, lines, last_ms, file_sid, base, tier, engine, proj, parent_sid, cat, n_rows, text_rows, first_ts, last_ts, plus rows by type |
+| `DIR/meta/sessions.parquet` | file name (base, tier), copies folded | base, tier, sid, parent_sid, engine, proj, cat, probe, first_ts, last_ts, last_ms, copies, machines, agents, size, n_rows, text_rows, text_msgs, months, plus rows by type |
+
+Rows by type are six columns: user_text, assistant_text, thinking, tool_calls, tool_results and tool_errors. Errors are results that failed, so they are also counted in tool_results.
+
+- **Location:** the tables sit in `meta/`, not next to the months, because `relic4 truth import --from-scan` reads every `DIR/*.parquet` as a month.
+- **Incremental:** each month's per-file and per-session counts are cached in `meta/cache/YYYY-MM.tsv`. A month is aggregated again only when its Parquet file changed (size or mtime).
+- **text_msgs:** a distinct count of (role, ts, text) over the text rows. relic4 counts `msgkey` there; the two counts are the same.
+- **One known difference:** a session also counts rows whose only source file has since been deleted. Truth is append-only, so those rows still belong to it. meta.py drops them as orphans.
+
+**Every `.jsonl` on the machine:** `run` also writes `meta/jsonl.parquet`, with one row per `.jsonl` file the walk saw. Columns: path, place, home, home_kind, origin, vault, agent, verdict, tier, size, mtime_ms and parsed. `place` is one of three values:
+- **home:** the file is in an agent home and is parsed into the months.
+- **vault:** the file is in an oracle's ψ vault.
+- **other:** anywhere else under the roots.
+
+The same walk that finds the homes collects the loose files, so they add no extra pass. Loose files are few, so the scan always reads their first lines, even in the light scan. On m5 that gives 103,657 `.jsonl`: 91,298 in homes, 61 in 22 ψ vaults, and 12,298 elsewhere (mostly water-api and arthur-data). Of the loose files, the 14 whose content looks like a transcript are all test fixtures in repos. No real transcript sits outside a home.
+
+**Claude only** (`run --kind claude`, m5, 2026-10-22):
+
+| run | files | read | sessions | time |
+|---|---:|---:|---:|---:|
+| cold | 83,673 | 67.6 GB, 19.3 M lines, 8.5 M raw rows | 43,006 | **46.7 s**: scan 8.2, parse 21.7 (3.1 GB/s), merge 6.8, meta 1.4 |
+| incremental | 83,673 unchanged | 0 GB | 43,006 | **9.8 s**: scan 9.0, meta 0.5 (no month re-aggregated) |
+
+**Proof: equal to relic4's meta** (`verify/meta_vs_python.py`). It compares every column of every row against `relic4 truth import --from-scan` followed by `relic4 meta --from-scan` on the same DIR. Files are matched on path, sessions on (base, tier).
+
+| m5 (beta), 2026-10-22 | files | sessions | result | time |
+|---|---:|---:|---|---:|
+| cold (no cache) | 86,905 | 45,094 | every row and column equal | **1.9 s** (Python: truth import 19.9 s + meta 2.5 s) |
+| after an incremental `run` (2026-10 rewritten) | 86,905 | 45,094 | every row and column equal | **0.9 s** (1 month aggregated again) |
+
+## Views: Smart Scan, Banks & Repos, Health, map, tree, paths and the TUI
+`serve` (or `up`) serves one page on 127.0.0.1, in the shape of Relic Studio. A left sidebar holds six views; under 1100 px it folds to icons. At its foot it shows whether a run is going and when the last one was.
+
+- **Smart Scan** (`/`, `/scan`): a coverage ring (transcript files indexed out of those found), the **Index now** and **Refresh status** controls with a live progress bar, and two stat strips: files indexed, discovered, not transcripts and outside homes; then sessions, rows, indexed size and last run.
+- **Banks & Repos** (`/banks`): one card per jsonl home with sessions, rows, files, size, origin and newest session; a card opens the tree on that home. Below them is a repository index with org/repo, sessions and rows; a row opens the map on that repo.
+- **Health** (`/health`): checks computed from the index, each with a link to the matching view:
+  - the age of the last run;
+  - transcripts outside every home;
+  - subagents without a main session;
+  - undated sessions;
+  - indexed files with no rows;
+  - files skipped as not transcripts;
+  - unknown shapes;
+  - mirrors folded;
+  - tool errors.
+
+Map, tree and paths are below. Map and tree share the query box, the side panel and the URL hash, so a query carries over. The theme button cycles auto, dark and light; auto follows the system. In tree and paths only the page scrolls; the side panel sits beside it, never inside it.
+
+`run` rebuilds the page (`DIR/meta/map.html`, about 4 MB for 43,006 sessions, data inlined) and `DIR/meta/paths.json`. `relic-scan map` rebuilds both alone in 0.2 s. Opened as a file, `map.html?view=tree` shows the tree. The paths view loads `/paths.json`, so it needs the server.
+
+**/map, the star map:**
+- **Ring:** the Bangkok month the session started. The oldest month is innermost; a stronger ring marks the start of a year.
+- **Sector:** the repo. Wider sectors have more sessions; repos with fewer than 12 sessions share one sector.
+- **Star:** a main session, sized by log(rows). Subagents and workflow agents orbit their parent, found by the `<uuid>/subagents/` folder they sit in. 99% of them have a parent.
+- **Colour:** by tier, repo, age, the share of tool rows, or thinking.
+- **Query:** plain words match repo, project or sid. Filters:
+  - `repo:` `proj:` `sid:` `home:` `tier:main|sub|wf`
+  - `month:2026-07` `after:2026-09-01` `before:`
+  - `rows>1000` `text` `msgs` `copies` `user` `asst` `think` `calls` `results` `errors` `tools`, e.g. `think>0 errors>=20`
+  - `-` before a term negates it, `"..."` quotes a value, and all terms must match (AND).
+- **Panel:** totals, rows by type, top repos and jsonl homes of the current match, each clickable to narrow the query. Clicking a star shows that session: sid, repo, times, rows by type, copies, homes, satellites, and buttons to copy the sid or a `claude --resume` line.
+
+**/tree:** jsonl home → repo → session → satellites. Each level shows sessions, rows, a bar of rows by type and the last activity. A session is listed under every home that holds a copy. A result of up to 400 sessions opens itself down to the repos.
+
+**/paths:** every `.jsonl` the scan saw, as a folder tree. Chains of single folders fold into one row, and `~` stands for your home. Each folder shows files, rows, size and a status bar:
+- **indexed:** parsed into the months.
+- **skipped:** in an agent home, but the content sniff says it is not a transcript (workflow journals, prompt logs, omx logs).
+- **vault:** in an oracle's ψ vault, listed only.
+- **loose:** anywhere else under the roots, listed only.
+
+Query words match the path. Filters: `is:indexed|skipped|vault|loose`, `verdict:not-transcript`, `name:agent-`, `mb>100`, `size>1e9`, `rows>10000`, `rows=0`, `after:` and `before:` (modified, Bangkok time). A small result opens every folder it touches. Clicking a file shows its status, verdict, size, rows and modified time, with a button to copy its path.
+
+**`relic-scan tui`:** the same data in the terminal, with four views on the number keys:
+
+| key | view |
+|---|---|
+| `1` | overview: totals, rows by type, sessions per month by tier |
+| `2` | repos: sessions (main / sub / workflow), rows, thinking, errors, last activity. Enter lists the repo's sessions. |
+| `3` | sessions, newest first. Enter opens one; `c` copies `claude --resume <sid>`. |
+| `4` | paths: folders holding `.jsonl`, with indexed / skipped / other. Enter lists the folder's files; Enter on a file copies its path. |
+
+Other keys:
+- `/` filters the list (words, AND) and `Esc` clears the filter.
+- `↑↓`, `j k`, `g G` and `PgUp PgDn` move.
+- `⌫` goes back and `q` quits.
+
+It sets no background colour, so it reads the same on dark and light terminals. Colour in the CLI output appears only on a terminal and is off with `NO_COLOR`.
+
+## Tests
+`cargo test` runs 11 tests in under a second, with no other repo needed:
+- the path rules: tier, repo (cat), project, parent and home;
+- `splitlines` and the jt cut of a last line;
+- the message key and the meta cache line;
+- **chunked reading:** chunk sizes from 1 byte to 4 KB give the same rows as a whole-file read;
+- **incremental == cold:** a file grown three times, once cut mid-line, gives the same month file as one cold parse.
+
+The full-corpus proofs (`verify/*.py`) compare against agent-relic-v4 and need its Python environment. In addition, a 4,023-file fixture (7.1 GB, including the 24 biggest files) gave every month, `files.parquet`, `sessions.parquet` and `jsonl.parquet` equal to the previous binary's. Peak RSS fell from 5.81 GB to 3.72 GB at the same speed.
 
 ## Not yet
 - **A quarantine month** for impossible dates.

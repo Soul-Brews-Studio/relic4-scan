@@ -1,4 +1,4 @@
-//! Phase 2, `relic4-scan parse`: every indexed file -> rows -> ONE file per Bangkok month.
+//! Phase 2, `relic-scan parse`: every indexed file -> rows -> ONE file per Bangkok month.
 //!
 //!   index (phase 1)  ->  sort by size, biggest first (LPT)  ->  N threads take the next file (atomic index)
 //!   per file: the bytes jt would send (complete lines; a last line without "\n" only if it is JSON;
@@ -30,6 +30,10 @@ use parquet::file::properties::WriterProperties;
 use crate::engine::{self, Tool};
 
 const JT_CHUNK: usize = 8 << 20;
+
+/// Bytes read so far and bytes to read in the current parse, for /api/status.
+pub static DONE: AtomicU64 = AtomicU64::new(0);
+pub static TOTAL: AtomicU64 = AtomicU64::new(0);
 const SPILL_ROWS: usize = 20_000;
 
 /// One row per (line, stream[, tool]) per copy: the live store's events/tools/sources, flattened.
@@ -52,7 +56,7 @@ pub struct Raw {
     pub body: Option<String>,
     pub err: Option<bool>,
     pub red: Option<String>,
-    pub file: String,
+    pub file: Arc<str>, // one allocation per file, shared by its rows
     pub line: i64,
 }
 
@@ -111,71 +115,98 @@ pub struct Ctx {
 }
 
 /// store.parse_chunk from `ctx.offset` with `ctx`, to the end of the file's complete lines. Returns the new ctx.
+/// How much of a file is read at a time (RELIC_SCAN_CHUNK bytes, default 32 MiB). The biggest files are parsed
+/// first and side by side, so reading each one whole held the top N files in memory at once (3.3 GB on m5).
+fn chunk_size() -> usize {
+    static C: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+    *C.get_or_init(|| std::env::var("RELIC_SCAN_CHUNK").ok().and_then(|v| v.parse().ok()).filter(|&n| n > 0).unwrap_or(32 << 20))
+}
+
 pub fn parse_file(path: &str, ctx: &Ctx, jt_compat: bool, st: &Stats, emit: &mut dyn FnMut(Raw)) -> Option<Ctx> {
+    parse_file_chunked(path, ctx, jt_compat, st, emit, chunk_size())
+}
+
+fn parse_file_chunked(path: &str, ctx: &Ctx, jt_compat: bool, st: &Stats, emit: &mut dyn FnMut(Raw), want: usize) -> Option<Ctx> {
     use std::io::{Seek, SeekFrom};
-    let mut data = Vec::new();
     let mut f = fs::File::open(path).ok()?;
     f.seek(SeekFrom::Start(ctx.offset)).ok()?;
-    f.read_to_end(&mut data).ok()?;
-    st.bytes.fetch_add(data.len() as u64, Ordering::Relaxed);
-    let data = complete(&data);
     let eng = engine::engine_of(path);
+    let file: Arc<str> = Arc::from(path);
     let (mut nline, mut session, mut last) = (ctx.lines, ctx.session.clone(), ctx.last_ms);
     let mut used: u64 = 0;
-    for line in split_lines(data) {
-        if jt_compat && line.len() > JT_CHUNK {
-            st.stuck.fetch_add(1, Ordering::Relaxed); // jt never ships a line longer than its chunk: the file stops here
-            break;
-        }
-        used += line.len() as u64;
-        nline += 1;
-        let r = match engine::parse(line) {
-            Some(serde_json::Value::Object(m)) => m,
-            Some(_) => serde_json::Map::new(),
-            None => {
-                st.bad_json.fetch_add(1, Ordering::Relaxed);
-                serde_json::Map::new()
+    // read a chunk, parse up to its last "\n", carry the rest into the next chunk; at the end of the file the rest
+    // is cut as a whole-file read would cut it (complete()), so the rows are the same for any chunk size
+    let (mut buf, mut eof, mut stop) = (Vec::new(), false, false);
+    while !eof && !stop {
+        let n = Read::by_ref(&mut f).take(want as u64).read_to_end(&mut buf).ok()?;
+        st.bytes.fetch_add(n as u64, Ordering::Relaxed);
+        eof = n < want;
+        let body: &[u8] = if eof {
+            complete(&buf)
+        } else {
+            match memchr::memrchr(b'\n', &buf) {
+                Some(nl) => &buf[..=nl],
+                None => continue, // one line longer than a chunk: read on until it ends
             }
         };
-        let x = engine::extract(&r);
-        if !x.sess.is_empty() && session.is_empty() {
-            session = x.sess.clone();
-        }
-        let mut ts = x.ts;
-        if ts.is_some() {
-            last = ts;
-        } else if last.is_some() {
-            ts = last; // a line without its own time takes the file's last one
-        }
-        let trs: Vec<Tool> = engine::extract_tools(line, &r);
-        let think = engine::thinking_of(line, &r);
-        if x.text.is_empty() && think.is_empty() && trs.is_empty() {
-            continue;
-        }
-        let stp = engine::stamp(ts);
-        let sid = if x.sess.is_empty() { session.clone() } else { x.sess.clone() };
-        let h = engine::key(line);
-        for (s, body) in [("text", &x.text), ("thinking", &think)] {
-            if body.is_empty() {
+        let took = body.len();
+        for line in split_lines(body) {
+            if jt_compat && line.len() > JT_CHUNK {
+                st.stuck.fetch_add(1, Ordering::Relaxed); // jt never ships a line longer than its chunk: the file stops here
+                stop = true;
+                break;
+            }
+            used += line.len() as u64;
+            nline += 1;
+            let r = match engine::parse(line) {
+                Some(serde_json::Value::Object(m)) => m,
+                Some(_) => serde_json::Map::new(),
+                None => {
+                    st.bad_json.fetch_add(1, Ordering::Relaxed);
+                    serde_json::Map::new()
+                }
+            };
+            let x = engine::extract(&r);
+            if !x.sess.is_empty() && session.is_empty() {
+                session = x.sess.clone();
+            }
+            let mut ts = x.ts;
+            if ts.is_some() {
+                last = ts;
+            } else if last.is_some() {
+                ts = last; // a line without its own time takes the file's last one
+            }
+            let trs: Vec<Tool> = engine::extract_tools(line, &r);
+            let think = engine::thinking_of(line, &r);
+            if x.text.is_empty() && think.is_empty() && trs.is_empty() {
                 continue;
             }
-            let (clean, kinds) = engine::redact(body);
-            emit(Raw {
-                month: stp.month.clone(), s, h, idx: 0, engine: eng,
-                role: Some(if s == "thinking" { "thinking".into() } else { x.role.clone() }), typ: Some(x.typ.clone()),
-                sid: sid.clone(), ts: stp.ts.clone(), ts_th: stp.ts_th.clone(), text: Some(clean), kind: None, call_id: None,
-                name: None, body: None, err: None, red: (!kinds.is_empty()).then_some(kinds), file: path.to_string(), line: nline,
-            });
+            let stp = engine::stamp(ts);
+            let sid = if x.sess.is_empty() { session.clone() } else { x.sess.clone() };
+            let h = engine::key(line);
+            for (s, body) in [("text", &x.text), ("thinking", &think)] {
+                if body.is_empty() {
+                    continue;
+                }
+                let (clean, kinds) = engine::redact(body);
+                emit(Raw {
+                    month: stp.month.clone(), s, h, idx: 0, engine: eng,
+                    role: Some(if s == "thinking" { "thinking".into() } else { x.role.clone() }), typ: Some(x.typ.clone()),
+                    sid: sid.clone(), ts: stp.ts.clone(), ts_th: stp.ts_th.clone(), text: Some(clean), kind: None, call_id: None,
+                    name: None, body: None, err: None, red: (!kinds.is_empty()).then_some(kinds), file: file.clone(), line: nline,
+                });
+            }
+            for (idx, t) in trs.into_iter().enumerate() {
+                let (clean, kinds) = engine::redact(&t.body);
+                emit(Raw {
+                    month: stp.month.clone(), s: "tools", h, idx: idx as i64, engine: eng, role: None, typ: None,
+                    sid: sid.clone(), ts: stp.ts.clone(), ts_th: stp.ts_th.clone(), text: None, kind: Some(t.kind),
+                    call_id: Some(t.call_id), name: (!t.name.is_empty()).then_some(t.name), body: Some(clean), err: Some(t.err),
+                    red: (!kinds.is_empty()).then_some(kinds), file: file.clone(), line: nline,
+                });
+            }
         }
-        for (idx, t) in trs.into_iter().enumerate() {
-            let (clean, kinds) = engine::redact(&t.body);
-            emit(Raw {
-                month: stp.month.clone(), s: "tools", h, idx: idx as i64, engine: eng, role: None, typ: None,
-                sid: sid.clone(), ts: stp.ts.clone(), ts_th: stp.ts_th.clone(), text: None, kind: Some(t.kind),
-                call_id: Some(t.call_id), name: (!t.name.is_empty()).then_some(t.name), body: Some(clean), err: Some(t.err),
-                red: (!kinds.is_empty()).then_some(kinds), file: path.to_string(), line: nline,
-            });
-        }
+        buf.drain(..took);
     }
     st.lines.fetch_add((nline - ctx.lines) as u64, Ordering::Relaxed);
     st.files.fetch_add(1, Ordering::Relaxed);
@@ -201,7 +232,7 @@ fn raw_batch(rows: &[Raw]) -> RecordBatch {
         st(&|r| r.typ.as_deref()), st(&|r| Some(r.sid.as_str())), st(&|r| Some(r.ts.as_str())), st(&|r| Some(r.ts_th.as_str())),
         st(&|r| r.text.as_deref()), st(&|r| r.kind), st(&|r| r.call_id.as_deref()), st(&|r| r.name.as_deref()),
         st(&|r| r.body.as_deref()), Arc::new(rows.iter().map(|r| r.err).collect::<BooleanArray>()), st(&|r| r.red.as_deref()),
-        st(&|r| Some(r.file.as_str())), Arc::new(rows.iter().map(|r| r.line).collect::<Int64Array>()),
+        st(&|r| Some(&*r.file)), Arc::new(rows.iter().map(|r| r.line).collect::<Int64Array>()),
     ];
     RecordBatch::try_new(raw_schema(), cols).expect("raw batch")
 }
@@ -215,11 +246,18 @@ struct Spiller {
 
 impl Spiller {
     fn push(&mut self, r: Raw) {
-        let m = r.month.clone();
-        let v = self.buf.entry(m.clone()).or_default();
-        v.push(r);
-        if v.len() >= SPILL_ROWS {
-            let rows = std::mem::take(v);
+        let full = match self.buf.get_mut(&r.month) {
+            Some(v) => {
+                v.push(r);
+                (v.len() >= SPILL_ROWS).then(|| std::mem::take(v))
+            }
+            None => {
+                self.buf.insert(r.month.clone(), vec![r]);
+                None
+            }
+        };
+        if let Some(rows) = full {
+            let m = rows[0].month.clone();
             self.write(&m, &rows);
         }
     }
@@ -385,7 +423,7 @@ pub fn merge_month(parts_dir: &Path, month: &str, out: &Path, agent: &str) -> (u
     let props = WriterProperties::builder().set_compression(Compression::ZSTD(ZstdLevel::try_new(1).unwrap())).build();
     let mut w = ArrowWriter::try_new(fs::File::create(&tmp).unwrap(), schema, Some(props)).unwrap();
     w.write(&batch).unwrap();
-    w.close().unwrap();
+    w.into_inner().unwrap().sync_all().unwrap(); // the month is on disk before _state.tsv can point past it
     fs::rename(&tmp, &existing).unwrap(); // atomic: readers see the old month or the new one, never half
     (order.len(), copies)
 }
@@ -427,6 +465,8 @@ pub fn run(mut jobs: Vec<Job>, out: &Path, agent: &str, threads: usize, jt_compa
     let st = Stats::default();
     let total: u64 = jobs.iter().map(|j| j.size.saturating_sub(j.ctx.offset)).sum();
     let months: Mutex<std::collections::BTreeSet<String>> = Mutex::default();
+    TOTAL.store(total, Ordering::Relaxed);
+    DONE.store(0, Ordering::Relaxed);
     std::thread::scope(|sc| {
         for tid in 0..n {
             let (jobs, next, st, parts, months, new_ctx) = (&jobs, &next, &st, &parts, &months, &new_ctx);
@@ -453,9 +493,11 @@ pub fn run(mut jobs: Vec<Job>, out: &Path, agent: &str, threads: usize, jt_compa
             while next.load(Ordering::Relaxed) < nj {
                 std::thread::sleep(std::time::Duration::from_millis(1000));
                 let b = st.bytes.load(Ordering::Relaxed);
-                eprint!("\r  parse {}/{} files · {:.1}/{:.1} GB · {:.0} MB/s · {} rows   ",
-                        st.files.load(Ordering::Relaxed), nj, b as f64 / 1e9, total as f64 / 1e9,
-                        b as f64 / 1e6 / t0.elapsed().as_secs_f64(), st.rows.load(Ordering::Relaxed));
+                DONE.store(b, Ordering::Relaxed);
+                let frac = if total > 0 { b as f64 / total as f64 } else { 0.0 };
+                eprint!("\r  {} {} {:>3.0}%  {}/{} files · {:.1}/{:.1} GB · {:.1} GB/s · {} rows   ", crate::ui::pink("parse"),
+                        crate::ui::bar(frac, 28), frac * 100.0, st.files.load(Ordering::Relaxed), nj, b as f64 / 1e9, total as f64 / 1e9,
+                        b as f64 / 1e9 / t0.elapsed().as_secs_f64(), st.rows.load(Ordering::Relaxed));
             }
         });
     });
@@ -464,6 +506,8 @@ pub fn run(mut jobs: Vec<Job>, out: &Path, agent: &str, threads: usize, jt_compa
               st.files.load(Ordering::Relaxed), st.bytes.load(Ordering::Relaxed) as f64 / 1e9, st.lines.load(Ordering::Relaxed),
               st.bad_json.load(Ordering::Relaxed), st.rows.load(Ordering::Relaxed), st.stuck.load(Ordering::Relaxed), t_parse,
               st.bytes.load(Ordering::Relaxed) as f64 / 1e6 / t_parse, n);
+    DONE.store(total, Ordering::Relaxed);
+    crate::PHASE.store(3, Ordering::Relaxed);
     // merge: months in parallel (each holds only its own rows)
     let t1 = Instant::now();
     let ms: Vec<String> = fs::read_dir(&parts).unwrap().flatten().map(|e| e.file_name().to_string_lossy().to_string()).collect();
@@ -491,4 +535,125 @@ pub fn run(mut jobs: Vec<Job>, out: &Path, agent: &str, threads: usize, jt_compa
     }
     let _ = months;
     new_ctx.into_inner().unwrap()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A fresh, empty directory under the system temp dir.
+    pub fn tmp(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("relic-scan-test-{}-{name}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    /// Claude-shaped lines: user text, assistant text + thinking + a tool call, a tool result, a line with no
+    /// time, a broken line, CRLF and a lone CR ending.
+    pub fn lines(day: u32, n: usize) -> String {
+        let mut s = String::new();
+        for i in 0..n {
+            let ts = format!("2026-07-{day:02}T0{}:{:02}:00.000Z", i % 10, i % 60);
+            s += &format!(r#"{{"type":"user","sessionId":"s1","timestamp":"{ts}","message":{{"role":"user","content":"hello {i}"}}}}"#);
+            s += "\n";
+            s += &format!(r#"{{"type":"assistant","sessionId":"s1","timestamp":"{ts}","message":{{"role":"assistant","content":[{{"type":"thinking","thinking":"hmm {i}"}},{{"type":"text","text":"hi {i}"}},{{"type":"tool_use","id":"t{day}-{i}","name":"Bash","input":{{"command":"ls"}}}}]}}}}"#);
+            s += "\r\n";
+            s += &format!(r#"{{"type":"user","sessionId":"s1","timestamp":"{ts}","message":{{"role":"user","content":[{{"type":"tool_result","tool_use_id":"t{day}-{i}","content":"ok {i}","is_error":{}}}]}}}}"#, i % 3 == 0);
+            s += "\r";
+            s += &format!(r#"{{"type":"user","sessionId":"s1","message":{{"role":"user","content":"no time {i}"}}}}"#);
+            s += "\n{not json\n";
+        }
+        s
+    }
+
+    fn rows_of(path: &str, chunk: usize) -> (Vec<String>, Ctx) {
+        let st = Stats::default();
+        let mut v = vec![];
+        let c = parse_file_chunked(path, &Ctx::default(), false, &st, &mut |r| {
+            v.push(format!("{}|{}|{}|{}|{:?}|{:?}|{:?}|{:?}|{:?}|{}", r.month, r.s, r.h, r.idx, r.role, r.text, r.kind, r.body, r.err, r.line))
+        }, chunk).unwrap();
+        (v, c)
+    }
+
+    #[test]
+    fn split_lines_like_python() {
+        assert_eq!(split_lines(b"a\nb\r\nc\rd"), vec![&b"a\n"[..], b"b\r\n", b"c\r", b"d"]);
+        assert_eq!(split_lines(b""), Vec::<&[u8]>::new());
+        assert_eq!(split_lines(b"\n\n"), vec![&b"\n"[..], b"\n"]);
+    }
+
+    #[test]
+    fn complete_keeps_a_json_tail_only() {
+        assert_eq!(complete(b"{}\n{\"a\":1}"), b"{}\n{\"a\":1}");
+        assert_eq!(complete(b"{}\n{\"a\":"), b"{}\n");
+        assert_eq!(complete(b"{\"a\":"), b"");
+        assert_eq!(complete(b"{}"), b"{}");
+    }
+
+    #[test]
+    fn any_chunk_size_gives_the_same_rows() {
+        let d = tmp("chunks");
+        let p = d.join("a.jsonl");
+        // a half-written last line (not JSON): it must be left for the next run at every chunk size
+        fs::write(&p, lines(1, 40) + r#"{"type":"user","sessionId":"s1""#).unwrap();
+        let p = p.to_str().unwrap();
+        let (whole, c0) = rows_of(p, usize::MAX >> 1);
+        assert!(whole.len() > 100, "the fixture must produce rows, got {}", whole.len());
+        for chunk in [1, 2, 3, 7, 64, 333, 4096] {
+            let (v, c) = rows_of(p, chunk);
+            assert_eq!(v, whole, "chunk {chunk}");
+            assert_eq!((c.offset, c.lines, &c.session, c.last_ms), (c0.offset, c0.lines, &c0.session, c0.last_ms), "chunk {chunk}");
+        }
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    /// Every row of a month file, as text, in file order.
+    pub fn month_rows(p: &Path) -> Vec<String> {
+        let r = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(fs::File::open(p).unwrap()).unwrap().build().unwrap();
+        let mut out = vec![];
+        for b in r {
+            let b = b.unwrap();
+            for i in 0..b.num_rows() {
+                let cols: Vec<String> = b.columns().iter()
+                    .map(|c| arrow::util::display::ArrayFormatter::try_new(c.as_ref(), &Default::default()).unwrap().value(i).to_string())
+                    .collect();
+                out.push(cols.join("|"));
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn incremental_equals_cold() {
+        let d = tmp("incr");
+        let src = d.join("s.jsonl");
+        let sp = src.to_str().unwrap().to_string();
+        let job = |ctx: Ctx| Job { path: sp.clone(), size: fs::metadata(&src).unwrap().len(), verdict: String::new(), ctx };
+        // incremental: three runs over a growing file (the second cut mid-line)
+        let full = lines(2, 30) + &lines(3, 30);
+        let cut = full.len() / 2;
+        fs::write(&src, &full[..cut]).unwrap();
+        let inc = d.join("inc");
+        let c1 = run(vec![job(Ctx::default())], &inc, "t@x", 2, false, false)[&sp].clone();
+        assert!(c1.offset <= cut as u64 && c1.offset > 0);
+        fs::write(&src, &full[..cut + 1000]).unwrap();
+        let c2 = run(vec![job(c1)], &inc, "t@x", 2, false, false)[&sp].clone();
+        fs::write(&src, &full).unwrap();
+        let c3 = run(vec![job(c2)], &inc, "t@x", 2, false, false)[&sp].clone();
+        // cold: the whole file at once
+        let cold = d.join("cold");
+        let c = run(vec![job(Ctx::default())], &cold, "t@x", 2, false, false)[&sp].clone();
+        assert_eq!((c3.offset, c3.lines, c3.last_ms), (c.offset, c.lines, c.last_ms));
+        let mut months: Vec<String> = fs::read_dir(&cold).unwrap().flatten().map(|e| e.file_name().to_string_lossy().to_string())
+            .filter(|n| n.ends_with(".parquet")).collect();
+        months.sort();
+        assert!(!months.is_empty());
+        for m in months {
+            let (a, b) = (month_rows(&inc.join(&m)), month_rows(&cold.join(&m)));
+            assert!(!b.is_empty());
+            assert_eq!(a, b, "{m}");
+        }
+        let _ = fs::remove_dir_all(&d);
+    }
 }
