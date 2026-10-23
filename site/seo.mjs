@@ -6,7 +6,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SITE, DL, HERO, PROOF, PROOF_NOTE, TERMINAL, STEPS, LOCAL, FAQ, GET, FOOTER } from "./public/scan/content.js";
+import { SITE, DL, HERO, PROOF, PROOF_NOTE, TERMINAL, STEPS, LOCAL, FAQ, GET, BUILD, FOOTER } from "./public/scan/content.js";
 
 const here = dirname(fileURLToPath(import.meta.url)), pub = join(here, "public"), root = new URL(SITE.url).origin;
 const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -38,6 +38,7 @@ ${STEPS.map(s => `<h2>${esc(s.h)}</h2><p>${code(s.p)}</p><ul>${s.li.map(l => `<l
 <h2>Questions</h2><dl>${FAQ.map(([q, a]) => `<dt><b>${esc(q)}</b></dt><dd>${esc(a)}</dd>`).join("")}</dl>
 <h2 id="get">Download</h2><p>${esc(GET.p)}</p><ul>${GET.rows.map(([os, sub, meta, href]) => `<li><a href="${href}">${esc(os)}: ${esc(meta)}</a> (${esc(sub)})</li>`).join("")}</ul>
 <pre>${esc(GET.cli)}</pre>
+<h2>${esc(BUILD.h)}</h2><p>${code(BUILD.p)}</p><ol>${BUILD.steps.map(([t, c]) => `<li>${esc(t)}<pre>${esc(c)}</pre></li>`).join("")}</ol><p>${code(BUILD.more)}</p>
 <p>${esc(FOOTER.say)}</p>
 </main>`;
 
@@ -70,6 +71,7 @@ const full = [
   `## ${LOCAL.h}`, "", ...LOCAL.facts.map(([b, t]) => `- **${b}**: ${t}`), "", "```", "$ relic-scan run", ...LOCAL.run, "", ...LOCAL.card, "```", "", LOCAL.caption, "",
   "## Questions", "", ...FAQ.flatMap(([q, a]) => [`### ${q}`, "", a, ""]),
   "## Download", "", GET.p, "", ...GET.rows.map(([os, sub, meta, href]) => `- [${os}, ${meta}](${href}): ${sub}`), "", "```sh", GET.cli, "```", "",
+  `## ${BUILD.h}`, "", BUILD.p, "", ...BUILD.steps.flatMap(([t, c], k) => [`${k + 1}. ${t}`, "", "```sh", c, "```", ""]), BUILD.more, "",
   FOOTER.say, "",
 ].join("\n");
 writeFileSync(join(pub, "llms-full.txt"), full);

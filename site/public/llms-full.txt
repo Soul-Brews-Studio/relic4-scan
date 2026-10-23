@@ -137,4 +137,38 @@ gh api repos/Soul-Brews-Studio/relic4-scan/contents/install.sh \
   -H 'Accept: application/vnd.github.raw' | sh
 ```
 
+## Build it yourself
+
+The source is a Rust workspace with a `justfile`. You need Rust, `just` and access to the repository on GitHub.
+
+1. Get the source
+
+```sh
+gh repo clone Soul-Brews-Studio/relic4-scan && cd relic4-scan
+```
+
+2. Get the tools
+
+```sh
+curl https://sh.rustup.rs -sSf | sh   # Rust
+brew install just                     # or: cargo install just
+```
+
+3. Build the command
+
+```sh
+just build     # target/release/relic-scan
+just install   # copies it into ~/.local/bin
+```
+
+4. Build the desktop app
+
+```sh
+just app         # .app and .dmg for this Mac
+just app-intel   # the same for Intel Macs, from Apple silicon
+just linux       # .deb and .AppImage, in Docker
+```
+
+`just` lists every recipe; `just test` runs the tests; `just up` indexes this machine and serves the page on 127.0.0.1.
+
 Your agents keep everything they did. Now you can find it.

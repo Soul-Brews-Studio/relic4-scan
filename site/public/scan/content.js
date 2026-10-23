@@ -103,4 +103,17 @@ export const GET = {
   ],
   cli: "gh api repos/Soul-Brews-Studio/relic4-scan/contents/install.sh \\\n  -H 'Accept: application/vnd.github.raw' | sh",
 };
+// build it from source: a justfile in the repository does the work
+export const BUILD = {
+  h: "Build it yourself",
+  p: "The source is a Rust workspace with a `justfile`. You need Rust, `just` and access to the repository on GitHub.",
+  steps: [
+    ["Get the source", "gh repo clone Soul-Brews-Studio/relic4-scan && cd relic4-scan"],
+    ["Get the tools", "curl https://sh.rustup.rs -sSf | sh   # Rust\nbrew install just                     # or: cargo install just"],
+    ["Build the command", "just build     # target/release/relic-scan\njust install   # copies it into ~/.local/bin"],
+    ["Build the desktop app", "just app         # .app and .dmg for this Mac\njust app-intel   # the same for Intel Macs, from Apple silicon\njust linux       # .deb and .AppImage, in Docker"],
+  ],
+  more: "`just` lists every recipe; `just test` runs the tests; `just up` indexes this machine and serves the page on 127.0.0.1.",
+};
+
 export const FOOTER = { say: "Your agents keep everything they did. Now you can find it.", note: "Every capture on this page comes from a demo index of made-up repositories." };

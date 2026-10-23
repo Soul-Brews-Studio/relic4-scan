@@ -2,7 +2,7 @@
 import { h, render } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import htm from "htm";
-import { SITE, DL, HERO, PROOF, PROOF_NOTE, TERMINAL, STEPS, SHOTS, TUI_ALT, LOCAL, FAQ, GET, FOOTER } from "./content.js";
+import { SITE, DL, HERO, PROOF, PROOF_NOTE, TERMINAL, STEPS, SHOTS, TUI_ALT, LOCAL, FAQ, GET, BUILD, FOOTER } from "./content.js";
 const html = htm.bind(h);
 
 
@@ -86,7 +86,7 @@ function TuiVideo() {
   </figure>`;
 }
 
-const SECTIONS = [["top", "Top"], [STEPS[0].id, STEPS[0].dot], ["tui", "Terminal"], ["speed", "Speed"], ...STEPS.slice(1).map(s => [s.id, s.dot]), ["local", "Local only"], ["faq", "Questions"], ["get", "Download"]];
+const SECTIONS = [["top", "Top"], [STEPS[0].id, STEPS[0].dot], ["tui", "Terminal"], ["speed", "Speed"], ...STEPS.slice(1).map(s => [s.id, s.dot]), ["local", "Local only"], ["faq", "Questions"], ["get", "Download"], ["build", "Build it"]];
 
 function useScroll() {
   const [y, setY] = useState(0);
@@ -239,6 +239,21 @@ function Get() {
   </section>`;
 }
 
+// from source: numbered steps, each with its commands in a wrapping block (no scrollbar of its own)
+function Build() {
+  return html`<section id="build" aria-labelledby="build-h" class=${`${wrap} py-24 border-t border-line`}>
+    <div class=${center}><h2 id="build-h" class=${h2}>${BUILD.h}</h2><p class="m-0 mb-10 text-ink-2">${md(BUILD.p)}</p></div>
+    <ol class="list-none mx-auto my-0 p-0 max-w-[880px] grid gap-4">
+      ${BUILD.steps.map(([t, c], k) => html`<li class="grid sm:grid-cols-[minmax(0,15.5rem)_minmax(0,1fr)] gap-2 sm:gap-6 items-start">
+        <div class="flex items-center gap-3 pt-3"><span class="grid place-items-center size-7 rounded-full bg-accent text-accent-ink text-sm font-semibold">${k + 1}</span><b class="font-semibold">${t}</b></div>
+        <pre class="m-0 bg-paper-2 border border-line rounded-xl px-5 py-3 font-mono text-xs leading-relaxed text-ink whitespace-pre-wrap [overflow-wrap:anywhere]">${c.split("\n").map(l => { const [cmd, note] = l.split(/\s{2,}#\s/);
+          return html`<span class="block"><span class="text-accent">$ </span>${cmd}${note ? html`<span class="text-dim">  # ${note}</span>` : ""}</span>`; })}</pre>
+      </li>`)}
+    </ol>
+    <p class="mx-auto mt-8 mb-0 max-w-[36em] text-sm text-dim text-center">${md(BUILD.more)}</p>
+  </section>`;
+}
+
 function Footer() {
   return html`<footer class=${`${wrap} pt-28 pb-14 border-t border-line text-center`}>
     <p class="mx-auto m-0 mb-8 max-w-[22ch] font-semibold text-[clamp(1.75rem,2.6vw+1rem,2.75rem)] leading-[1.34] tracking-[-0.018em]">${FOOTER.say}</p>
@@ -270,7 +285,7 @@ function App() {
   }, []);
   return html`<a href="#main" class="fixed z-30 left-4 top-4 px-4 py-3 rounded-lg bg-accent text-accent-ink font-semibold no-underline -translate-y-[200%] focus-visible:translate-y-0">Skip to the page</a>
     <${Nav} y=${y} />
-    <main id="main"><${Hero} /><${SmartScan} /><${Terminal} /><${Proof} /><${Tour} /><${Local} /><${Faq} /><${Get} /></main>
+    <main id="main"><${Hero} /><${SmartScan} /><${Terminal} /><${Proof} /><${Tour} /><${Local} /><${Faq} /><${Get} /><${Build} /></main>
     <${Dots} y=${y} /><${Footer} /><${Next} y=${y} /><${Lightbox} />`;
 }
 

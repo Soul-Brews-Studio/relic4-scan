@@ -264,6 +264,18 @@ It sets no background colour, so it reads the same on dark and light terminals. 
   `~/Downloads`; and the month files (`OUT/YYYY-MM.parquet`) with their sizes, each one click from Finder
   (`/api/months`, `/api/reveal?what=month&m=2026-10`).
 
+## Build it yourself
+A `justfile` holds every build (`just` lists them):
+
+```sh
+gh repo clone Soul-Brews-Studio/relic4-scan && cd relic4-scan
+just build       # target/release/relic-scan
+just install     # copies it into ~/.local/bin
+just test        # every test
+just app         # the desktop app and its .dmg for this Mac (just app-intel: for Intel Macs)
+just linux       # .deb and .AppImage in Docker (just linux white: on the white docker context)
+```
+
 ## Repository layout
 - `src/`: the `relic-scan` crate (CLI, server, TUI, and the page it serves).
 - `desktop/`: the Tauri desktop app, its icons, the DMG background and the Linux build (`desktop/linux/Dockerfile`).
@@ -272,7 +284,7 @@ It sets no background colour, so it reads the same on dark and light terminals. 
   sources), [LEARNED.md](docs/LEARNED.md), [OUTPUT-CHAIN.md](docs/OUTPUT-CHAIN.md) (what phase 2 must reproduce) and
   [COMPARE.md](docs/COMPARE.md).
 - `verify/`: the full-corpus proofs in Python.
-- `install.sh`: builds and installs the CLI.
+- `install.sh`: builds and installs the CLI; `justfile`: every build from a checkout.
 
 ## Source layout
 No file is longer than 500 lines; a long one is split into a folder of modules.

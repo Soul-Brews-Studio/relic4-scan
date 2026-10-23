@@ -215,6 +215,11 @@ html { background: oklch(15% 0.012 262); color-scheme: dark; }
 <h2 id="get">Download</h2><p>Version 26.10.23-alpha.1041, a private beta. The files sit in a private GitHub repository: sign in with an account that has access to Soul-Brews-Studio.</p><ul><li><a href="https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1041/ARRA-Relic-Scan_26.10.23-alpha.1041_macos-arm64.dmg">macOS: .dmg · 6.6 MB</a> (Apple silicon · drag into Applications)</li><li><a href="https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1041/ARRA-Relic-Scan_26.10.23-alpha.1041_macos-x64.dmg">macOS: .dmg · 7.0 MB</a> (Intel · drag into Applications)</li><li><a href="https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1041/ARRA-Relic-Scan_26.10.23-alpha.1041_linux-amd64.deb">Linux: .deb · 7.5 MB</a> (x86_64 · Debian, Ubuntu)</li><li><a href="https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1041/ARRA-Relic-Scan_26.10.23-alpha.1041_linux-amd64.AppImage">Linux: .AppImage · 85 MB</a> (x86_64 · any distribution)</li></ul>
 <pre>gh api repos/Soul-Brews-Studio/relic4-scan/contents/install.sh \
   -H 'Accept: application/vnd.github.raw' | sh</pre>
+<h2>Build it yourself</h2><p>The source is a Rust workspace with a <code>justfile</code>. You need Rust, <code>just</code> and access to the repository on GitHub.</p><ol><li>Get the source<pre>gh repo clone Soul-Brews-Studio/relic4-scan &amp;&amp; cd relic4-scan</pre></li><li>Get the tools<pre>curl https://sh.rustup.rs -sSf | sh   # Rust
+brew install just                     # or: cargo install just</pre></li><li>Build the command<pre>just build     # target/release/relic-scan
+just install   # copies it into ~/.local/bin</pre></li><li>Build the desktop app<pre>just app         # .app and .dmg for this Mac
+just app-intel   # the same for Intel Macs, from Apple silicon
+just linux       # .deb and .AppImage, in Docker</pre></li></ol><p><code>just</code> lists every recipe; <code>just test</code> runs the tests; <code>just up</code> indexes this machine and serves the page on 127.0.0.1.</p>
 <p>Your agents keep everything they did. Now you can find it.</p>
 </main>
 <!-- /seo:noscript -->
