@@ -260,11 +260,18 @@ fn log_cmd(out: &std::path::Path, n: usize, diff: Option<u64>) {
             eprintln!("log: no entry {i}");
             std::process::exit(1);
         };
-        eprintln!("{} {} {} · {} files · {} GB", ui::bold(&format!("#{i}")), when(e), e["job"].as_str().unwrap_or(""), num(u(e, "files")), gb(u(e, "bytes")));
+        eprintln!("{} {} {} · {} files read · {} GB · ledger: {} copies, {} resumed, {} past changed", ui::bold(&format!("#{i}")), when(e),
+                  e["job"].as_str().unwrap_or(""), num(u(e, "files")), gb(u(e, "bytes")), num(u(e, "copies")), num(u(e, "resumed")),
+                  num(u(e, "past_changed")));
         for c in e["diff"].as_array().into_iter().flatten() {
             let (st, p, size, from) = (c[0].as_str().unwrap_or(""), c[1].as_str().unwrap_or(""), c[2].as_u64().unwrap_or(0), c[3].as_u64().unwrap_or(0));
-            let what = match st { "grown" => format!("+{}", human(size.saturating_sub(from))), "gone" => format!("was {}", human(from)), _ => human(size) };
-            println!("{:<10} {:>12}  {}", st, what, tilde(p));
+            let what = match st {
+                "grown" | "resumed" => format!("+{}", human(size.saturating_sub(from))),
+                "gone" => format!("was {}", human(from)),
+                "copy" => "not read".to_string(),
+                _ => human(size),
+            };
+            println!("{:<12} {:>12}  {}", st, what, tilde(p));
         }
         let (shown, total) = (e["diff"].as_array().map_or(0, |a| a.len()), u(e, "diff_total") as usize);
         if total > shown {
@@ -272,12 +279,14 @@ fn log_cmd(out: &std::path::Path, n: usize, diff: Option<u64>) {
         }
         return;
     }
-    println!("{:>5}  {:<16}  {:<6} {:>7} {:>7} {:>9} {:>6} {:>10} {:>9} {:>7}  {}", "#", "when", "job", "new", "grown", "rewritten", "gone",
-             "unchanged", "read", "secs", "range");
+    // copies, resumed and past changed: what the ledger answered for the new and rewritten paths (ledger.rs)
+    println!("{:>5}  {:<16}  {:<6} {:>7} {:>7} {:>9} {:>6} {:>10} {:>7} {:>7} {:>6} {:>9} {:>7}  {}", "#", "when", "job", "new", "grown",
+             "rewritten", "gone", "unchanged", "copies", "resumed", "past", "read", "secs", "range");
     for e in all.iter().rev().take(n) {
-        println!("{:>5}  {:<16}  {:<6} {:>7} {:>7} {:>9} {:>6} {:>10} {:>9} {:>7.1}  {}", u(e, "i"), when(e), e["job"].as_str().unwrap_or(""),
-                 num(u(e, "new")), num(u(e, "grown")), num(u(e, "rewritten")), num(u(e, "gone")), num(u(e, "unchanged")),
-                 human(u(e, "bytes")), e["secs"].as_f64().unwrap_or(0.0), e["range"].as_str().unwrap_or(""));
+        println!("{:>5}  {:<16}  {:<6} {:>7} {:>7} {:>9} {:>6} {:>10} {:>7} {:>7} {:>6} {:>9} {:>7.1}  {}", u(e, "i"), when(e),
+                 e["job"].as_str().unwrap_or(""), num(u(e, "new")), num(u(e, "grown")), num(u(e, "rewritten")), num(u(e, "gone")),
+                 num(u(e, "unchanged")), num(u(e, "copies")), num(u(e, "resumed")), num(u(e, "past_changed")), human(u(e, "bytes")),
+                 e["secs"].as_f64().unwrap_or(0.0), e["range"].as_str().unwrap_or(""));
     }
     eprintln!("{}", ui::dim("relic-scan log --diff N lists the files of entry N"));
 }
