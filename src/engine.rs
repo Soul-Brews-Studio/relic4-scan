@@ -1,6 +1,6 @@
 //! Port of jsonl-truth's line parser: src/relic4/engine.py (extract, extract_tools, thinking_of, redact,
 //! ts_of, stamp, key) as driven by src/relic4/store.py parse_chunk. Every function mirrors its Python twin;
-//! OUTPUT-CHAIN.md lists the rules and verify/understand.py checks them on real files.
+//! docs/OUTPUT-CHAIN.md lists the rules and verify/understand.py checks them on real files.
 
 use std::sync::OnceLock;
 

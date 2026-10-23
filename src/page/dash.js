@@ -14,8 +14,8 @@ function totals() {
 function dashScan() {
   const file = location.protocol === "file:";
   const T = totals(), cov = SC.indexed / Math.max(1, SC.indexed + SC.loose_transcripts);
-  return `<div class="eyebrow">Memory intake</div><h1>Smart Scan${rangeChip()}</h1>
-    <p class="sub">Find every agent transcript on this machine, read only the bytes that are new, and rebuild the months, the meta and these views.</p>${scopeLine()}
+  return `<h1>Smart Scan${rangeChip()}</h1>
+    <p class="sub">Every agent transcript on this machine. Each run reads only what is new.</p>${scopeLine()}
     <div class="cols"><div class="main">
     <div class="hero"><button class="donut" id="sunmini" aria-label="Rows by kind. Open the full contents view"></button><div class="kl" id="sunleg"></div></div>
     <div class="strip five">${(() => {
@@ -65,8 +65,8 @@ function dashBanks() {
   const list = repos.slice(0, repoCap).map(([c, r]) => `<div class="repo" data-go="/map#repo:${encodeURIComponent(/\s/.test(c) ? '"' + c + '"' : c)}">
       <span style="color:var(--cyan)">▰</span><div class="r"><b>${esc(c)}</b><code>${esc(orgRepo(r.k))}</code></div>
       <div class="x"><b>${fmt(r.n)}</b><div>sessions · ${fmt(r.rows)} rows</div></div></div>`).join("");
-  return `<div class="eyebrow">Memory topology</div><h1>Banks &amp; Repositories${rangeChip()}</h1>
-    <p class="sub">Where the transcripts live on this machine, and which repositories hold the most of them. A session copied into several banks counts in each.</p>${scopeLine()}
+  return `<h1>Banks &amp; Repositories${rangeChip()}</h1>
+    <p class="sub">Where your transcripts live, and which repositories hold the most.</p>${scopeLine()}
     <div class="grid2">${banks}</div>
     <div class="card" style="margin-top:22px"><h3 class="c">Repository index · ${fmt(repos.length)}</h3>${list}
       ${repos.length > repoCap ? `<div class="note"><a href="#" id="rmore" style="color:var(--cyan)">show ${fmt(Math.min(100, repos.length - repoCap))} more</a></div>` : ""}</div>`;
@@ -91,8 +91,8 @@ function dashHealth() {
   ];
   const warns = checks.filter(c => c[0] === "warn").length;
   const L = { ok: ["var(--green)", "✓"], warn: ["var(--amber)", "!"], info: ["var(--cyan)", "i"] };
-  return `<div class="eyebrow">System readiness</div><h1>Health${rangeChip()}</h1>
-    <p class="sub">Signals computed from this index itself: nothing here is estimated.</p>${scopeLine()}
+  return `<h1>Health${rangeChip()}</h1>
+    <p class="sub">Checks computed from this index. Nothing is estimated.</p>${scopeLine()}
     <div class="card head"><span class="big" style="color:${warns ? "var(--amber)" : "var(--green)"}">${warns ? "⚠" : "✓"}</span>
       <div><b style="font-size:18px">${warns ? `${warns} warning${warns > 1 ? "s" : ""} reported` : "All clear"}</b>
       <div class="note" style="margin:2px 0 0">Page built ${esc(D.built)} · ${esc(D.out || "")}</div></div></div>

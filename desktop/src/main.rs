@@ -5,7 +5,7 @@
 //! button runs an incremental run in this process. Nothing listens beyond 127.0.0.1 and nothing goes to the network.
 //!
 //!   RELIC_SCAN_KIND   all (default, like `relic-scan run`) · claude · codex · … · several joined by commas
-//!   --view V          open on scan (default), banks, health, map, tree or paths
+//!   --view V          open on a view: scan (default), scans, banks, health, map, tree, paths, disk, settings; scan#contents opens the contents popup
 //!   RELIC_SCAN_OUT    the output directory (default ~/.relic-scan, or ~/.relic-scan/<kind> with a kind)
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
@@ -23,7 +23,10 @@ fn main() {
     let out = PathBuf::from(relic_scan::out_dir(&out, &kind));
     let args: Vec<String> = std::env::args().collect();
     let view = args.iter().position(|a| a == "--view").and_then(|i| args.get(i + 1)).cloned().unwrap_or_default();
-    let view = if ["scan", "banks", "health", "map", "tree", "paths"].contains(&view.as_str()) { view } else { String::new() };
+    // a view of the page, optionally with its #hash (scan#contents opens the contents popup)
+    let base = view.split('#').next().unwrap_or("");
+    let views = ["scan", "scans", "banks", "health", "map", "tree", "paths", "disk", "settings"];
+    let view = if views.contains(&base) && view.bytes().all(|b| b.is_ascii_alphanumeric() || b"#:-_".contains(&b)) { view } else { String::new() };
     let listener = relic_scan::serve::bind(0);
     let port = listener.local_addr().expect("local address").port();
     {

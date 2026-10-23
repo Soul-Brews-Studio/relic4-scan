@@ -248,6 +248,16 @@ Other keys:
 
 It sets no background colour, so it reads the same on dark and light terminals. Colour in the CLI output appears only on a terminal and is off with `NO_COLOR`.
 
+## Repository layout
+- `src/`: the `relic-scan` crate (CLI, server, TUI, and the page it serves).
+- `desktop/`: the Tauri desktop app, its icons, the DMG background and the Linux build (`desktop/linux/Dockerfile`).
+- `site/`: the landing page (`site/public/`) and its deploy config; see [docs/DESIGN.md](docs/DESIGN.md).
+- `docs/`: [DESIGN.md](docs/DESIGN.md) (the look of the app and the site), [RESEARCH.md](docs/RESEARCH.md) (the design and its
+  sources), [LEARNED.md](docs/LEARNED.md), [OUTPUT-CHAIN.md](docs/OUTPUT-CHAIN.md) (what phase 2 must reproduce) and
+  [COMPARE.md](docs/COMPARE.md).
+- `verify/`: the full-corpus proofs in Python.
+- `install.sh`: builds and installs the CLI.
+
 ## Source layout
 No file is longer than 500 lines; a long one is split into a folder of modules.
 - `src/run.rs`: `relic-scan run` (scan, diff, parse, merge, meta, map, scan log); `src/lib.rs` keeps the arguments and the shared helpers.

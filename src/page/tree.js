@@ -4,6 +4,7 @@ const roots = new Map(); // "home|cat" -> root sessions (mains, and satellites w
 for (let k = 0; k < N; k++) if (!(S.tier[k] > 0 && S.parent[k] >= 0))
   for (const h of S.homes[k]) { const key = h + "|" + S.cat[k]; (roots.get(key) || roots.set(key, []).get(key)).push(k); }
 const open = new Set(), cap = new Map();
+let treeFirst = false;
 let treeAuto = false;
 const newAgg = () => ({ n: 0, rows: 0, ty: [0, 0, 0, 0, 0, 0], last: 0 });
 function addAgg(a, k) {
@@ -50,6 +51,8 @@ function renderTree() {
   if (!active) treeAuto = false;
   // one bank: open it down to its repos
   if (homeWant.length && H.size <= 3) for (const h of H.keys()) open.add("h:" + h);
+  // the first look at the tree opens the biggest home, so it starts with repositories rather than a list of folders
+  if (!treeFirst && H.size) { treeFirst = true; open.add("h:" + [...H].sort((x, y) => y[1].rows - x[1].rows)[0][0]); }
   // where you are: the bank or repo the query came from, and the way back
   const home1 = homeWant.length && H.size === 1 ? D.homes[[...H.keys()][0]] : null, tot = [...H.values()].reduce((t, a) => t + a.n, 0);
   let html = home1 ? `<div class="where"><a href="${kHref("banks")}">Banks &amp; Repos</a><span>›</span><b>${esc(home1.path.replace(D.home || "\u0000", "~"))}</b>

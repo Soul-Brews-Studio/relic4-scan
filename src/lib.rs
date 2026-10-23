@@ -1,5 +1,5 @@
 //! relic-scan — one binary that finds every AI-agent transcript on this machine and (next phases) parses it
-//! into one file per Bangkok month. See RESEARCH.md for the design and its sources.
+//! into one file per Bangkok month. See docs/RESEARCH.md for the design and its sources.
 //!
 //!   relic-scan scan [--root DIR]... [--depth 8] [--json] [--index index.tsv]
 //!       phase 1: find every agent home (.claude, .claude_bak, .claude2, .codex …) and index its .jsonl files

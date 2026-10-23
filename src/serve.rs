@@ -129,8 +129,11 @@ fn pick_folder() -> Option<String> {
 /// Anything else is refused, so the button can never be used to open an arbitrary path.
 fn reveal_target(out: &Path, q: &std::collections::HashMap<String, String>) -> Option<(String, bool)> {
     // the index's own tables (sessions, files, every .jsonl), for an export too big to save from the page
-    if q.get("what").map(String::as_str) == Some("meta") {
-        return Some((out.join("meta").display().to_string(), false));
+    match q.get("what").map(String::as_str) {
+        Some("meta") => return Some((out.join("meta").display().to_string(), false)),
+        // the whole index folder: the month files, _state.tsv, the scan log and meta/
+        Some("out") => return Some((out.display().to_string(), false)),
+        _ => {}
     }
     let st = crate::state::load(out);
     if let Some(sid) = q.get("sid").filter(|s| !s.is_empty() && !s.contains('/')) {

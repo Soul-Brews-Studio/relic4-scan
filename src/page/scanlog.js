@@ -5,8 +5,8 @@ const zn = x => x ? x.toLocaleString() : `<span class="z">0</span>`;
 const files = n => `${n.toLocaleString()} file${n === 1 ? "" : "s"}`;
 const scanWhat = e => e.files ? `${files(e.files)} · ${human(e.bytes)}` : e.gone ? `${e.gone.toLocaleString()} gone` : "nothing changed";
 function dashScans() {
-  return `<div class="eyebrow">History</div><h1>Scan log${rangeChip()}</h1>
-    <p class="sub">Every index and every check, newest first. Open one to see the files it read, or would read, and the files gone from disk.</p>${scopeLine()}
+  return `<h1>Scan log${rangeChip()}</h1>
+    <p class="sub">Every index and check, newest first. Open one to see its files.</p>${scopeLine()}
     <div class="card log" id="slog"><div class="muted" style="padding:24px">${SERVED ? "loading…" : "The scan log needs the server: open this page through relic-scan serve or the app."}</div></div>`;
 }
 let LOG = [];

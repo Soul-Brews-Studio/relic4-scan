@@ -87,7 +87,7 @@ function contentsFull() {
     return `<section><h4>${title}</h4>
       <div class="track2">${parts.map((p, i) => `<i style="width:${(100 * p.v / tot).toFixed(2)}%;background:${shade(i)}" title="${esc(name(p.key))}: ${p.v.toLocaleString()}"></i>`).join("")}</div>
       ${parts.map((p, i) => `<div class="row"><span class="dot" style="background:${shade(i)}"></span><span class="n">${esc(name(p.key))}</span>
-        <span class="v">${p.v.toLocaleString()}</span><span class="p">${(100 * p.v / tot).toFixed(1)}%</span></div>`).join("")}</section>`;
+        <span class="v">${p.v.toLocaleString()}</span><span class="p">${pct(p.v, tot)}</span></div>`).join("")}</section>`;
   };
   const months = group("month").sort((a, b) => a.key < b.key ? -1 : 1), top = Math.max(1, ...months.map(m => m.v));
   // every row: each month's column is stacked by kind, the biggest kind overall at the bottom, the same order in every column

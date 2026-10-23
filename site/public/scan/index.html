@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARRA Relic Scan · every agent transcript, found and kept</title>
+<meta name="description" content="ARRA Relic Scan finds every AI-agent transcript on your machine (Claude Code, Codex, OMP, OMX, Gemini, Pi), indexes it into one Parquet file per month, and lets you browse it locally. Nothing leaves the machine.">
+<meta property="og:title" content="ARRA Relic Scan">
+<meta property="og:description" content="Every AI-agent transcript on your machine, found, indexed and browsable. Local only.">
+<meta property="og:image" content="https://relic.buildwithoracle.com/scan/img/og.jpg">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://relic.buildwithoracle.com/scan/">
+<link rel="alternate" type="text/markdown" title="llms.txt" href="/llms.txt">
+<!-- seo:jsonld -->
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@type": "SoftwareApplication",
+ "name": "ARRA Relic Scan",
+ "url": "https://relic.buildwithoracle.com/scan/",
+ "description": "ARRA Relic Scan finds every AI-agent transcript on your machine (Claude Code, Codex, OMP, OMX, Gemini, Pi), indexes it into one Parquet file per month, and lets you browse it locally. Nothing leaves the machine.",
+ "applicationCategory": "DeveloperApplication",
+ "operatingSystem": "macOS (Apple silicon), Linux (x86_64)",
+ "softwareVersion": "26.10.23-alpha.923",
+ "downloadUrl": [
+  "https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.923/ARRA-Relic-Scan_26.10.23-alpha.923_macos-arm64.dmg",
+  "https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.923/ARRA-Relic-Scan_26.10.23-alpha.923_linux-amd64.deb",
+  "https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.923/ARRA-Relic-Scan_26.10.23-alpha.923_linux-amd64.AppImage"
+ ],
+ "releaseNotes": "https://github.com/Soul-Brews-Studio/relic4-scan/releases/tag/v26.10.23-alpha.923",
+ "image": "https://relic.buildwithoracle.com/scan/img/og.jpg",
+ "screenshot": [
+  "https://relic.buildwithoracle.com/scan/img/scan.webp",
+  "https://relic.buildwithoracle.com/scan/img/scans.webp",
+  "https://relic.buildwithoracle.com/scan/img/scan-contents.webp",
+  "https://relic.buildwithoracle.com/scan/img/map.webp",
+  "https://relic.buildwithoracle.com/scan/img/tree.webp",
+  "https://relic.buildwithoracle.com/scan/img/disk.webp"
+ ],
+ "featureList": [
+  "The whole index at a glance: Smart Scan shows every row by kind, the sessions and files behind them, and how far back your history goes.",
+  "Check before you index: Check changes walks your folders and says what an index would read. It writes nothing.",
+  "See what your agents wrote: Pick a kind of row and see where it came from.",
+  "Every session as a star: Rings are the months a session started; sectors are repositories. Subagents orbit the session that started them.",
+  "Home, repository, session: The same index as a tree, newest first, with rows by kind on every line.",
+  "Where the gigabytes are: Every .jsonl by folder and size, as rings, one colour per branch. Click to go in; open any folder in Finder."
+ ],
+ "publisher": {
+  "@type": "Organization",
+  "name": "Soul Brews Studio",
+  "url": "https://buildwithoracle.com/"
+ }
+}
+</script>
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@type": "FAQPage",
+ "mainEntity": [
+  {
+   "@type": "Question",
+   "name": "What is ARRA Relic Scan?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "A desktop app and command-line tool that finds every AI-agent transcript on your machine, indexes it into one Parquet file per month, and lets you browse it locally: a dashboard, a session map, a tree, a disk view and a terminal UI."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Which agents does it read?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "Claude Code, Codex, OMP, OMX, Gemini, Pi and thClaws: any .claude, .codex, .omp, .omx, .gemini, .pi or .thclaws home, plus backups, mirrors and archived copies of them."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Does it upload my transcripts anywhere?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "No. The app serves its page on 127.0.0.1 only, the page makes no network calls, and the index is written to ~/.relic-scan on your own disk."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Does it change my transcript files?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "No. It only reads them; everything it writes goes to its own folder (~/.relic-scan), and Check changes writes nothing at all."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "How fast is it?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "On one Apple-silicon Mac it indexed 86,904 transcripts (75.6 GB) in 58 seconds from cold, and brings that index up to date in about 15 seconds by reading only new bytes."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "What format is the index?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "Plain Parquet: one file per month of rows (every message, thinking block, tool call and result), plus sessions, files and every .jsonl, readable by DuckDB, Polars or pandas."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Which platforms does it run on?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "macOS on Apple silicon (a .dmg), and Linux x86_64 (.deb and .AppImage); the relic-scan command builds on macOS and Linux with Rust."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Is it free and open source?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "It is a private beta: the downloads sit in a private GitHub repository and need access to the Soul-Brews-Studio organisation."
+   }
+  }
+ ]
+}
+</script>
+<!-- /seo:jsonld -->
+<link rel="preload" href="fonts/BricolageGrotesque.woff2" as="font" type="font/woff2" crossorigin>
+<!-- Preact and htm as ES modules, Tailwind compiled in the browser: no build step -->
+<script type="importmap">
+{ "imports": {
+  "preact": "https://esm.sh/preact@11.0.1",
+  "preact/hooks": "https://esm.sh/preact@11.0.1/hooks",
+  "htm": "https://esm.sh/htm@3.1.1"
+} }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3"></script>
+<style>
+@font-face { font-family: "Bricolage Grotesque"; src: url(fonts/BricolageGrotesque.woff2) format("woff2"); font-weight: 200 800; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url(fonts/JetBrainsMono.woff2) format("woff2"); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url(fonts/JetBrainsMono-box.woff2) format("woff2"); font-weight: 400 700; font-display: swap;
+  unicode-range: U+2500-257F, U+2318, U+232B, U+2248, U+2191, U+2193; }
+/* the paper colour before Tailwind has compiled, so the first frame is never white (same value as --color-paper) */
+html { background: oklch(15% 0.012 262); color-scheme: dark; }
+</style>
+<style type="text/tailwindcss">
+/* Hallmark · genre: atmospheric · macrostructure: Workbench · theme: custom (vibe: "after-hours developer tool, warm amber on ink"
+ *   · paper oklch(15% 0.012 262) · accent oklch(80% 0.15 75) amber · Bricolage Grotesque + JetBrains Mono) · axes: dark / grotesk-sans / warm
+ *   · enrichment: real product captures and a TUI recording (synthetic demo index, no user data) · nav: N9 floating + dot index · footer: Ft5 statement
+ * stack: Preact + htm + Tailwind v4 from CDN, no build · pre-emit critique: P5 H4 E4 S5 R4 V4 */
+@theme {
+  --color-paper: oklch(15% 0.012 262); --color-paper-2: oklch(19% 0.014 262); --color-paper-3: oklch(23% 0.016 262);
+  --color-ink: oklch(94% 0.006 262); --color-ink-2: oklch(76% 0.014 262); --color-dim: oklch(62% 0.018 262);
+  --color-line: oklch(28% 0.016 262); --color-edge: oklch(48% 0.016 262);
+  --color-accent: oklch(80% 0.15 75); --color-accent-hover: oklch(84% 0.14 78); --color-accent-ink: oklch(22% 0.04 70);
+  --color-glass: oklch(17% 0.012 262 / 0.78); --color-bloom: oklch(80% 0.15 75 / 0.10); --color-focus: oklch(85% 0.13 75);
+  --color-scrim: oklch(9% 0.01 262 / 0.95);
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --text-xs: 0.8125rem; --text-sm: 0.9375rem; --text-base: 1.0625rem; --text-lg: 1.375rem; --text-xl: 1.875rem; --text-2xl: 2.75rem;
+  --text-display: clamp(2.75rem, 4.6vw + 1rem, 4.75rem);
+  --ease-soft: cubic-bezier(.2, .7, .2, 1);
+}
+@layer base {
+  html { scrollbar-color: var(--color-edge) var(--color-paper); -webkit-text-size-adjust: 100%; overflow-x: clip; }
+  body { margin: 0; background: var(--color-paper); color: var(--color-ink); font: 400 var(--text-base)/1.6 var(--font-display); overflow-x: clip;
+    background-image: radial-gradient(60rem 36rem at 88% -8%, var(--color-bloom), transparent 70%); background-attachment: fixed; }
+  ::selection { background: var(--color-accent); color: var(--color-accent-ink); }
+  :focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; border-radius: 4px; }
+  a { text-underline-offset: 3px; }
+  [id] { scroll-margin-top: 88px; }
+}
+/* motion. Fades always run: they change opacity, not position, so they suit Reduce Motion too. Movement (content sliding up,
+ * captures drifting against the text) runs only without Reduce Motion. In-page links glide in app.js. */
+.arrive > * { animation: fade-in 900ms var(--ease-soft) both; }
+.arrive > :nth-child(2) { animation-delay: 90ms; } .arrive > :nth-child(3) { animation-delay: 180ms; }
+.arrive > :nth-child(4), .arrive > :nth-child(5) { animation-delay: 270ms; } .arrive > :nth-child(n+6) { animation-delay: 380ms; }
+@keyframes fade-in { from { opacity: 0; } }
+.rise { opacity: 0; transition: opacity 800ms var(--ease-soft), transform 800ms var(--ease-soft); }
+.rise.in { opacity: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  .arrive > * { animation-name: arrive; }
+  @keyframes arrive { from { opacity: 0; transform: translateY(18px); } }
+  .rise { transform: translateY(28px); }
+  .rise.in { transform: none; }
+  @supports (animation-timeline: view()) {
+    .drift { animation: drift linear both; animation-timeline: view(); animation-range: entry 0% exit 100%; }
+    @keyframes drift { from { transform: translateY(40px); } to { transform: translateY(-40px); } }
+  }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <noscript>
+<!-- seo:noscript -->
+<main style="max-width:68ch;margin:6vh auto;padding:0 24px;font-family:system-ui;line-height:1.6">
+<h1>Every agent transcript, found and kept.</h1>
+<p>Claude Code, Codex, OMP, OMX, Gemini and Pi leave thousands of <code>.jsonl</code> files across homes, mirrors and archives. <strong>ARRA Relic Scan finds every one, indexes it into one Parquet file per month, and lets you browse it on your own machine.</strong> Nothing leaves it.</p>
+<p><a href="https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.923/ARRA-Relic-Scan_26.10.23-alpha.923_macos-arm64.dmg">Download for macOS</a> · <a href="#get">Linux and the CLI</a><br><small>Private beta · the downloads need access to Soul-Brews-Studio on GitHub · Apple silicon, Linux x86_64</small></p>
+<h2>Measured</h2><ul><li><b>58 s</b> to index 86,904 transcripts (75.6 GB) from cold</li><li><b>≈15 s</b> to bring that index up to date, reading only new bytes</li><li><b>5.5 M</b> rows: every message, thinking block, tool call and result</li><li><b>0</b> network calls from the app or its page</li></ul><p><small>Measured on one Apple-silicon Mac, October 2026, over its own agents' history. Your numbers follow your disk.</small></p>
+<h2>Start in the terminal</h2><p><code>relic-scan tui</code> reads the index: overview, repositories, sessions and every <code>.jsonl</code>.</p><p><code>/</code> filters · <code>Enter</code> opens · <code>⌫</code> goes back · no background of its own, so it reads on dark and light terminals</p>
+<h2>The whole index at a glance</h2><p>Smart Scan shows every row by kind, the sessions and files behind them, and how far back your history goes.</p><ul><li>user text, AI text, thinking, tool calls, results and errors</li><li>Check changes and Index now, one click each</li><li>the output folder under every title: Open folder, Export list</li></ul>
+<h2>Check before you index</h2><p>Check changes walks your folders and says what an index would read. It writes nothing.</p><ul><li>new, grown, rewritten and gone files, with the bytes to read</li><li>every index and every check kept in a scan log you can open</li><li>Stop ends a run during the walk or the parse, with nothing written</li></ul>
+<h2>See what your agents wrote</h2><p>Pick a kind of row and see where it came from.</p><ul><li>main sessions, subagents and workflow agents</li><li>own homes, mirrors, archives and rescued copies</li><li>agent by agent, month by month, stacked by kind</li></ul>
+<h2>Every session as a star</h2><p>Rings are the months a session started; sectors are repositories. Subagents orbit the session that started them.</p><ul><li>a query language: <code>repo:</code> <code>month:</code> <code>tier:</code> <code>errors&gt;=20</code></li><li>click a star for its rows, its copies and <code>claude --resume</code></li><li>⌘K finds any session, repo, home, file or scan</li></ul>
+<h2>Home, repository, session</h2><p>The same index as a tree, newest first, with rows by kind on every line.</p><ul><li>open a bank and see only that bank, with the way back</li><li>export what you see as CSV or JSON, with the time and the query</li></ul>
+<h2>Where the gigabytes are</h2><p>Every <code>.jsonl</code> by folder and size, as rings, one colour per branch. Click to go in; open any folder in Finder.</p><ul><li>indexed and not-indexed bytes for every folder</li><li>folders the scan could not read, listed in Health</li></ul>
+<h2>It stays on your machine.</h2><ul><li><b>127.0.0.1</b>: The page is served on this machine only, and makes no network calls.</li><li><b>on a click</b>: Nothing is written until you press Index now. Checks only read.</li><li><b>~/.relic-scan</b>: Your index is plain Parquet: one file per month, plus sessions, files and every .jsonl.</li><li><b>four ways in</b>: A desktop app, the page in any browser, a terminal UI, and the <code>relic-scan</code> command.</li></ul>
+<h2>Questions</h2><dl><dt><b>What is ARRA Relic Scan?</b></dt><dd>A desktop app and command-line tool that finds every AI-agent transcript on your machine, indexes it into one Parquet file per month, and lets you browse it locally: a dashboard, a session map, a tree, a disk view and a terminal UI.</dd><dt><b>Which agents does it read?</b></dt><dd>Claude Code, Codex, OMP, OMX, Gemini, Pi and thClaws: any .claude, .codex, .omp, .omx, .gemini, .pi or .thclaws home, plus backups, mirrors and archived copies of them.</dd><dt><b>Does it upload my transcripts anywhere?</b></dt><dd>No. The app serves its page on 127.0.0.1 only, the page makes no network calls, and the index is written to ~/.relic-scan on your own disk.</dd><dt><b>Does it change my transcript files?</b></dt><dd>No. It only reads them; everything it writes goes to its own folder (~/.relic-scan), and Check changes writes nothing at all.</dd><dt><b>How fast is it?</b></dt><dd>On one Apple-silicon Mac it indexed 86,904 transcripts (75.6 GB) in 58 seconds from cold, and brings that index up to date in about 15 seconds by reading only new bytes.</dd><dt><b>What format is the index?</b></dt><dd>Plain Parquet: one file per month of rows (every message, thinking block, tool call and result), plus sessions, files and every .jsonl, readable by DuckDB, Polars or pandas.</dd><dt><b>Which platforms does it run on?</b></dt><dd>macOS on Apple silicon (a .dmg), and Linux x86_64 (.deb and .AppImage); the relic-scan command builds on macOS and Linux with Rust.</dd><dt><b>Is it free and open source?</b></dt><dd>It is a private beta: the downloads sit in a private GitHub repository and need access to the Soul-Brews-Studio organisation.</dd></dl>
+<h2 id="get">Download</h2><p>Version 26.10.23-alpha.923, a private beta. The files sit in a private GitHub repository: sign in with an account that has access to Soul-Brews-Studio.</p><ul><li><a href="https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.923/ARRA-Relic-Scan_26.10.23-alpha.923_macos-arm64.dmg">macOS: .dmg · 6.6 MB</a> (Apple silicon · drag into Applications)</li><li><a href="https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.923/ARRA-Relic-Scan_26.10.23-alpha.923_linux-amd64.deb">Linux: .deb · 7.5 MB</a> (x86_64 · Debian, Ubuntu)</li><li><a href="https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.923/ARRA-Relic-Scan_26.10.23-alpha.923_linux-amd64.AppImage">Linux: .AppImage · 85 MB</a> (x86_64 · any distribution)</li></ul>
+<pre>gh api repos/Soul-Brews-Studio/relic4-scan/contents/install.sh \
+  -H 'Accept: application/vnd.github.raw' | sh</pre>
+<p>Your agents keep everything they did. Now you can find it.</p>
+</main>
+<!-- /seo:noscript -->
+  </noscript>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

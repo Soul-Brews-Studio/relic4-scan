@@ -1,9 +1,8 @@
 // ---------- settings: what to scan and how often to check (OUT/_config.json through /api/config) ----------
 // the server checks what it is sent (folders that exist, depth 1-32, auto check off/15/30/60) and says what is wrong
 function dashSettings() {
-  return `<div class="eyebrow">Preferences</div><h1>Settings${rangeChip()}</h1>
-    <p class="sub">What the scan walks and how often the server checks for changes. Index now and <code>relic-scan run</code>
-      use these; a flag on the command line wins.</p>${scopeLine()}
+  return `<h1>Settings${rangeChip()}</h1>
+    <p class="sub">What the scan walks and how often it checks. A flag on the command line wins.</p>${scopeLine()}
     <div id="sset">${SERVED ? `<div class="muted">loading…</div>` : `<div class="muted">Settings need the server: open this page through relic-scan serve or the app.</div>`}</div>`;
 }
 // an editable list as chips: × removes one, the box adds one (Enter or a suggestion), "Choose folder…" asks the desktop

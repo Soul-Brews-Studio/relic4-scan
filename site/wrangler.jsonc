@@ -1,0 +1,9 @@
+// The landing page as a static-assets Worker on relic.buildwithoracle.com.
+// Deploy from this folder: npx -y wrangler@4 deploy
+{
+  "name": "relic-scan-site",
+  "compatibility_date": "2026-10-01",
+  "account_id": "a5eabdc2b11aae9bd5af46bd6a88179e",
+  "assets": { "directory": "./public", "html_handling": "auto-trailing-slash" },
+  "routes": [{ "pattern": "relic.buildwithoracle.com", "custom_domain": true }]
+}

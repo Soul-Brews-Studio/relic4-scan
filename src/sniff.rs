@@ -1,7 +1,7 @@
 //! Content sniffing: is this .jsonl an agent transcript, and whose? Reads the first 64 KB only.
 //!
 //! Two independent tests, learned from ground truth (50,188 beta@m5 files, 47,102 of which produced truth
-//! rows; see LEARNED.md "fingerprints"):
+//! rows; see docs/LEARNED.md "fingerprints"):
 //!   1. SIGNATURE of the first JSON objects: which agent writes lines shaped like this
 //!        claude   sessionId + uuid/parentUuid, or a claude metadata type (permission-mode, queue-operation,
 //!                 file-history-snapshot, summary+leafUuid, ai-title, last-prompt, agent-setting …)
