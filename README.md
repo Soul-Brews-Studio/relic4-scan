@@ -49,6 +49,13 @@ cargo install tauri-cli --version '^2' --locked && cargo tauri build          # 
 ```
 **Installer:** `cargo tauri build --bundles app,dmg` also makes `target/release/bundle/dmg/ARRA Relic Scan_<version>_aarch64.dmg`, a drag-to-Applications window (660x400, the app at (180,190) and Applications at (480,190), the layout Oracle Pulse uses). Its background is `desktop/dmg/background.tiff` (1x and 2x), made by `desktop/dmg/make-background.sh`; it is light because Finder draws the icon labels in black.
 
+**Linux (`.deb`, `.AppImage`):** `desktop/linux/Dockerfile` builds both on any Docker host (Ubuntu 22.04, so the AppImage runs on newer systems too). From m5 it runs on white through a Docker context over tailscale ssh:
+```
+docker context create white --docker "host=ssh://nat@white.follow-rankine.ts.net"     # once
+docker --context white buildx build -f desktop/linux/Dockerfile --target out --output type=local,dest=/tmp/relic-linux .
+```
+`.dockerignore` keeps the build folders out of the upload. The first build installs WebKitGTK and the Tauri CLI; later ones reuse those layers.
+
 How it compares with Relic Scanner and Relic Studio, the SwiftUI apps over relic3: [docs/COMPARE.md](docs/COMPARE.md).
 
 **Build from a checkout instead:**
