@@ -8,7 +8,7 @@ export const SITE = {
   org: "Soul Brews Studio",
   tagline: "Every agent transcript, found and kept.",
   summary: "ARRA Relic Scan finds every AI-agent transcript on your machine (Claude Code, Codex, OMP, OMX, Gemini, Pi), indexes it into one Parquet file per month, and lets you browse it locally. Nothing leaves the machine.",
-  version: "26.10.23-alpha.1041",
+  version: "26.10.23-alpha.1117",
 };
 const REL = "https://github.com/Soul-Brews-Studio/relic4-scan/releases";
 export const DL = {
@@ -105,9 +105,9 @@ export const FAQ = [
 export const GET = {
   p: `Version ${SITE.version}, a private beta. The files sit in a private GitHub repository: sign in with an account that has access to Soul-Brews-Studio.`,
   rows: [
-    ["macOS", "Apple silicon · drag into Applications", ".dmg · 6.6 MB", DL.mac],
-    ["macOS", "Intel · drag into Applications", ".dmg · 7.0 MB", DL.intel],
-    ["Linux", "x86_64 · Debian, Ubuntu", ".deb · 7.5 MB", DL.deb],
+    ["macOS", "Apple silicon · drag into Applications", ".dmg · 6.7 MB", DL.mac],
+    ["macOS", "Intel · drag into Applications", ".dmg · 7.1 MB", DL.intel],
+    ["Linux", "x86_64 · Debian, Ubuntu", ".deb · 7.6 MB", DL.deb],
     ["Linux", "x86_64 · any distribution", ".AppImage · 85 MB", DL.appimage],
   ],
   cli: "gh api repos/Soul-Brews-Studio/relic4-scan/contents/install.sh \\\n  -H 'Accept: application/vnd.github.raw' | sh",
