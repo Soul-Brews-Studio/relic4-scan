@@ -1,4 +1,41 @@
-# relic-scan
+<p align="center"><img src="docs/media/mark.svg" width="72" height="72" alt=""></p>
+
+<h1 align="center">ARRA Relic Scan</h1>
+
+<p align="center"><b>Every agent transcript, found and kept.</b><br>
+Claude Code, Codex, OMP, OMX, Gemini and Pi leave thousands of <code>.jsonl</code> files across homes, mirrors and archives.<br>
+ARRA Relic Scan finds every one, and every oracle's ψ vault, indexes them into one Parquet file per month, and lets you browse it on your own machine. Nothing leaves it.</p>
+
+<p align="center">
+  <a href="https://relic.buildwithoracle.com/scan/"><b>Landing page</b></a> ·
+  <a href="https://github.com/Soul-Brews-Studio/relic4-scan/releases"><b>Download</b></a> (macOS Apple silicon and Intel, Linux) ·
+  <a href="AGENTS.md"><b>For AI agents</b></a> ·
+  <a href="LICENSE">AGPL-3.0</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/Soul-Brews-Studio/relic4-scan/releases"><img alt="release" src="https://img.shields.io/github/v/release/Soul-Brews-Studio/relic4-scan?include_prereleases&label=release&color=f5b73b"></a>
+  <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-AGPL--3.0-1d1405"></a>
+  <img alt="platforms" src="https://img.shields.io/badge/macOS%20%C2%B7%20Linux-desktop%20app%20%2B%20CLI-555">
+</p>
+
+<p align="center"><img src="site/public/scan/img/scan.webp" alt="Smart Scan: a donut of rows by kind and the totals of the index" width="900"></p>
+
+<p align="center"><img src="docs/media/tui.gif" alt="relic-scan tui: the overview, repositories, sessions filtered by billing" width="900"><br>
+<sub><code>relic-scan tui</code>: the same index in the terminal.</sub></p>
+
+| | |
+|---|---|
+| <img src="site/public/scan/img/scans.webp" alt="The scan log" width="440"><br>**Check before you index.** What an index would read, and a log of every index and check. | <img src="site/public/scan/img/scan-contents.webp" alt="Contents by kind, place and month" width="440"><br>**See what your agents wrote.** Rows by kind, by where the file lives, by agent and month. |
+| <img src="site/public/scan/img/map.webp" alt="The session map" width="440"><br>**Every session as a star.** Months as rings, repositories as sectors, a query language and ⌘K. | <img src="site/public/scan/img/tree.webp" alt="The tree" width="440"><br>**Home, repository, session.** The same index as a tree, newest first. |
+| <img src="site/public/scan/img/vaults.webp" alt="ψ Vaults" width="440"><br>**Every oracle's memory.** ψ vaults and their notes, grouped by folder. | <img src="site/public/scan/img/reader.webp" alt="The note reader" width="440"><br>**Read a note where it lives.** Markdown rendered in the app, nothing copied. |
+| <img src="site/public/scan/img/disk.webp" alt="The disk view" width="440"><br>**Where the gigabytes are.** Every <code>.jsonl</code> by folder and size. | <img src="site/public/scan/img/export.webp" alt="The Export view" width="440"><br>**Take the metadata with you.** Every table as CSV or JSON; month files one click from Finder. |
+
+<sub>Every capture comes from a demo index of made-up repositories.</sub>
+
+---
+
+## relic-scan
 
 One Rust binary, `relic-scan` (this repo is still named relic4-scan). It finds every AI-agent transcript on a machine, writes **one Parquet file per Bangkok month** in the relic4 truth schema, and writes the meta beside them: files, sessions, and every `.jsonl` on the machine. The design is in RESEARCH.md, the lessons from relic v1–v3 in LEARNED.md, and the exact output rules, traced and verified, in OUTPUT-CHAIN.md.
 
