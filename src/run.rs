@@ -350,6 +350,7 @@ pub fn run_inner(a: RunArgs, lock: Option<std::fs::File>, serving: bool) -> Repo
     let m = meta::build(outp, &agent, &st, threads);
     let t_meta = t1.elapsed().as_secs_f64();
     let t2 = std::time::Instant::now();
+    crate::manifest::build(outp);
     map::build(outp, &agent);
     let t_map = t2.elapsed().as_secs_f64();
     eprintln!("run: done in {:.1}s · state {} files -> {}/_state.tsv", t0.elapsed().as_secs_f64(), num(st.len() as u64), out);
