@@ -44,7 +44,7 @@ Paths are relative to `~/.relic-scan`. Month files hold the rows; `meta/` holds 
 
 | file | one row per | useful columns |
 |---|---|---|
-| `YYYY-MM.parquet` | message, thinking block, tool call or result | `sid`, `engine`, `ts`, `ts_th` (Bangkok), `role` (user, assistant, thinking), `kind` (call, result), `name` (tool), `text`, `body`, `err`, `sources` |
+| `YYYY-MM.parquet` | message, thinking block, tool call or result | `sid`, `engine`, `ts`, `ts_th` (Bangkok), `role` (user, assistant, thinking), `kind` (call, result), `name` (tool), `text`, `body`, `err`, `sources`, `model`, `msg_id`, `out_tokens` |
 | `meta/sessions.parquet` | session | `sid`, `parent_sid`, `tier` (main, subagent, workflow-agent), `cat` (repo), `proj`, `first_ts`, `last_ts`, `last_ms`, `n_rows`, `user_text`, `assistant_text`, `thinking`, `tool_calls`, `tool_results`, `tool_errors` |
 | `meta/files.parquet`, `meta/jsonl.parquet` | transcript file | path, home, size, verdict |
 | `meta/vaults.json`, `meta/vaults/<id>.json` | ψ vault, and its notes | plain JSON: name, path, kind, notes, sections; notes as `[path, section, title, bytes, mtime_ms]` |
@@ -73,9 +73,17 @@ even when the copies differ in metadata such as the recorded cwd; `sources` list
 5.35 M on one Mac). A Claude session's id is its file name; omp subagents (a task's transcript inside its parent session's
 folder) are sessions of tier `subagent` with `parent_sid` set.
 
+**Which model answered.** Assistant text, thinking and tool-call rows carry `model` (Claude `message.model`, omp
+`message.model`, Codex the model its last `turn_context` named). Claude and omp rows also carry `msg_id`, the API
+response they belong to (Claude `message.id`, omp `responseId`): one response is several rows, one per content block.
+`out_tokens` (the response's output tokens) is on **one row per `msg_id`**, so `sum(out_tokens)` counts each response
+once and `count(distinct msg_id)` counts API calls. Codex rows have a model but no `msg_id` or `out_tokens` yet. User
+text and tool results have none of the three.
+
 Indexes written by v26.10.23-alpha.1117 or earlier differ (fixed in v26.10.23-alpha.1308): omp tool results were also text rows (`role = 'toolResult'`), empty
 thinking blocks were dropped, mirrored copies that differed in one field were separate rows, and resumed Claude sessions
-and omp subagents were missing from `meta/sessions.parquet`. Re-index from scratch
+and omp subagents were missing from `meta/sessions.parquet`. Indexes written by v26.10.23-alpha.1858 or earlier have no
+`model`, `msg_id` or `out_tokens` (the columns read as NULL). Re-index from scratch
 (move `~/.relic-scan` aside, then `relic-scan run`) to get the current shape.
 
 ```sh
@@ -85,6 +93,8 @@ duckdb -c "select cat as repo, count(*) as sessions, sum(n_rows) as n_rows from 
 duckdb -c "select sid, ts_th, left(text, 120) as text from '*.parquet' where role = 'user' and text ilike '%parquet%' order by ts desc limit 20"
 # the tools used most
 duckdb -c "select name, count(*) as calls from '*.parquet' where kind = 'call' group by 1 order by calls desc limit 10"
+# API calls and output tokens per model, per month
+duckdb -c "select left(ts_th, 7) as month, model, count(distinct msg_id) as calls, sum(out_tokens) as out_tokens from '*.parquet' where model is not null group by all order by month, calls desc"
 # the newest session, read in order
 duckdb -c "select role, left(text, 200) as text from '*.parquet' where sid = (select sid from 'meta/sessions.parquet' order by last_ms desc limit 1) and role in ('user','assistant') order by ts"
 # ψ vaults with the most notes

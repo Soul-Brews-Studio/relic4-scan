@@ -171,3 +171,60 @@ fn mirrors_fold_empty_thinking_stays_and_omp_results_are_tools_only() {
     assert!(omp[0].starts_with("tools|") && omp[0].contains("|result|c1|glob|"), "{}", omp[0]);
     let _ = fs::remove_dir_all(&d);
 }
+
+#[test]
+fn model_msg_id_and_out_tokens_once_per_response() {
+    let d = tmp("model");
+    let (c, m, x, o) = (d.join(".claude/p/c1.jsonl"), d.join("mirror/.claude/p/c1.jsonl"), d.join(".codex/rollout-x.jsonl"), d.join(".omp/o1.jsonl"));
+    for p in [&c, &m, &x, &o] {
+        fs::create_dir_all(p.parent().unwrap()).unwrap();
+    }
+    // Claude: one response written as two lines (thinking, then text and a tool call), usage repeated on both
+    let msg = |content: &str, out: i64| format!(r#"{{"type":"assistant","sessionId":"c1","timestamp":"2026-07-06T01:00:01.000Z","message":{{"id":"msg_A","model":"claude-opus-4-8","role":"assistant","content":[{content}],"usage":{{"output_tokens":{out}}}}}}}"#);
+    let claude = format!(r#"{{"type":"user","sessionId":"c1","timestamp":"2026-07-06T01:00:00.000Z","message":{{"role":"user","content":"go"}}}}"#)
+        + "\n" + &msg(r#"{"type":"thinking","thinking":"plan"}"#, 7) + "\n"
+        + &msg(r#"{"type":"text","text":"done"},{"type":"tool_use","id":"tu9","name":"Bash","input":{}}"#, 40) + "\n";
+    fs::write(&c, &claude).unwrap();
+    fs::write(&m, &claude).unwrap(); // a mirror: the same response again, counted once
+    // Codex: the model is named per turn; its messages and calls carry none
+    fs::write(&x, [
+        r#"{"type":"session_meta","timestamp":"2026-07-06T02:00:00.000Z","payload":{"id":"x1"}}"#,
+        r#"{"type":"turn_context","timestamp":"2026-07-06T02:00:01.000Z","payload":{"model":"gpt-6-astra"}}"#,
+        r#"{"type":"response_item","timestamp":"2026-07-06T02:00:02.000Z","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"ask"}]}}"#,
+        r#"{"type":"response_item","timestamp":"2026-07-06T02:00:03.000Z","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"answer"}]}}"#,
+        r#"{"type":"response_item","timestamp":"2026-07-06T02:00:04.000Z","payload":{"type":"function_call","call_id":"fc1","name":"shell","arguments":"{}"}}"#,
+        r#"{"type":"response_item","timestamp":"2026-07-06T02:00:05.000Z","payload":{"type":"function_call_output","call_id":"fc1","output":"ok"}}"#,
+    ].join("\n") + "\n").unwrap();
+    // omp: responseId and usage.output
+    fs::write(&o, r#"{"type":"message","id":"o1","timestamp":"2026-07-06T03:00:00.000Z","message":{"role":"assistant","model":"glm-5.3","responseId":"msg_O","usage":{"output":692},"content":[{"type":"text","text":"omp says"}]}}"#.to_string() + "\n").unwrap();
+    let job = |p: &PathBuf| Job { path: p.to_str().unwrap().to_string(), size: fs::metadata(p).unwrap().len(), verdict: String::new(), ctx: Ctx::default() };
+    let out = d.join("out");
+    run(vec![job(&c), job(&m), job(&x), job(&o)], &out, "t@x", 2, false, false, None);
+    let r = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(fs::File::open(out.join("2026-07.parquet")).unwrap()).unwrap().build().unwrap();
+    let mut rows: Vec<(String, String, String, String, String, Option<i64>)> = vec![];
+    for b in r {
+        let b = b.unwrap();
+        let s = |n: &str| merge::col_str(&b, n).clone();
+        let (who, text, body, model, id) = (s("role"), s("text"), s("body"), s("model"), s("msg_id"));
+        let kind = s("kind");
+        let tok = b.column_by_name("out_tokens").unwrap().as_any().downcast_ref::<Int64Array>().unwrap().clone();
+        for i in 0..b.num_rows() {
+            let what = if kind.is_null(i) || kind.value(i).is_empty() { who.value(i).to_string() } else { kind.value(i).to_string() };
+            let said = if text.is_null(i) { body.value(i).to_string() } else { text.value(i).to_string() };
+            let v = |a: &StringArray| if a.is_null(i) { "-".to_string() } else { a.value(i).to_string() };
+            rows.push((what, said, v(&model), v(&id), String::new(), (!tok.is_null(i)).then(|| tok.value(i))));
+        }
+    }
+    let get = |said: &str| rows.iter().find(|r| r.1 == said).unwrap_or_else(|| panic!("no row {said}: {rows:#?}"));
+    assert_eq!((get("go").2.as_str(), get("go").5), ("-", None), "the user's text names no model");
+    for said in ["plan", "done"] {
+        assert_eq!((get(said).2.as_str(), get(said).3.as_str()), ("claude-opus-4-8", "msg_A"), "{said}");
+    }
+    let claude_tokens: Vec<i64> = rows.iter().filter(|r| r.3 == "msg_A").filter_map(|r| r.5).collect();
+    assert_eq!(claude_tokens, vec![40], "one row per response holds its tokens, the largest copy: {rows:#?}");
+    assert_eq!(get("answer").2, "gpt-6-astra");
+    assert_eq!(rows.iter().find(|r| r.0 == "call" && r.2 == "gpt-6-astra").map(|r| r.3.as_str()), Some("-"), "a Codex call: model, no id");
+    assert_eq!((get("ask").2.as_str(), get("ok").2.as_str()), ("-", "-"), "user text and tool results name no model");
+    assert_eq!((get("omp says").2.as_str(), get("omp says").3.as_str(), get("omp says").5), ("glm-5.3", "msg_O", Some(692)));
+    let _ = fs::remove_dir_all(&d);
+}

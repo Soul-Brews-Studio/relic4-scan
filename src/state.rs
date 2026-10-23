@@ -50,7 +50,8 @@ pub fn load(out: &Path) -> HashMap<String, FileState> {
             dev: num(1) as u64, ino: num(2) as u64, size: num(3) as u64,
             ctx: Ctx { offset: num(4) as u64, lines: num(5), session: c[6].to_string(), last_ms: c[7].parse().ok(),
                        first: c.get(10).and_then(|x| x.parse().ok()).unwrap_or(0),
-                       chain: c.get(11).and_then(|x| crate::ledger::unhex(x)).unwrap_or_default() },
+                       chain: c.get(11).and_then(|x| crate::ledger::unhex(x)).unwrap_or_default(),
+                       model: c.get(13).map(|x| x.to_string()).unwrap_or_default() },
             prefix_len: num(8) as u64, prefix_hash: num(9),
             copy_of: c.get(12).filter(|x| !x.is_empty()).map(|x| x.to_string()),
         });
@@ -61,14 +62,14 @@ pub fn load(out: &Path) -> HashMap<String, FileState> {
 pub fn save(out: &Path, m: &HashMap<String, FileState>) {
     let tmp = out.join("_state.tsv.part");
     let mut w = std::io::BufWriter::new(fs::File::create(&tmp).unwrap());
-    writeln!(w, "path\tdev\tino\tsize\toffset\tlines\tsession\tlast_ms\tprefix_len\tprefix_hash\tfirst\tchain\tcopy_of").unwrap();
+    writeln!(w, "path\tdev\tino\tsize\toffset\tlines\tsession\tlast_ms\tprefix_len\tprefix_hash\tfirst\tchain\tcopy_of\tmodel").unwrap();
     let mut keys: Vec<&String> = m.keys().collect();
     keys.sort();
     for k in keys {
         let s = &m[k];
-        writeln!(w, "{k}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", s.dev, s.ino, s.size, s.ctx.offset, s.ctx.lines,
+        writeln!(w, "{k}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", s.dev, s.ino, s.size, s.ctx.offset, s.ctx.lines,
                  s.ctx.session, s.ctx.last_ms.map(|x| x.to_string()).unwrap_or_default(), s.prefix_len, s.prefix_hash, s.ctx.first,
-                 crate::ledger::hex(&s.ctx.chain), s.copy_of.as_deref().unwrap_or("")).unwrap();
+                 crate::ledger::hex(&s.ctx.chain), s.copy_of.as_deref().unwrap_or(""), s.ctx.model).unwrap();
     }
     // on disk before the rename, so a power cut can never leave a state that points past what was written
     w.into_inner().unwrap().sync_all().unwrap();
