@@ -16,6 +16,7 @@
 //!   POST /api/stop     stop the run or check going on: it stops with nothing written, unless its merge has started
 //!   GET  /api/config   the Settings (OUT/_config.json), the defaults, OUT and the version; POST saves (X-Relic)
 //!   POST /api/pick     the desktop's folder picker (macOS choose folder); the chosen path, or 204 when cancelled
+//!   POST /api/save?name=…  write the page's export (CSV/JSON body) to ~/Downloads and show it in Finder
 //!   GET  /api/scans    the scan log (OUT/_scans.jsonl), newest first, without file lists
 //!   GET  /api/scans/N  one entry with its file list (the files the run read, or a check would read, and gone ones)
 //!                      Both POSTs need an `X-Relic: 1` header: a page on another site cannot send one without a CORS
@@ -96,6 +97,22 @@ fn seen_paths(out: &Path) -> Vec<String> {
     v
 }
 
+/// An export the page made (CSV or JSON), written to ~/Downloads under a plain name; the page cannot save files
+/// itself inside the desktop app's web view. The name is checked: letters, digits, dot, dash, underscore, .csv or .json.
+fn save_export(q: &std::collections::HashMap<String, String>, body: &[u8]) -> Result<String, String> {
+    let name = q.get("name").ok_or("needs a name")?;
+    let ok = name.len() <= 120 && !name.starts_with('.') && name.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))
+        && (name.ends_with(".csv") || name.ends_with(".json"));
+    if !ok || body.is_empty() {
+        return Err("a plain .csv or .json name and a body".into());
+    }
+    let dir = Path::new(&crate::expand("~/Downloads")).to_path_buf();
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let p = dir.join(name);
+    std::fs::write(&p, body).map_err(|e| e.to_string())?;
+    Ok(p.display().to_string())
+}
+
 /// The desktop's own folder picker, shown by the server (it runs on this machine): `choose folder` on macOS, zenity
 /// elsewhere. None when the user cancels or there is no picker. The page cannot get a real path from a browser picker.
 fn pick_folder() -> Option<String> {
@@ -111,6 +128,10 @@ fn pick_folder() -> Option<String> {
 /// What `/api/reveal` may show: a .jsonl the scan saw (by path, or a session by id), or a folder holding one.
 /// Anything else is refused, so the button can never be used to open an arbitrary path.
 fn reveal_target(out: &Path, q: &std::collections::HashMap<String, String>) -> Option<(String, bool)> {
+    // the index's own tables (sessions, files, every .jsonl), for an export too big to save from the page
+    if q.get("what").map(String::as_str) == Some("meta") {
+        return Some((out.join("meta").display().to_string(), false));
+    }
     let st = crate::state::load(out);
     if let Some(sid) = q.get("sid").filter(|s| !s.is_empty() && !s.contains('/')) {
         let tail = format!("/{sid}.jsonl");
@@ -243,8 +264,8 @@ fn handle(s: TcpStream, c: &Arc<Ctx>) {
         }
         h.clear();
     }
-    // a POST body (only /api/config sends one), at most 64 KB
-    let mut body = vec![0u8; length.min(64 << 10)];
+    // a POST body: settings (small) or an export to save (at most 32 MB)
+    let mut body = vec![0u8; length.min(32 << 20)];
     if !body.is_empty() && std::io::Read::read_exact(&mut rd, &mut body).is_err() {
         return;
     }
@@ -315,6 +336,14 @@ fn handle(s: TcpStream, c: &Arc<Ctx>) {
         ("POST", "/api/config") => match serde_json::from_slice::<crate::config::Config>(&body).map_err(|e| e.to_string())
             .and_then(|cfg| crate::config::save(&c.out, cfg)) {
             Ok(cfg) => json(s, "200 OK", serde_json::json!({"config": cfg})),
+            Err(e) => json(s, "400 Bad Request", serde_json::json!({"error": e})),
+        },
+        ("POST", "/api/save") if !relic_header => json(s, "403 Forbidden", serde_json::json!({"error": "needs the X-Relic header"})),
+        ("POST", "/api/save") => match save_export(&query(&line), &body) {
+            Ok(p) => {
+                let _ = reveal(&p, true);
+                json(s, "200 OK", serde_json::json!({"path": p}))
+            }
             Err(e) => json(s, "400 Bad Request", serde_json::json!({"error": e})),
         },
         ("POST", "/api/pick") if !relic_header => json(s, "403 Forbidden", serde_json::json!({"error": "needs the X-Relic header"})),
@@ -401,6 +430,15 @@ mod tests {
         for v in ["/api/status", "/paths.json", "/favicon.ico", "/Scan", "/../etc", "/a-b"] {
             assert!(!super::is_view(v), "{v}");
         }
+    }
+
+    #[test]
+    fn exports_save_under_plain_names_only() {
+        let q = |n: &str| std::collections::HashMap::from([("name".to_string(), n.to_string())]);
+        for bad in ["../x.csv", "x.sh", ".hidden.csv", "a/b.json", "x y.csv"] {
+            assert!(super::save_export(&q(bad), b"a").is_err(), "{bad}");
+        }
+        assert!(super::save_export(&q("x.csv"), b"").is_err(), "an empty body is refused");
     }
 
     #[test]

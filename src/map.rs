@@ -18,10 +18,10 @@ use serde_json::{Value, json};
 // page: the shell (head and body markup), then its CSS in <style> and its scripts, in order, in one <script>.
 const SHELL: &str = include_str!("page/index.html");
 const CSS: [&str; 3] = [include_str!("page/shell.css"), include_str!("page/dash.css"), include_str!("page/popups.css")];
-const JS: [&str; 12] = [
+const JS: [&str; 13] = [
     include_str!("page/core.js"), include_str!("page/map.js"), include_str!("page/shell.js"), include_str!("page/tree.js"),
     include_str!("page/paths.js"), include_str!("page/dash.js"), include_str!("page/contents.js"), include_str!("page/disk.js"),
-    include_str!("page/scanlog.js"), include_str!("page/settings.js"), include_str!("page/main.js"), include_str!("page/palette.js"),
+    include_str!("page/scanlog.js"), include_str!("page/settings.js"), include_str!("page/export.js"), include_str!("page/main.js"), include_str!("page/palette.js"),
 ];
 
 /// The page template, data placeholder included (`/*DATA*/null`).

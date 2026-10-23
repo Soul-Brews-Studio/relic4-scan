@@ -131,3 +131,12 @@
                 background: var(--bg); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 20px rgba(0, 0, 0, .35); font-size: 13px; font-variant-numeric: tabular-nums; }
   #cpop .mtip[hidden] { display: none; }
   #cpop .mtip span i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+  /* export: what this view shows, saved small; the full tables stay in OUT/meta */
+  #xpop .box { top: 18vh; width: min(560px, calc(100vw - var(--side) - 32px)); border-radius: 14px; padding: var(--sp-5); }
+  #xpop h3 { margin: 0 0 var(--sp-2); font: 600 18px var(--font-ui); }
+  #xpop .what { color: var(--dim); font-size: 14px; margin: 0 0 var(--sp-4); }
+  #xpop .what b { color: var(--ink); font-weight: 600; }
+  #xpop .cols { font: 12px var(--font-mono); color: var(--dim); margin: 0 0 var(--sp-4); overflow-wrap: anywhere; }
+  #xpop .actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+  #xpop .ghost, #xpop .go { min-width: 0; padding: 9px 16px; font-size: 14px; }
+  #xpop .msg { margin-top: var(--sp-3); font-size: 13px; color: var(--dim); overflow-wrap: anywhere; } #xpop .msg.big { color: var(--amber); }
