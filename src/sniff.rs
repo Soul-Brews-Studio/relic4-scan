@@ -117,7 +117,7 @@ pub fn sniff(path: &str) -> Sniff {
             }
         }
         let x = engine::extract(&o);
-        let rows = !x.text.is_empty() || !engine::thinking_of(line, &o).is_empty() || !engine::extract_tools(line, &o).is_empty();
+        let rows = !x.text.is_empty() || engine::thinking_of(line, &o).is_some() || !engine::extract_tools(line, &o).is_empty();
         if rows && shape != Some(false) {
             let a = agent.unwrap_or_else(|| engine::engine_of(path));
             return Sniff { agent: a, verdict: "transcript", why: if why.is_empty() { "message rows".into() } else { why } };

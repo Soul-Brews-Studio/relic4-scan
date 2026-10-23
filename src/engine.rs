@@ -154,7 +154,9 @@ pub fn extract(r: &Map<String, Value>) -> Extract {
         role = typ.clone();
         c = r.get("content");
     }
-    if role == "developer" || role == "system" {
+    // developer/system text is not conversation; an omp tool result (role "toolResult") is already a tool row
+    // (extract_tools), so it is not a text row as well
+    if role == "developer" || role == "system" || role == "toolResult" {
         return Extract { typ, role, sess, ts, text: String::new() };
     }
     let text = trim_go(&content_text(c)).to_string();
@@ -236,11 +238,14 @@ pub fn extract_tools(line: &[u8], r: &Map<String, Value>) -> Vec<Tool> {
 }
 
 /// Readable reasoning: Claude/omp thinking blocks, Codex reasoning summary (content is encrypted).
-pub fn thinking_of(line: &[u8], r: &Map<String, Value>) -> String {
+/// None: the line has no thinking. Some(""): it thought, but the text was not saved (newer Claude Code writes a thinking
+/// block as a signature only; a Codex reasoning item may have no summary), so the row is kept with empty text.
+pub fn thinking_of(line: &[u8], r: &Map<String, Value>) -> Option<String> {
     if memchr::memmem::find(line, b"\"thinking\"").is_none() && memchr::memmem::find(line, b"\"reasoning\"").is_none() {
-        return String::new();
+        return None;
     }
     let mut parts: Vec<String> = vec![];
+    let mut blocks = 0;
     let mut add = |t: Option<&Value>| {
         let s = gstr(t);
         let s = trim_go(&s);
@@ -257,7 +262,7 @@ pub fn thinking_of(line: &[u8], r: &Map<String, Value>) -> String {
                 }
             }
         }
-        return parts.join("\n\n");
+        return Some(parts.join("\n\n"));
     }
     let c = match r.get("message") {
         Some(Value::Object(mm)) if mm.contains_key("content") => mm.get("content"),
@@ -266,11 +271,12 @@ pub fn thinking_of(line: &[u8], r: &Map<String, Value>) -> String {
     if let Some(Value::Array(items)) = c {
         for it in items {
             if gstr(get(Some(it), "type")) == "thinking" {
+                blocks += 1;
                 add(it.get("thinking"));
             }
         }
     }
-    parts.join("\n\n")
+    (blocks > 0).then(|| parts.join("\n\n"))
 }
 
 // ---------- line key + JSON parse ----------

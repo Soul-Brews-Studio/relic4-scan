@@ -102,7 +102,7 @@ export const FAQ = [
   ["What format is the index?", "Plain Parquet: one file per month of rows (every message, thinking block, tool call and result), plus sessions, files and every .jsonl, readable by DuckDB, Polars or pandas."],
   ["Which platforms does it run on?", "macOS on Apple silicon and on Intel (a .dmg each), and Linux x86_64 (.deb and .AppImage); the relic-scan command builds on macOS and Linux with Rust."],
   ["Can an AI agent install and use it?", "Yes. The repository's AGENTS.md (also at relic.buildwithoracle.com/scan/agents.md) tells a coding agent how to install, run, query and build it; the agent should ask before the first index, because it reads every transcript on the machine."],
-  ["How does an agent query the index?", "With DuckDB, Polars or pandas over ~/.relic-scan, starting with a count of every row by what it is. Month files (YYYY-MM.parquet) hold every message and tool call: messages and thinking have a role (user, assistant, thinking), tool rows a kind (call, result), and omp marks tool results as role toolResult. meta/sessions.parquet has one line per session; meta/vaults.json lists every ψ vault."],
+  ["How does an agent query the index?", "With DuckDB, Polars or pandas over ~/.relic-scan, starting with a count of every row by what it is. Month files (YYYY-MM.parquet) hold every message and tool call: messages and thinking have a role (user, assistant, thinking), tool rows a kind (call, result); a thinking row with empty text is a block whose text was not saved. meta/sessions.parquet has one line per session; meta/vaults.json lists every ψ vault."],
   ["Is it free and open source?", "Yes. The source is on GitHub (github.com/Soul-Brews-Studio/relic4-scan) under the GNU AGPL v3, and every download is free."],
 ];
 

@@ -232,7 +232,15 @@ pub fn build(out: &Path, agent: &str, st: &HashMap<String, FileState>, threads: 
         ("base", utf8(rows.iter().map(|r| Some(r.0.to_string())))),
         ("tier", utf8(rows.iter().map(|r| Some(r.1.to_string())))),
         ("sid", utf8(rows.iter().map(|(base, tier, s)| {
-            if *tier == "main" { s.file_sid.map(str::to_string) } else { Some(extract(&rx().agent_sid, base, 1)) }
+            // a Claude subagent is named agent-<id>.jsonl; an omp subagent is named for its task, so its id is the
+            // session id written inside the file, the one its rows carry
+            // a Claude session file is named <session id>.jsonl; a resumed or forked one starts with lines of the
+            // session it came from, so the first id inside it is not its own: the name wins when it is a uuid
+            if *tier == "main" {
+                Some(extract(&rx().uuid_file, base, 1)).filter(|x| !x.is_empty()).or(s.file_sid.map(str::to_string))
+            } else {
+                Some(extract(&rx().agent_sid, base, 1)).filter(|x| !x.is_empty()).or(s.file_sid.map(str::to_string))
+            }
         }))),
         ("parent_sid", utf8(rows.iter().map(|(_, tier, s)| {
             s.parent_sid.or(if *tier != "main" { s.file_sid } else { None }).map(str::to_string)

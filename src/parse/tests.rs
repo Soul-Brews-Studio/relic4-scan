@@ -135,3 +135,39 @@ fn a_range_keeps_exactly_its_days() {
     assert_eq!(month_rows(&day.join("2026-07.parquet")), want);
     let _ = fs::remove_dir_all(&d);
 }
+
+#[test]
+fn mirrors_fold_empty_thinking_stays_and_omp_results_are_tools_only() {
+    let d = tmp("fixes");
+    // the same two lines in two homes, except the mirror recorded another cwd: the hashes differ, the messages do not
+    let lines_in = |cwd: &str| {
+        format!(r#"{{"type":"user","sessionId":"m1","cwd":"{cwd}","timestamp":"2026-07-05T01:00:00.000Z","message":{{"role":"user","content":"same words"}}}}"#)
+            + "\n"
+            + &format!(r#"{{"type":"assistant","sessionId":"m1","cwd":"{cwd}","timestamp":"2026-07-05T01:00:01.000Z","message":{{"role":"assistant","content":[{{"type":"thinking","thinking":"","signature":"abc"}},{{"type":"tool_use","id":"tu1","name":"Bash","input":{{"command":"ls"}}}}]}}}}"#)
+            + "\n"
+    };
+    let (a, b, o) = (d.join("home/m1.jsonl"), d.join("mirror/m1.jsonl"), d.join(".omp/s1.jsonl"));
+    for p in [&a, &b, &o] {
+        fs::create_dir_all(p.parent().unwrap()).unwrap();
+    }
+    fs::write(&a, lines_in("/home/x/repo")).unwrap();
+    fs::write(&b, lines_in("/Users/x/repo")).unwrap();
+    // omp writes a tool result as a message of its own
+    fs::write(&o, r#"{"type":"message","id":"x1","timestamp":"2026-07-05T02:00:00.000Z","message":{"role":"toolResult","toolCallId":"c1","toolName":"glob","content":[{"type":"text","text":"found 3 files"}],"isError":false}}"#.to_string() + "\n").unwrap();
+    let job = |p: &PathBuf| Job { path: p.to_str().unwrap().to_string(), size: fs::metadata(p).unwrap().len(), verdict: String::new(), ctx: Ctx::default() };
+    let out = d.join("out");
+    run(vec![job(&a), job(&b), job(&o)], &out, "t@x", 2, false, false, None);
+    let rows = month_rows(&out.join("2026-07.parquet"));
+    let user: Vec<&String> = rows.iter().filter(|r| r.contains("|same words|")).collect();
+    assert_eq!(user.len(), 1, "the mirrored message is one row: {rows:#?}");
+    assert!(user[0].contains("home/m1.jsonl:1") && user[0].contains("mirror/m1.jsonl:1"), "both copies stay in sources: {}", user[0]);
+    assert_eq!(rows.iter().filter(|r| r.contains("|tu1|")).count(), 1, "the mirrored tool call is one row");
+    let think: Vec<&String> = rows.iter().filter(|r| r.starts_with("thinking|")).collect();
+    assert_eq!(think.len(), 1, "a signature-only thinking block is a thinking row");
+    assert!(think[0].contains("|thinking|") && think[0].contains("|2026-07-05T01:00:01.000Z|"), "{}", think[0]);
+    assert!(!rows.iter().any(|r| r.contains("toolResult")), "an omp tool result is not a text row: {rows:#?}");
+    let omp: Vec<&String> = rows.iter().filter(|r| r.contains("found 3 files")).collect();
+    assert_eq!(omp.len(), 1);
+    assert!(omp[0].starts_with("tools|") && omp[0].contains("|result|c1|glob|"), "{}", omp[0]);
+    let _ = fs::remove_dir_all(&d);
+}

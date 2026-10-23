@@ -172,10 +172,14 @@ pub(super) fn agg_from(c: &[&str]) -> Agg {
     Agg { n_rows: n(0), text_rows: n(1), text_msgs: n(2), by: std::array::from_fn(|j| n(3 + j)), first_ts: t(9), last_ts: t(10) }
 }
 
+/// The cache format and the rules it was counted with: bump it when a path rule changes what a session is (#4: omp
+/// subagents are sessions), so every month is counted again once.
+const CACHE_V: &str = "#4";
+
 pub(super) fn save_cache(p: &Path, stamp: &str, agent: &str, m: &MonthAgg) {
     let tmp = p.with_extension("tsv.part");
     let mut w = std::io::BufWriter::new(fs::File::create(&tmp).unwrap());
-    writeln!(w, "#3\t{stamp}\t{agent}").unwrap();
+    writeln!(w, "{CACHE_V}\t{stamp}\t{agent}").unwrap();
     for (f, a) in &m.files {
         writeln!(w, "F\t{f}\t{}", agg_tsv(a)).unwrap();
     }
@@ -190,7 +194,7 @@ pub(super) fn save_cache(p: &Path, stamp: &str, agent: &str, m: &MonthAgg) {
 /// The cached aggregates, or None when the cache was made from another version of the month file.
 pub(super) fn load_cache(p: &Path, stamp: &str, agent: &str) -> Option<MonthAgg> {
     let mut lines = BufReader::new(fs::File::open(p).ok()?).lines().map_while(Result::ok);
-    if lines.next()? != format!("#3\t{stamp}\t{agent}") {
+    if lines.next()? != format!("{CACHE_V}\t{stamp}\t{agent}") {
         return None;
     }
     let mut m = MonthAgg::default();

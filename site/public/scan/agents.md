@@ -44,7 +44,7 @@ Paths are relative to `~/.relic-scan`. Month files hold the rows; `meta/` holds 
 
 | file | one row per | useful columns |
 |---|---|---|
-| `YYYY-MM.parquet` | message, thinking block, tool call or result | `sid`, `engine`, `ts`, `ts_th` (Bangkok), `role` (user, assistant, thinking; toolResult in omp), `kind` (call, result), `name` (tool), `text`, `body`, `err` |
+| `YYYY-MM.parquet` | message, thinking block, tool call or result | `sid`, `engine`, `ts`, `ts_th` (Bangkok), `role` (user, assistant, thinking), `kind` (call, result), `name` (tool), `text`, `body`, `err`, `sources` |
 | `meta/sessions.parquet` | session | `sid`, `parent_sid`, `tier` (main, subagent, workflow-agent), `cat` (repo), `proj`, `first_ts`, `last_ts`, `last_ms`, `n_rows`, `user_text`, `assistant_text`, `thinking`, `tool_calls`, `tool_results`, `tool_errors` |
 | `meta/files.parquet`, `meta/jsonl.parquet` | transcript file | path, home, size, verdict |
 | `meta/vaults.json`, `meta/vaults/<id>.json` | ψ vault, and its notes | plain JSON: name, path, kind, notes, sections; notes as `[path, section, title, bytes, mtime_ms]` |
@@ -62,9 +62,21 @@ duckdb -c "select engine, count(*) as n from '*.parquet' group by 1 order by n d
 **How a row says what it is (two columns, not one):**
 - a message or thinking block has `role` = `user`, `assistant` or `thinking`, and no `kind`;
 - a tool call has `kind = 'call'` (the tool in `name`), a tool result `kind = 'result'` (`err` true when it failed), and no `role`;
-- **except omp transcripts** (`engine = 'omp'`), which mark a tool result as `role = 'toolResult'`. Count tool results as
-  `kind = 'result' or role = 'toolResult'`;
-- a handful of rows have neither (empty strings): leave them out or show them as "(none)".
+- a thinking row with **empty text** is a thinking block whose text was not saved: since about March 2026 Claude Code writes
+  most thinking blocks as a signature only. Count them as thinking; there is nothing to read or embed;
+- a handful of rows have neither role nor kind (empty strings): leave them out or show them as "(none)".
+
+**One row per message.** Copies of a transcript in several homes (a mirror, an archive, a backup) are folded into one row,
+even when the copies differ in metadata such as the recorded cwd; `sources` lists every copy (`agent:path:line`).
+
+**Sessions.** Every row's `sid` is in `meta/sessions.parquet` except rows written with no session id at all (49 of
+5.35 M on one Mac). A Claude session's id is its file name; omp subagents (a task's transcript inside its parent session's
+folder) are sessions of tier `subagent` with `parent_sid` set.
+
+Indexes written by v26.10.23-alpha.1117 or earlier differ: omp tool results were also text rows (`role = 'toolResult'`), empty
+thinking blocks were dropped, mirrored copies that differed in one field were separate rows, and resumed Claude sessions
+and omp subagents were missing from `meta/sessions.parquet`. Re-index from scratch
+(move `~/.relic-scan` aside, then `relic-scan run`) to get the current shape.
 
 ```sh
 # sessions per repository

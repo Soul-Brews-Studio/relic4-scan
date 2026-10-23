@@ -67,6 +67,35 @@ pub(super) fn cands_from(b: &RecordBatch, srcs: &mut HashMap<i64, BTreeMap<Strin
     }
 }
 
+/// What a row says, as one key: text and thinking by (sid, s, role, ts, text); a tool row by (sid, s, ts, idx, kind,
+/// call_id, name, body, err). Two rows with the same key are the same message, whichever line held them.
+pub(super) fn content_key(c: &Cand) -> [u8; 16] {
+    let mut st = blake2b_simd::Params::new().hash_length(16).to_state();
+    let mut put = |v: Option<&str>| {
+        match v {
+            Some(s) => st.update(&(s.len() as u64).to_le_bytes()).update(s.as_bytes()),
+            None => st.update(&u64::MAX.to_le_bytes()),
+        };
+    };
+    put(Some(c.s.as_str()));
+    put(c.sid.as_deref());
+    put(c.ts.as_deref());
+    if c.s == "tools" {
+        put(Some(&c.idx.to_string()));
+        put(c.kind.as_deref());
+        put(c.call_id.as_deref());
+        put(c.name.as_deref());
+        put(c.body.as_deref());
+        put(c.err.map(|e| if e { "1" } else { "0" }));
+    } else {
+        put(c.role.as_deref());
+        put(c.text.as_deref());
+    }
+    let mut k = [0u8; 16];
+    k.copy_from_slice(st.finalize().as_bytes());
+    k
+}
+
 /// Fold one month: the existing out/<month>.parquet (if any) + this run's raw parts -> out/<month>.parquet.
 /// Returns (rows, new copies read).
 pub fn merge_month(parts_dir: &Path, month: &str, out: &Path, agent: &str) -> (usize, usize) {
@@ -100,7 +129,22 @@ pub fn merge_month(parts_dir: &Path, month: &str, out: &Path, agent: &str) -> (u
             }
         }
     }
-    let mut order: Vec<usize> = keep.into_values().collect();
+    // then one row per message: two lines can hold the same message and differ elsewhere (a mirror or an archive
+    // copy that recorded another cwd), so their hashes differ; fold them by what the row says, lowest copy first,
+    // and keep every copy's source on the row that stays
+    let mut same: HashMap<[u8; 16], usize> = HashMap::with_capacity(keep.len());
+    let mut also: HashMap<usize, Vec<i64>> = HashMap::new();
+    let mut kept: Vec<usize> = keep.into_values().collect();
+    kept.sort_by(|&a, &b| cands[a].first.cmp(&cands[b].first).then(cands[a].h.cmp(&cands[b].h)).then(cands[a].idx.cmp(&cands[b].idx)));
+    for i in kept {
+        match same.entry(content_key(&cands[i])) {
+            std::collections::hash_map::Entry::Occupied(o) => also.entry(*o.get()).or_default().push(cands[i].h),
+            std::collections::hash_map::Entry::Vacant(v) => {
+                v.insert(i);
+            }
+        }
+    }
+    let mut order: Vec<usize> = same.into_values().collect();
     order.sort_by(|&a, &b| {
         let (x, y) = (&cands[a], &cands[b]);
         (x.ts.as_deref(), x.s.as_str(), x.h, x.idx).cmp(&(y.ts.as_deref(), y.s.as_str(), y.h, y.idx))
@@ -118,7 +162,14 @@ pub fn merge_month(parts_dir: &Path, month: &str, out: &Path, agent: &str) -> (u
         eb.append_option(c.err);
         machines.values().append_value(agent);
         machines.append(true);
-        for (f, l) in &srcs[&c.h] {
+        let mut all: BTreeMap<&str, i64> = srcs[&c.h].iter().map(|(f, l)| (f.as_str(), *l)).collect();
+        for h in also.get(&i).into_iter().flatten() {
+            for (f, l) in &srcs[h] {
+                let e = all.entry(f.as_str()).or_insert(*l);
+                *e = (*e).min(*l);
+            }
+        }
+        for (f, l) in all {
             sources.values().append_value(format!("{agent}:{f}:{l}"));
         }
         sources.append(true);

@@ -11,12 +11,15 @@ pub(super) struct Rx {
     pub(super) main_uuid: Regex,
     pub(super) main_rollout: Regex,
     pub(super) main_omp: Regex,
+    pub(super) sub_omp: Regex,
+    pub(super) parent_omp: Regex,
     pub(super) main_other: Regex,
     pub(super) history: Regex,
     pub(super) proj: Regex,
     pub(super) parent: Regex,
     pub(super) home: Regex,
     pub(super) agent_sid: Regex,
+    pub(super) uuid_file: Regex,
     pub(super) gh: Regex,
     pub(super) gh_org: Regex,
     pub(super) gh_wt: Regex,
@@ -35,12 +38,17 @@ pub(super) fn rx() -> &'static Rx {
             main_uuid: r(&format!(r"/{UUID}\.jsonl$")),
             main_rollout: r(&format!(r"rollout-.*{UUID}\.jsonl$")),
             main_omp: r(r"/\.(omp|pi)/.*_[0-9a-f-]+\.jsonl$"),
+            // omp keeps a subagent's transcript inside its parent session's folder, named for its task:
+            //   sessions/<project>/<time>_<uuid>/<Task>.jsonl  (the parent is sessions/<project>/<time>_<uuid>.jsonl)
+            sub_omp: r(&format!(r"/\.(omp|pi)/.*_{UUID}/[^/]+\.jsonl$")),
+            parent_omp: r(&format!(r"/\.(?:omp|pi)/.*_({UUID})/[^/]+\.jsonl$")),
             main_other: r(r"/\.(omx|thclaws|gemini)/"),
             history: r(r"history\.jsonl$"),
             proj: r(&format!(r"/([^/]+)/(?:{UUID}\.jsonl|{UUID}/subagents/)")),
             parent: r(&format!(r"/({UUID})/subagents/")),
             home: r(r"^(.*?/\.?(?:claude|codex|omp|omx|pi|thclaws|gemini)[^/]*)/"),
             agent_sid: r(r"^agent-(.*)\.jsonl$"),
+            uuid_file: r(&format!(r"^({UUID})\.jsonl$")),
             gh: r(r".*github-com-(.*)$"),
             gh_org: r(r"^(soul-brews-studio|laris-co|dustboy-pm25|floodboy-cm|nazt|nat-weerawan)-"),
             gh_wt: r(r"(-worktree-|-wt-|--claude-worktrees-).*$"),
@@ -60,7 +68,7 @@ pub fn tier_of(path: &str) -> &'static str {
     let r = rx();
     if r.wf.is_match(path) {
         "workflow-agent"
-    } else if r.sub.is_match(path) {
+    } else if r.sub.is_match(path) || r.sub_omp.is_match(path) {
         "subagent"
     } else if r.main_uuid.is_match(path) || r.main_rollout.is_match(path) || r.main_omp.is_match(path)
         || (r.main_other.is_match(path) && !r.history.is_match(path)) {
@@ -98,6 +106,7 @@ pub(super) fn proj_of(path: &str) -> Option<String> {
 
 pub(super) fn parent_of(path: &str) -> Option<String> {
     Some(extract(&rx().parent, path, 1)).filter(|s| !s.is_empty())
+        .or_else(|| Some(extract(&rx().parent_omp, path, 1)).filter(|s| !s.is_empty()))
 }
 
 pub(super) fn home_of(path: &str) -> String {
