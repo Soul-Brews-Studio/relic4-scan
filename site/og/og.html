@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- The share card (og:image, public/scan/img/og-card.jpg), 1200 x 630: serve site/ on 127.0.0.1, open this page at 1200 x 630 and device scale 2, capture it, and resize to 1200 x 630. -->
+<html><head><meta charset="utf-8"><style>
+@font-face { font-family: "Bricolage Grotesque"; src: url(../public/scan/fonts/BricolageGrotesque.woff2) format("woff2"); font-weight: 200 800; }
+@font-face { font-family: "JetBrains Mono"; src: url(../public/scan/fonts/JetBrainsMono.woff2) format("woff2"); font-weight: 400 700; }
+:root { --paper: oklch(15% 0.012 262); --paper-2: oklch(19% 0.014 262); --ink: oklch(94% 0.006 262); --ink-2: oklch(76% 0.014 262);
+  --line: oklch(28% 0.016 262); --accent: oklch(80% 0.15 75); --accent-ink: oklch(22% 0.04 70); }
+html, body { margin: 0; }
+.card { position: relative; width: 1200px; height: 630px; overflow: hidden; background: var(--paper); color: var(--ink); font-family: "Bricolage Grotesque", sans-serif;
+  background-image: radial-gradient(52rem 30rem at 92% -10%, oklch(80% 0.15 75 / 0.16), transparent 70%); }
+.shot { position: absolute; left: 600px; top: 92px; width: 860px; border-radius: 14px; border: 1px solid var(--line);
+  box-shadow: 0 30px 80px oklch(8% 0.01 262 / 0.7); }
+.copy { position: absolute; left: 72px; top: 72px; width: 500px; }
+.brand { display: flex; align-items: center; gap: 16px; font-weight: 650; font-size: 30px; letter-spacing: -0.01em; }
+.brand svg { width: 56px; height: 56px; }
+h1 { margin: 52px 0 24px; font-weight: 640; font-size: 66px; line-height: 1.02; letter-spacing: -0.025em; }
+p { margin: 0; font-size: 24px; line-height: 1.45; color: var(--ink-2); }
+.foot { position: absolute; left: 72px; bottom: 60px; display: flex; gap: 12px; font: 500 18px "JetBrains Mono", monospace; color: var(--ink-2); }
+.foot span { border: 1px solid var(--line); background: var(--paper-2); border-radius: 999px; padding: 8px 16px; }
+.foot b { color: var(--accent); font-weight: 600; }
+</style></head><body>
+<div class="card">
+  <img class="shot" src="../raw/scan.png" alt="">
+  <div class="copy">
+    <div class="brand"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#f5b73b"/><text x="12" y="17.6" text-anchor="middle" font-family="Georgia, serif" font-size="17" font-weight="600" fill="#1d1405">Ψ</text></svg>ARRA Relic Scan</div>
+    <h1>Every agent transcript, found and kept.</h1>
+    <p>Claude Code, Codex, OMP, OMX, Gemini, Pi and every ψ vault, indexed on your own machine.</p>
+  </div>
+  <div class="foot"><span><b>●</b> local only</span><span>open source · AGPL-3.0</span></div>
+</div>
+</body></html>
