@@ -8,7 +8,7 @@ function tabs() {
   const sub = (v, ic, l) => item(v, ic, l).replace('<a class="', '<a class="sub ');
   const item = (v, ic, l) => `<a class="${VIEW === v ? "on" : ""}" href="${href(v)}" title="${l}"${VIEW === v ? ` aria-current="page"` : ""}><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[ic]}</svg></span><span class="lbl">${l}</span></a>`;
   const ago = D.last_run ? agoText(Date.now() / 1000 - D.last_run) : "never";
-  $("side").innerHTML = `<a class="brand" href="${href("scan")}" title="Smart Scan" aria-label="relic-scan: back to Smart Scan"><div class="logo"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/><circle cx="18" cy="6" r="1.6" fill="currentColor" stroke="none"/></svg></div><div class="t"><b>RELIC</b><i>scan</i></div></a>`
+  $("side").innerHTML = `<a class="brand" href="${href("scan")}" title="ARRA Relic Scan · Smart Scan" aria-label="ARRA Relic Scan: back to Smart Scan"><div class="logo"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/><circle cx="18" cy="6" r="1.6" fill="currentColor" stroke="none"/></svg></div><div class="t"><b>RELIC</b><i>arra · scan</i></div></a>`
     + `<nav aria-label="Views">`
     + item("scan", "scan", "Smart Scan") + item("banks", "banks", "Banks & Repos") + item("health", "health", "Health") + item("scans", "log", "Scan log")
     + `<div class="sep"></div>` + item("map", "map", "Session map") + `<div class="subs">` + sub("tree", "tree", "Tree") + sub("paths", "paths", "Paths") + (gemOn("disk") || VIEW === "disk" ? sub("disk", "disk", "Disk") : "") + `</div>`

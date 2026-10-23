@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Relic Scan",
+  "productName": "ARRA Relic Scan",
   "version": "26.10.23",
   "identifier": "studio.soulbrews.relic-scan",
   "build": { "frontendDist": "dist" },
