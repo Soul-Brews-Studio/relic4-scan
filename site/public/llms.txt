@@ -14,7 +14,7 @@ Claude Code, Codex, OMP, OMX, Gemini and Pi leave thousands of `.jsonl` files ac
 - [agents.md](https://relic.buildwithoracle.com/scan/agents.md): install, run, query (DuckDB over ~/.relic-scan), build and change the code; the repository's AGENTS.md
 - Install: `curl -fsSL https://raw.githubusercontent.com/Soul-Brews-Studio/relic4-scan/main/install.sh | sh`
 - Index: `relic-scan run` (ask the human first: it reads every transcript on the machine, read only)
-- Query: month files `~/.relic-scan/YYYY-MM.parquet` (sid, ts, role, kind, name, text), `meta/sessions.parquet`, `meta/vaults.json`
+- Query: month files `~/.relic-scan/YYYY-MM.parquet` (sid, engine, ts, role, kind, name, text), `meta/sessions.parquet`, `meta/vaults.json`. Start by counting every row by `coalesce(kind, role)`: messages and thinking carry a `role`, tool calls and results a `kind`; omp marks tool results `role = 'toolResult'`.
 
 A prompt a person can give their agent: "Install ARRA Relic Scan on this machine and tell me what my AI agents have been working on. Follow https://relic.buildwithoracle.com/scan/agents.md: install the relic-scan command, ask me before the first index, then run it and answer my questions from ~/.relic-scan with DuckDB. Keep everything on this machine."
 
@@ -33,5 +33,5 @@ A prompt a person can give their agent: "Install ARRA Relic Scan on this machine
 - **What format is the index?** Plain Parquet: one file per month of rows (every message, thinking block, tool call and result), plus sessions, files and every .jsonl, readable by DuckDB, Polars or pandas.
 - **Which platforms does it run on?** macOS on Apple silicon and on Intel (a .dmg each), and Linux x86_64 (.deb and .AppImage); the relic-scan command builds on macOS and Linux with Rust.
 - **Can an AI agent install and use it?** Yes. The repository's AGENTS.md (also at relic.buildwithoracle.com/scan/agents.md) tells a coding agent how to install, run, query and build it; the agent should ask before the first index, because it reads every transcript on the machine.
-- **How does an agent query the index?** With DuckDB, Polars or pandas over ~/.relic-scan: month files (YYYY-MM.parquet) hold every message and tool call with sid, ts, role, kind, name and text; meta/sessions.parquet has one line per session; meta/vaults.json lists every ψ vault.
+- **How does an agent query the index?** With DuckDB, Polars or pandas over ~/.relic-scan, starting with a count of every row by what it is. Month files (YYYY-MM.parquet) hold every message and tool call: messages and thinking have a role (user, assistant, thinking), tool rows a kind (call, result), and omp marks tool results as role toolResult. meta/sessions.parquet has one line per session; meta/vaults.json lists every ψ vault.
 - **Is it free and open source?** Yes. The source is on GitHub (github.com/Soul-Brews-Studio/relic4-scan) under the GNU AGPL v3, and every download is free.
