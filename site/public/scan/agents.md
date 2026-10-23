@@ -73,7 +73,7 @@ even when the copies differ in metadata such as the recorded cwd; `sources` list
 5.35 M on one Mac). A Claude session's id is its file name; omp subagents (a task's transcript inside its parent session's
 folder) are sessions of tier `subagent` with `parent_sid` set.
 
-Indexes written by v26.10.23-alpha.1117 or earlier differ: omp tool results were also text rows (`role = 'toolResult'`), empty
+Indexes written by v26.10.23-alpha.1117 or earlier differ (fixed in v26.10.23-alpha.1308): omp tool results were also text rows (`role = 'toolResult'`), empty
 thinking blocks were dropped, mirrored copies that differed in one field were separate rows, and resumed Claude sessions
 and omp subagents were missing from `meta/sessions.parquet`. Re-index from scratch
 (move `~/.relic-scan` aside, then `relic-scan run`) to get the current shape.
