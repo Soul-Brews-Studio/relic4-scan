@@ -85,6 +85,7 @@ struct FileRow {
     parent_sid: Option<String>,
     cat: String,
     agg: Agg,
+    meta: crate::engine::SessMeta,
 }
 
 /// Every OUT/*.parquet is a month, as `relic4 truth import --from-scan` reads them: YYYY-MM, and `undated`.
@@ -163,6 +164,9 @@ pub fn build(out: &Path, agent: &str, st: &HashMap<String, FileState>, threads: 
             engine, cat: cat_of(engine, proj.as_deref()), proj, parent_sid: parent_of(p),
             // a copy the ledger recognised was not read: its rows are the file it copies
             agg: per_file.get(p.as_str()).or_else(|| s.copy_of.as_ref().and_then(|c| per_file.get(c.as_str()))).cloned().unwrap_or_default(),
+            // a copy the ledger recognised was not read: what it says about its session is what the file it copies says
+            meta: if s.ctx.meta == Default::default() { s.copy_of.as_ref().and_then(|c| st.get(c)).map(|c| c.ctx.meta.clone()).unwrap_or_default() }
+                  else { s.ctx.meta.clone() },
         }
     }).collect();
     let mut fcols = vec![
@@ -200,12 +204,14 @@ pub fn build(out: &Path, agent: &str, st: &HashMap<String, FileState>, threads: 
         parent_sid: Option<&'a str>,
         agg: Agg,
         months: BTreeSet<&'a str>,
+        meta: crate::engine::SessMeta,
+        meta_ms: Option<i64>,
     }
     let mut ss: HashMap<(&str, &str), Sess> = HashMap::new();
     for f in files.iter().filter(|f| f.tier != "other") {
         let e = ss.entry((f.base.as_str(), f.tier)).or_insert(Sess {
             engine: f.engine, last_ms: None, copies: 0, size: 0, proj: None, file_sid: None, parent_sid: None,
-            agg: Agg::default(), months: BTreeSet::new(),
+            agg: Agg::default(), months: BTreeSet::new(), meta: Default::default(), meta_ms: None,
         });
         e.last_ms = e.last_ms.max(f.last_ms);
         e.copies += 1;
@@ -213,6 +219,27 @@ pub fn build(out: &Path, agent: &str, st: &HashMap<String, FileState>, threads: 
         e.proj = e.proj.or(f.proj.as_deref());
         e.file_sid = e.file_sid.or(f.file_sid.as_deref());
         e.parent_sid = e.parent_sid.or(f.parent_sid.as_deref());
+        // the copy that was written to last says what the session is called now; the first cwd of any copy is kept
+        let newer = f.last_ms > e.meta_ms;
+        let cwd = if e.meta.cwd.is_empty() { f.meta.cwd.clone() } else { e.meta.cwd.clone() };
+        if newer {
+            let mut m = f.meta.clone();
+            m.cwd = cwd;
+            for (a, b) in [(&mut m.title, &e.meta.title), (&mut m.branch, &e.meta.branch), (&mut m.version, &e.meta.version)] {
+                if a.is_empty() {
+                    *a = b.clone();
+                }
+            }
+            e.meta = m;
+            e.meta_ms = f.last_ms;
+        } else {
+            e.meta.take(crate::engine::SessMeta { cwd, ..Default::default() });
+            for (a, b) in [(&mut e.meta.title, &f.meta.title), (&mut e.meta.branch, &f.meta.branch), (&mut e.meta.version, &f.meta.version)] {
+                if a.is_empty() {
+                    *a = b.clone();
+                }
+            }
+        }
     }
     for (m, a) in &aggs {
         for ((base, tier), x) in &a.sessions {
@@ -261,6 +288,10 @@ pub fn build(out: &Path, agent: &str, st: &HashMap<String, FileState>, threads: 
         ("text_rows", i64s(rows.iter().map(|r| Some(r.2.agg.text_rows)))),
         ("text_msgs", i64s(rows.iter().map(|r| Some(r.2.agg.text_msgs)))),
         ("months", lists(rows.iter().map(|r| r.2.months.iter().map(|m| m.to_string()).collect()))),
+        ("cwd", utf8(rows.iter().map(|r| Some(r.2.meta.cwd.clone()).filter(|x| !x.is_empty())))),
+        ("title", utf8(rows.iter().map(|r| Some(r.2.meta.title.clone()).filter(|x| !x.is_empty())))),
+        ("branch", utf8(rows.iter().map(|r| Some(r.2.meta.branch.clone()).filter(|x| !x.is_empty())))),
+        ("version", utf8(rows.iter().map(|r| Some(r.2.meta.version.clone()).filter(|x| !x.is_empty())))),
     ];
     for (j, n) in TYPES.iter().enumerate() {
         scols.push((n, i64s(rows.iter().map(|r| Some(r.2.agg.by[j])))));

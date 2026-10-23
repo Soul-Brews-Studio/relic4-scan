@@ -123,6 +123,8 @@ pub struct Ctx {
     pub chain: crate::ledger::Chain,
     /// Codex: the model the last turn_context named, for the rows after it
     pub model: String,
+    /// where the session ran, its name, branch and version, as far as the lines read say (meta/sessions.parquet)
+    pub meta: engine::SessMeta,
 }
 
 /// Every complete line of a file from `from`, in chunks of `want` bytes, cut exactly as a whole-file read would
@@ -176,6 +178,7 @@ fn parse_file_chunked(path: &str, ctx: &Ctx, jt_compat: bool, st: &Stats, emit: 
     let file: Arc<str> = Arc::from(path);
     let (mut nline, mut session, mut last) = (ctx.lines, ctx.session.clone(), ctx.last_ms);
     let (mut first, mut chain, mut turn) = (ctx.first, ctx.chain, ctx.model.clone());
+    let mut smeta = ctx.meta.clone();
     // read a chunk, parse up to its last "\n", carry the rest into the next chunk; at the end of the file the rest
     // is cut as a whole-file read would cut it (complete()), so the rows are the same for any chunk size
     let used = each_line(path, ctx.offset, want, &st.bytes, &mut |line: &[u8]| {
@@ -198,6 +201,7 @@ fn parse_file_chunked(path: &str, ctx: &Ctx, jt_compat: bool, st: &Stats, emit: 
                 serde_json::Map::new()
             }
         };
+        smeta.take(engine::sess_meta_of(&r));
         let x = engine::extract(&r);
         if let Some(m) = engine::turn_model(&r) {
             turn = m;
@@ -254,7 +258,7 @@ fn parse_file_chunked(path: &str, ctx: &Ctx, jt_compat: bool, st: &Stats, emit: 
     })?;
     st.lines.fetch_add((nline - ctx.lines) as u64, Ordering::Relaxed);
     st.files.fetch_add(1, Ordering::Relaxed);
-    Some(Ctx { offset: ctx.offset + used, lines: nline, session, last_ms: last, first, chain, model: turn })
+    Some(Ctx { offset: ctx.offset + used, lines: nline, session, last_ms: last, first, chain, model: turn, meta: smeta })
 }
 
 pub(crate) mod merge;

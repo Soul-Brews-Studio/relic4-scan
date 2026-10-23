@@ -228,3 +228,30 @@ fn model_msg_id_and_out_tokens_once_per_response() {
     assert_eq!((get("omp says").2.as_str(), get("omp says").3.as_str(), get("omp says").5), ("glm-5.3", "msg_O", Some(692)));
     let _ = fs::remove_dir_all(&d);
 }
+
+#[test]
+fn a_session_says_where_it_ran_what_it_is_called_and_on_which_branch() {
+    let d = tmp("sessmeta");
+    let (c, x) = (d.join("c1.jsonl"), d.join("rollout-x.jsonl"));
+    fs::write(&c, [
+        r#"{"type":"user","sessionId":"c1","cwd":"/opt/Code/repo-a","gitBranch":"main","version":"2.1.1","timestamp":"2026-07-06T01:00:00.000Z","message":{"role":"user","content":"hi"}}"#,
+        r#"{"type":"custom-title","customTitle":"first name","sessionId":"c1"}"#,
+        r#"{"type":"user","sessionId":"c1","cwd":"/opt/Code/repo-b","gitBranch":"feat/x","version":"2.1.2","timestamp":"2026-07-06T01:01:00.000Z","message":{"role":"user","content":"go"}}"#,
+        r#"{"type":"custom-title","customTitle":"neo-oracle","sessionId":"c1"}"#,
+    ].join("\n") + "\n").unwrap();
+    fs::write(&x, [
+        r#"{"type":"session_meta","timestamp":"2026-07-06T02:00:00.000Z","payload":{"id":"x1","cwd":"/home/nat/proj"}}"#,
+        r#"{"type":"response_item","timestamp":"2026-07-06T02:00:03.000Z","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"answer"}]}}"#,
+    ].join("\n") + "\n").unwrap();
+    let st = Stats::default();
+    let meta = |p: &PathBuf| parse_file(p.to_str().unwrap(), &Ctx::default(), false, &st, &mut |_| {}).unwrap().meta;
+    let m = meta(&c);
+    assert_eq!((m.cwd.as_str(), m.title.as_str(), m.branch.as_str(), m.version.as_str()), ("/opt/Code/repo-a", "neo-oracle", "feat/x", "2.1.2"),
+               "the first cwd stays; title, branch and version follow the newest line");
+    assert_eq!(meta(&x).cwd, "/home/nat/proj");
+    // a file read in two goes on from where it was left, with the meta it had
+    let half = parse_file(c.to_str().unwrap(), &Ctx::default(), false, &st, &mut |_| {}).unwrap();
+    let again = parse_file(c.to_str().unwrap(), &half, false, &st, &mut |_| {}).unwrap();
+    assert_eq!(again.meta, half.meta);
+    let _ = fs::remove_dir_all(&d);
+}

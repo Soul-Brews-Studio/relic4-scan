@@ -45,7 +45,7 @@ Paths are relative to `~/.relic-scan`. Month files hold the rows; `meta/` holds 
 | file | one row per | useful columns |
 |---|---|---|
 | `YYYY-MM.parquet` | message, thinking block, tool call or result | `sid`, `engine`, `ts`, `ts_th` (Bangkok), `role` (user, assistant, thinking), `kind` (call, result), `name` (tool), `text`, `body`, `err`, `sources`, `model`, `msg_id`, `out_tokens` |
-| `meta/sessions.parquet` | session | `sid`, `parent_sid`, `tier` (main, subagent, workflow-agent), `cat` (repo), `proj`, `first_ts`, `last_ts`, `last_ms`, `n_rows`, `user_text`, `assistant_text`, `thinking`, `tool_calls`, `tool_results`, `tool_errors` |
+| `meta/sessions.parquet` | session | `sid`, `parent_sid`, `tier` (main, subagent, workflow-agent), `cat` (repo), `proj`, `first_ts`, `last_ts`, `last_ms`, `n_rows`, `user_text`, `assistant_text`, `thinking`, `tool_calls`, `tool_results`, `tool_errors`, `cwd` (where the session began), `title` (its newest `custom-title`), `branch`, `version` |
 | `meta/files.parquet`, `meta/jsonl.parquet` | transcript file | path, home, size, verdict |
 | `meta/months.json` | month file | `month`, `rows`, `first_ts`, `max_ts`, `keys` (hash of the row keys: equal manifests, equal rows), `late_rows` (rows this run added at or before the month's previous newest time; normally 0), `sealed` (before the current Bangkok month) |
 | `meta/vaults.json`, `meta/vaults/<id>.json` | ψ vault, and its notes | plain JSON: name, path, kind, notes, sections; notes as `[path, section, title, bytes, mtime_ms]` |
@@ -84,7 +84,7 @@ text and tool results have none of the three.
 Indexes written by v26.10.23-alpha.1117 or earlier differ (fixed in v26.10.23-alpha.1308): omp tool results were also text rows (`role = 'toolResult'`), empty
 thinking blocks were dropped, mirrored copies that differed in one field were separate rows, and resumed Claude sessions
 and omp subagents were missing from `meta/sessions.parquet`. Indexes written by v26.10.23-alpha.1858 or earlier have no
-`model`, `msg_id` or `out_tokens` (the columns read as NULL). Re-index from scratch
+`model`, `msg_id` or `out_tokens` (the columns read as NULL), and `meta/sessions.parquet` has no `cwd`, `title`, `branch` or `version` until the files are read again. Re-index from scratch
 (move `~/.relic-scan` aside, then `relic-scan run`) to get the current shape.
 
 ```sh
