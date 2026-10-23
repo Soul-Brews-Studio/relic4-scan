@@ -20,6 +20,8 @@ const ld = [
     downloadUrl: [DL.mac, DL.intel, DL.deb, DL.appimage], releaseNotes: DL.notes, image: `${SITE.url}img/og.jpg`,
     screenshot: ["scan", "scans", "scan-contents", "map", "tree", "disk", "vaults", "reader", "export"].map(n => `${SITE.url}img/${n}.webp`),
     featureList: STEPS.map(s => `${s.h}: ${plain(s.p)}`),
+    license: "https://www.gnu.org/licenses/agpl-3.0.html", isAccessibleForFree: true, sameAs: [SITE.repo],
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
     publisher: { "@type": "Organization", name: SITE.org, url: "https://buildwithoracle.com/" } },
   { "@context": "https://schema.org", "@type": "FAQPage",
     mainEntity: FAQ.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) },
@@ -30,7 +32,7 @@ const jsonld = ld.map(o => `<script type="application/ld+json">\n${JSON.stringif
 const noscript = `<main style="max-width:68ch;margin:6vh auto;padding:0 24px;font-family:system-ui;line-height:1.6">
 <h1>${esc(SITE.tagline)}</h1>
 <p>${code(HERO.lede)} <strong>${esc(HERO.claim)}</strong> ${esc(HERO.close)}</p>
-<p><a href="${DL.mac}">Download for macOS</a> · <a href="#get">Linux and the CLI</a><br><small>${esc(HERO.note)}</small></p>
+<p><a href="${DL.mac}">Download for macOS</a> · <a href="#get">Linux and the CLI</a> · <a href="${SITE.repo}">Source on GitHub</a><br><small>${esc(HERO.note)}</small></p>
 <h2>Measured</h2><ul>${PROOF.map(([b, t]) => `<li><b>${esc(b)}</b> ${esc(t)}</li>`).join("")}</ul><p><small>${esc(PROOF_NOTE)}</small></p>
 <h2>${esc(TERMINAL.h)}</h2><p>${code(TERMINAL.p)}</p><p>${code(TERMINAL.keys)}</p>
 ${STEPS.map(s => `<h2>${esc(s.h)}</h2><p>${code(s.p)}</p><ul>${s.li.map(l => `<li>${code(l)}</li>`).join("")}</ul>`).join("\n")}
@@ -57,7 +59,7 @@ writeFileSync(page, html);
 const md = [
   `# ${SITE.name}`, "", `> ${SITE.summary}`, "",
   `${HERO.lede.replace(/`/g, "`")} ${HERO.claim} ${HERO.close}`, "",
-  `- Product page: ${SITE.url}`, `- Release ${SITE.version} (private beta; needs access to the Soul-Brews-Studio GitHub organisation): ${DL.notes}`,
+  `- Product page: ${SITE.url}`, `- Source (${SITE.license}): ${SITE.repo}`, `- Release ${SITE.version}: ${DL.notes}`,
   `- Made by ${SITE.org}: https://buildwithoracle.com/`, "",
   "## Docs", "", `- [Full page text](${root}/llms-full.txt): features, measured speed, privacy, FAQ and downloads`, "",
   "## Questions", "", ...FAQ.map(([q, a]) => `- **${q}** ${a}`), "",

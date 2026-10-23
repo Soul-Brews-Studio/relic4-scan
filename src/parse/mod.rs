@@ -117,7 +117,7 @@ pub struct Ctx {
 
 /// store.parse_chunk from `ctx.offset` with `ctx`, to the end of the file's complete lines. Returns the new ctx.
 /// How much of a file is read at a time (RELIC_SCAN_CHUNK bytes, default 32 MiB). The biggest files are parsed
-/// first and side by side, so reading each one whole held the top N files in memory at once (3.3 GB on m5).
+/// first and side by side, so reading each one whole held the top N files in memory at once (3.3 GB on an M5 Mac).
 fn chunk_size() -> usize {
     static C: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
     *C.get_or_init(|| std::env::var("RELIC_SCAN_CHUNK").ok().and_then(|v| v.parse().ok()).filter(|&n| n > 0).unwrap_or(32 << 20))

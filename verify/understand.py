@@ -15,7 +15,7 @@ from relic4.store import parse_chunk
 from relic4.sql import MSGKEY
 
 N = int(sys.argv[1]) if len(sys.argv) > 1 else 40
-AGENT = "beta@m5"
+AGENT = os.environ.get("RELIC_AGENT", "dev@mac")  # the agent label the truth rows were imported with
 st = sqlite3.connect(f"file:{os.path.expanduser('~/jsonl-truth/.live/state.db')}?mode=ro", uri=True)
 rows = st.execute("SELECT path, home, off, lines, size FROM files WHERE agent = ? AND off > 0 AND off = size", (AGENT,)).fetchall()
 rnd = random.Random(7)

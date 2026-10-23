@@ -1,10 +1,10 @@
 #!/bin/sh
 # Install relic-scan into ~/.local/bin (on PATH in a login shell; ~/.cargo/bin often is not).
 #
-#   gh api repos/Soul-Brews-Studio/relic4-scan/contents/install.sh -H 'Accept: application/vnd.github.raw' | sh
+#   curl -fsSL https://raw.githubusercontent.com/Soul-Brews-Studio/relic4-scan/main/install.sh | sh
 #   REF=some-branch sh install.sh      # another branch (default: main)
 #
-# The repo is private: cargo fetches it through the git CLI, which uses your gh login.
+# cargo fetches the repository through the git CLI, so a git credential helper (gh, a keychain) is used when one is set.
 set -eu
 
 REPO=https://github.com/Soul-Brews-Studio/relic4-scan

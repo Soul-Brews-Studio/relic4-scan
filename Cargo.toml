@@ -3,6 +3,9 @@ name = "relic-scan"
 version = "26.10.23-alpha.1117"
 edition = "2024"
 rust-version = "1.89"
+license = "AGPL-3.0-only"
+repository = "https://github.com/Soul-Brews-Studio/relic4-scan"
+homepage = "https://relic.buildwithoracle.com/scan/"
 
 [dependencies]
 arrow = { version = "60.0.0", default-features = false, features = ["ipc"] }

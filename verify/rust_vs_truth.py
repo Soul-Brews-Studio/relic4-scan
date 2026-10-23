@@ -13,7 +13,7 @@ import duckdb
 if "--sample-index" in sys.argv:
     out, n = sys.argv[sys.argv.index("--sample-index") + 1], int(sys.argv[sys.argv.index("--sample-index") + 2])
     st = sqlite3.connect(f"file:{os.path.expanduser('~/jsonl-truth/.live/state.db')}?mode=ro", uri=True)
-    rows = st.execute("SELECT path, home, off, lines, size FROM files WHERE agent = 'beta@m5' AND off > 0 AND off = size").fetchall()
+    rows = st.execute("SELECT path, home, off, lines, size FROM files WHERE agent = '" + os.environ.get("RELIC_AGENT", "dev@mac") + "' AND off > 0 AND off = size").fetchall()
     by, rnd = collections.defaultdict(list), random.Random(7)
     for r in rows:
         p = r[0]

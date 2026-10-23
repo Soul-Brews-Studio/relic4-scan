@@ -27,7 +27,7 @@ Relic Scanner and Relic Studio are the two native apps in [agent-relic-v3](https
 | **Every `.jsonl` on disk** | No | Yes: `meta/jsonl.parquet` and `/paths`, including files outside the homes and in ψ vaults |
 
 ## Same banks, two counters
-These are the Studio Banks cards (relic3) next to relic-scan's Claude run on the same machine (m5, 2026-10-22). relic-scan counts a session as one file name, with copies folded, and text rows per copy.
+These are the Studio Banks cards (relic3) next to relic-scan's Claude run on the same machine (an M5 Mac, 2026-10-22). relic-scan counts a session as one file name, with copies folded, and text rows per copy.
 
 | bank | relic3 sessions · events | relic-scan sessions · text rows |
 |---|---|---|
@@ -36,7 +36,7 @@ These are the Studio Banks cards (relic3) next to relic-scan's Claude run on the
 
 The other banks are drawn differently by each tool. relic3 has one `projects` bank per home. relic-scan groups `~/.claude/projects` together with the mirrors' `.claude/projects`, so those rows are not comparable one to one.
 
-## Speed (m5)
+## Speed (an M5 Mac)
 | | relic3 (what the apps call) | relic-scan |
 |---|---|---|
 | Incremental index | 43 s with 37 changed files (relic v3, measured in this repo's history) | ≈10 s, most of it the home walk |

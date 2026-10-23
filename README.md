@@ -4,10 +4,12 @@ One Rust binary, `relic-scan` (this repo is still named relic4-scan). It finds e
 
 Grown in the agent-relic-v4 lab (`lab/relic4-scan` on branch `lab-rust-scan`, history kept). [agent-relic-v4](https://github.com/Soul-Brews-Studio/agent-relic-v4) is the reader: it turns these month files into truth, meta, vectors and search. The verify scripts need its Python environment: `uv run --project <agent-relic-v4> python verify/…`.
 
+Open source under the [GNU AGPL v3](LICENSE). Landing page: https://relic.buildwithoracle.com/scan/
+
 ## Use it
-**Install.** One command. It needs Rust 1.89 or newer and a gh login, because the repo is private and cargo fetches it through the git CLI. `install.sh` finds cargo even when it is not on PATH, builds in about 30 s and installs to `~/.local/bin/relic-scan`.
+**Install.** One command; it needs Rust 1.89 or newer. `install.sh` finds cargo even when it is not on PATH, builds in about 30 s and installs to `~/.local/bin/relic-scan`. Or download the desktop app from [Releases](https://github.com/Soul-Brews-Studio/relic4-scan/releases), or build from a checkout with `just` (below).
 ```
-gh api repos/Soul-Brews-Studio/relic4-scan/contents/install.sh -H 'Accept: application/vnd.github.raw' | sh
+curl -fsSL https://raw.githubusercontent.com/Soul-Brews-Studio/relic4-scan/main/install.sh | sh
 ```
 To install a branch instead of `main`, pipe to `REF=<branch> sh`. Run the same line again to upgrade.
 
@@ -17,7 +19,7 @@ relic-scan                         # the logo, what is indexed already, and the 
 relic-scan up --kind claude        # index Claude transcripts into ~/.relic-scan/claude, then serve http://127.0.0.1:8787
 relic-scan tui --kind claude       # the same data in the terminal
 ```
-The first run reads everything: on m5 that is 83,673 files and 67.6 GB in about 45 s. After that a run reads only new bytes and takes about 10 s, most of it spent walking the homes. Without `--kind`, every agent is indexed into `~/.relic-scan`.
+The first run reads everything: on an M5 Mac that is 83,673 files and 67.6 GB in about 45 s. After that a run reads only new bytes and takes about 10 s, most of it spent walking the homes. Without `--kind`, every agent is indexed into `~/.relic-scan`.
 
 | command | what it does |
 |---|---|
@@ -49,10 +51,10 @@ cargo install tauri-cli --version '^2' --locked && cargo tauri build          # 
 ```
 **Installer:** `cargo tauri build --bundles app,dmg` also makes `target/release/bundle/dmg/ARRA Relic Scan_<version>_aarch64.dmg`, a drag-to-Applications window (660x400, the app at (180,190) and Applications at (480,190), the layout Oracle Pulse uses). Its background is `desktop/dmg/background.tiff` (1x and 2x), made by `desktop/dmg/make-background.sh`; it is light because Finder draws the icon labels in black.
 
-**Linux (`.deb`, `.AppImage`):** `desktop/linux/Dockerfile` builds both on any Docker host (Ubuntu 22.04, so the AppImage runs on newer systems too). From m5 it runs on white through a Docker context over tailscale ssh:
+**Linux (`.deb`, `.AppImage`):** `desktop/linux/Dockerfile` builds both on any Docker host (Ubuntu 22.04, so the AppImage runs on newer systems too). From a Mac it can run on another machine through a Docker context over ssh:
 ```
-docker context create white --docker "host=ssh://nat@white.follow-rankine.ts.net"     # once
-docker --context white buildx build -f desktop/linux/Dockerfile --target out --output type=local,dest=/tmp/relic-linux .
+docker context create builder --docker "host=ssh://you@your-linux-host"     # once
+docker --context builder buildx build -f desktop/linux/Dockerfile --target out --output type=local,dest=/tmp/relic-linux .
 ```
 `.dockerignore` keeps the build folders out of the upload. The first build installs WebKitGTK and the Tauri CLI; later ones reuse those layers.
 
@@ -89,7 +91,7 @@ Only months that received rows are rewritten; every other month file is left unt
 | 40 | 1,938 | 1,938 / 1,938 | 1 | 0 bytes read, no month rewritten |
 | 300 | 21,257 | 21,257 / 21,257 | 397 | 0 bytes read, no month rewritten |
 
-**m5 (beta), whole machine:**
+**An M5 Mac, whole machine:**
 
 | run | files | read | time |
 |---|---:|---:|---:|
@@ -112,7 +114,7 @@ For comparison, relic v3 needed 43 s for an incremental run with 37 changed file
 - **Not the same rows as filtering the full index:** two identical lines are one row, kept at its first copy. If the first copy is outside the range, the range folder keeps the later copy, while the full index has only the earlier one.
 
 ## scan: light (default) vs --full
-| | reads file contents | m5 (beta), 91,297 files / 76 GB | verdicts |
+| | reads file contents | an M5 Mac, 91,297 files / 76 GB | verdicts |
 |---|---|---|---|
 | light | no: names, folder shapes, path rules | **8.3 s** | transcript-shaped 86,290 · not-transcript 4,393 · unknown 614 |
 | full | first complete lines, plus the real parser as proof | **23.0 s** | transcript 85,043 · empty 1,234 · unverified 505 · not-transcript 4,508 |
@@ -140,7 +142,7 @@ Verified against truth: **0 lost**. No file that produced a truth row was called
 | run | files | GB | time | result vs relic4 truth |
 |---|---:|---:|---:|---|
 | sample (seed 7) | 125 | — | 1.4 s | 13,602/13,602 rows, every field byte-equal |
-| all beta@m5 files jt sent | 50,188 | 43 | **17 s** (parse ~11 s, merge 5 s) | 4,228,336 rows found; text/body/red/kind/call_id/name/err/type/role/engine equal on all; sid differs on 2 and ts on 14 (copy-dependent, OUTPUT-CHAIN §3); 776 rows newer than truth |
+| all files of one Mac jt sent | 50,188 | 43 | **17 s** (parse ~11 s, merge 5 s) | 4,228,336 rows found; text/body/red/kind/call_id/name/err/type/role/engine equal on all; sid differs on 2 and ts on 14 (copy-dependent, OUTPUT-CHAIN §3); 776 rows newer than truth |
 
 `--jt-compat` stops a file at a line over 8 MB, as jt does. By default `parse` skips files the scan called not-transcript; `--all` includes them.
 
@@ -164,9 +166,9 @@ Rows by type are six columns: user_text, assistant_text, thinking, tool_calls, t
 - **vault:** the file is in an oracle's ψ vault.
 - **other:** anywhere else under the roots.
 
-The same walk that finds the homes collects the loose files, so they add no extra pass. Loose files are few, so the scan always reads their first lines, even in the light scan. On m5 that gives 103,657 `.jsonl`: 91,298 in homes, 61 in 22 ψ vaults, and 12,298 elsewhere (mostly water-api and arthur-data). Of the loose files, the 14 whose content looks like a transcript are all test fixtures in repos. No real transcript sits outside a home.
+The same walk that finds the homes collects the loose files, so they add no extra pass. Loose files are few, so the scan always reads their first lines, even in the light scan. On an M5 Mac that gives 103,657 `.jsonl`: 91,298 in homes, 61 in 22 ψ vaults, and 12,298 elsewhere (mostly water-api and arthur-data). Of the loose files, the 14 whose content looks like a transcript are all test fixtures in repos. No real transcript sits outside a home.
 
-**Claude only** (`run --kind claude`, m5, 2026-10-22):
+**Claude only** (`run --kind claude`, an M5 Mac, 2026-10-22):
 
 | run | files | read | sessions | time |
 |---|---:|---:|---:|---:|
@@ -175,7 +177,7 @@ The same walk that finds the homes collects the loose files, so they add no extr
 
 **Proof: equal to relic4's meta** (`verify/meta_vs_python.py`). It compares every column of every row against `relic4 truth import --from-scan` followed by `relic4 meta --from-scan` on the same DIR. Files are matched on path, sessions on (base, tier).
 
-| m5 (beta), 2026-10-22 | files | sessions | result | time |
+| An M5 Mac, 2026-10-22 | files | sessions | result | time |
 |---|---:|---:|---|---:|
 | cold (no cache) | 86,905 | 45,094 | every row and column equal | **1.9 s** (Python: truth import 19.9 s + meta 2.5 s) |
 | after an incremental `run` (2026-10 rewritten) | 86,905 | 45,094 | every row and column equal | **0.9 s** (1 month aggregated again) |
@@ -273,7 +275,7 @@ just build       # target/release/relic-scan
 just install     # copies it into ~/.local/bin
 just test        # every test
 just app         # the desktop app and its .dmg for this Mac (just app-intel: for Intel Macs)
-just linux       # .deb and .AppImage in Docker (just linux white: on the white docker context)
+just linux       # .deb and .AppImage in Docker (just linux builder: on the docker context named builder)
 ```
 
 ## Repository layout

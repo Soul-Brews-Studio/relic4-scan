@@ -16,6 +16,7 @@ const wrap = "w-[min(1180px,100%-48px)] mx-auto";
 // `code` in content strings becomes <code>
 const Code = ({ c }) => html`<code class="font-mono text-xs text-ink bg-paper-2 px-1.5 py-px rounded">${c}</code>`;
 const md = t => t.split(/`([^`]+)`/).map((x, k) => k % 2 ? html`<${Code} c=${x} />` : x);
+const Gh = () => html`<svg viewBox="0 0 16 16" class="size-4" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>`;
 const Down = () => html`<svg viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>`;
 
 // ---------- the lightbox: click a capture to open it; click again to zoom at that point, move to look around ----------
@@ -137,6 +138,7 @@ function Nav({ y }) {
       <li class="max-[900px]:hidden"><a href="#check" class="inline-flex items-center min-h-11 text-sm text-ink-2 hover:text-ink no-underline transition-colors">Tour</a></li>
       <li class="max-[900px]:hidden"><a href="#local" class="inline-flex items-center min-h-11 text-sm text-ink-2 hover:text-ink no-underline transition-colors">Local only</a></li>
       <li class="max-[900px]:hidden"><a href="#faq" class="inline-flex items-center min-h-11 text-sm text-ink-2 hover:text-ink no-underline transition-colors">Questions</a></li>
+      <li><a href=${SITE.repo} class="inline-flex items-center gap-2 min-h-11 text-sm text-ink-2 hover:text-ink no-underline transition-colors" aria-label="Source on GitHub"><${Gh} /><span class="max-[520px]:hidden">GitHub</span></a></li>
       <li><a class=${`${btnPrimary} px-4`} href="#get">Download</a></li>
     </ul></nav>
   </header>`;
@@ -150,7 +152,7 @@ function Hero() {
     <p class="mx-auto m-0 mb-8 max-w-[34em] text-lg leading-normal text-ink-2">${md(HERO.lede)} <strong class="text-ink font-semibold">${HERO.claim}</strong> ${HERO.close}</p>
     <div class="flex flex-wrap justify-center items-center gap-3">
       <a class=${btnPrimary} href="#get"><${Down} />Download</a>
-      <a class=${btnGhost} href="#tui">See the terminal</a>
+      <a class=${btnGhost} href=${SITE.repo}><${Gh} />Source on GitHub</a>
     </div>
     <p class="mx-auto mt-4 mb-0 max-w-[34em] text-sm text-dim">${HERO.note}</p>
   </section>`;
@@ -233,7 +235,7 @@ function Get() {
     <div class=${`${center}`}><h2 id="get-h" class=${h2}>Download</h2><p class="m-0 mb-10 text-ink-2">${GET.p}</p></div>
     <ul class="list-none mx-auto my-0 p-0 max-w-[880px] border border-line rounded-xl overflow-hidden">
       ${GET.rows.map(([os, sub, meta, href], k) => row(os, sub, m(meta), href, k === 0))}
-      ${row("The command", "macOS or Linux · needs Rust and gh",
+      ${row("The command", "macOS or Linux · needs Rust",
         html`<pre class="m-0 font-mono text-xs leading-normal text-ink-2 whitespace-pre-wrap [overflow-wrap:anywhere]">${GET.cli}</pre>`, DL.notes)}
     </ul>
   </section>`;
@@ -258,6 +260,7 @@ function Footer() {
   return html`<footer class=${`${wrap} pt-28 pb-14 border-t border-line text-center`}>
     <p class="mx-auto m-0 mb-8 max-w-[22ch] font-semibold text-[clamp(1.75rem,2.6vw+1rem,2.75rem)] leading-[1.34] tracking-[-0.018em]">${FOOTER.say}</p>
     <div class="flex flex-wrap justify-center items-center gap-x-6 gap-y-2 text-sm text-dim"><span>ARRA Relic Scan · Soul Brews Studio</span>
+      <a class="inline-flex items-center gap-2 min-h-11 -my-2.5 text-ink-2" href=${SITE.repo}><${Gh} />GitHub</a><span>${FOOTER.license}</span>
       <a class="inline-flex items-center min-h-11 -my-2.5 text-ink-2" href="https://buildwithoracle.com/">buildwithoracle.com</a>
       <span>${FOOTER.note}</span></div>
   </footer>`;

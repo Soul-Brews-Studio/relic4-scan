@@ -9,6 +9,8 @@ export const SITE = {
   tagline: "Every agent transcript, found and kept.",
   summary: "ARRA Relic Scan finds every AI-agent transcript on your machine (Claude Code, Codex, OMP, OMX, Gemini, Pi), indexes it into one Parquet file per month, and lets you browse it locally. Nothing leaves the machine.",
   version: "26.10.23-alpha.1117",
+  repo: "https://github.com/Soul-Brews-Studio/relic4-scan",
+  license: "GNU AGPL v3",
 };
 const REL = "https://github.com/Soul-Brews-Studio/relic4-scan/releases";
 export const DL = {
@@ -24,7 +26,7 @@ export const HERO = {
   lede: "Claude Code, Codex, OMP, OMX, Gemini and Pi leave thousands of `.jsonl` files across homes, mirrors and archives.",
   claim: "ARRA Relic Scan finds every one, indexes it into one Parquet file per month, and lets you browse it on your own machine.",
   close: "Nothing leaves it.",
-  note: "Private beta · the downloads need access to Soul-Brews-Studio on GitHub · Apple silicon and Intel Macs, Linux x86_64",
+  note: "Free and open source (AGPL-3.0) · Apple silicon and Intel Macs, Linux x86_64",
 };
 
 export const PROOF = [
@@ -99,25 +101,25 @@ export const FAQ = [
   ["How fast is it?", "On one Apple-silicon Mac it indexed 86,904 transcripts (75.6 GB) in 58 seconds from cold, and brings that index up to date in about 15 seconds by reading only new bytes."],
   ["What format is the index?", "Plain Parquet: one file per month of rows (every message, thinking block, tool call and result), plus sessions, files and every .jsonl, readable by DuckDB, Polars or pandas."],
   ["Which platforms does it run on?", "macOS on Apple silicon and on Intel (a .dmg each), and Linux x86_64 (.deb and .AppImage); the relic-scan command builds on macOS and Linux with Rust."],
-  ["Is it free and open source?", "It is a private beta: the downloads sit in a private GitHub repository and need access to the Soul-Brews-Studio organisation."],
+  ["Is it free and open source?", "Yes. The source is on GitHub (github.com/Soul-Brews-Studio/relic4-scan) under the GNU AGPL v3, and every download is free."],
 ];
 
 export const GET = {
-  p: `Version ${SITE.version}, a private beta. The files sit in a private GitHub repository: sign in with an account that has access to Soul-Brews-Studio.`,
+  p: `Version ${SITE.version}, free and open source under the GNU AGPL v3. The source, the release notes and every file are on GitHub.`,
   rows: [
     ["macOS", "Apple silicon · drag into Applications", ".dmg · 6.7 MB", DL.mac],
     ["macOS", "Intel · drag into Applications", ".dmg · 7.1 MB", DL.intel],
     ["Linux", "x86_64 · Debian, Ubuntu", ".deb · 7.6 MB", DL.deb],
     ["Linux", "x86_64 · any distribution", ".AppImage · 85 MB", DL.appimage],
   ],
-  cli: "gh api repos/Soul-Brews-Studio/relic4-scan/contents/install.sh \\\n  -H 'Accept: application/vnd.github.raw' | sh",
+  cli: "curl -fsSL https://raw.githubusercontent.com/Soul-Brews-Studio/relic4-scan/main/install.sh | sh",
 };
 // build it from source: a justfile in the repository does the work
 export const BUILD = {
   h: "Build it yourself",
-  p: "The source is a Rust workspace with a `justfile`. You need Rust, `just` and access to the repository on GitHub.",
+  p: "The source is a Rust workspace with a `justfile`, on GitHub. You need Rust and `just`.",
   steps: [
-    ["Get the source", "gh repo clone Soul-Brews-Studio/relic4-scan && cd relic4-scan"],
+    ["Get the source", "git clone https://github.com/Soul-Brews-Studio/relic4-scan && cd relic4-scan"],
     ["Get the tools", "curl https://sh.rustup.rs -sSf | sh   # Rust\nbrew install just                     # or: cargo install just"],
     ["Build the command", "just build     # target/release/relic-scan\njust install   # copies it into ~/.local/bin"],
     ["Build the desktop app", "just app         # .app and .dmg for this Mac\njust app-intel   # the same for Intel Macs, from Apple silicon\njust linux       # .deb and .AppImage, in Docker"],
@@ -125,4 +127,4 @@ export const BUILD = {
   more: "`just` lists every recipe; `just test` runs the tests; `just up` indexes this machine and serves the page on 127.0.0.1.",
 };
 
-export const FOOTER = { say: "Your agents keep everything they did. Now you can find it.", note: "Every capture on this page comes from a demo index of made-up repositories." };
+export const FOOTER = { license: "Open source under the GNU AGPL v3", say: "Your agents keep everything they did. Now you can find it.", note: "Every capture on this page comes from a demo index of made-up repositories." };

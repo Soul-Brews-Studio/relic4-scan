@@ -56,9 +56,9 @@ DuckDB reads Parquet natively (`read_parquet`).
 - **No surveyed tool** does parallel files plus cross-file dedupe plus month output. That part is ours.
 
 ## Decision for the lab
-1. Walk with `ignore::WalkParallel` and dedupe by (dev, ino). Benchmark it against a `getattrlistbulk` walker on m5.
+1. Walk with `ignore::WalkParallel` and dedupe by (dev, ino). Benchmark it against a `getattrlistbulk` walker on an M5 Mac.
 2. Sort by size, biggest first, into one atomic queue on plain threads. Files over 64 MB become newline-aligned chunks.
 3. Read with `BufReader` (4 MiB) and `memchr`. Parse with `sonic-rs`, hash with `blake2b_simd` (8 bytes, big-endian i64), key with `md-5`.
 4. Redact with ASCII `regex::bytes` behind an `aho-corasick` hint prefilter, in rule order. Private keys use `memmem`.
 5. Each thread writes per-month parts as **Arrow IPC or Parquet**, both measured on one real month. DuckDB `GROUP BY` builds `truth/YYYY-MM.duckdb`.
-6. Prove it: on beta@m5's own files, the set of `h` must equal the truth rows whose `machines` contain `beta@m5`.
+6. Prove it: on the M5 Mac's own files, the set of `h` must equal the truth rows whose `machines` contain `dev@mac`.

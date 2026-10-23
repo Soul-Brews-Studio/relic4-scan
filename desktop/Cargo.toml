@@ -4,6 +4,8 @@ version = "26.10.23"
 edition = "2024"
 rust-version = "1.89"
 description = "ARRA Relic Scan desktop: the relic-scan page in a native window (Tauri v2)"
+license = "AGPL-3.0-only"
+repository = "https://github.com/Soul-Brews-Studio/relic4-scan"
 
 # its own workspace: `cargo install relic-scan` never resolves or builds the Tauri tree
 [workspace]
