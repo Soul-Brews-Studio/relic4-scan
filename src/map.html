@@ -103,6 +103,7 @@
   #dash .overview svg { width: 220px; height: 220px; display: block; }
   #dash .overview .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-6) var(--sp-5); margin: 0; }
   #dash .stat .k { font-size: 11px; letter-spacing: .2em; color: var(--dim); font-weight: 700; text-transform: uppercase; }
+  #dash .stat .s { margin-top: 4px; color: var(--dim); font-size: 13px; font-variant-numeric: tabular-nums; }
   #dash .stat .v { font-size: 34px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; }
   #dash .go { background: var(--amber); color: var(--on-amber); border: 0; border-radius: 10px; padding: 14px 26px;
               font: 700 17px var(--font-ui); cursor: pointer; min-width: 220px; }
@@ -210,7 +211,6 @@
   #cpop .ml { font-size: 12px; color: var(--dim); height: 30px; text-align: center; line-height: 1.2; } #cpop .ml b { display: block; font-weight: 600; color: var(--ink); font-size: 11px; }
   #cpop .foot { grid-column: 1 / -1; margin: 0; color: var(--dim); font-size: 13px; }
   @media (max-width: 1100px) { #cpop .detail { grid-template-columns: minmax(0, 1fr); } }
-  #dash .kl .cap { padding: 0 var(--sp-2) var(--sp-3); color: var(--dim); font-size: 14px; } #dash .kl .cap b { color: var(--ink); font-weight: 600; }
   /* ⌘K: one box over the page's own data; groups of results, each with its actions */
   #ksearch { background: var(--panel); color: var(--dim); border: 1px solid var(--line); border-radius: 5px; padding: 7px 10px; font: inherit; cursor: pointer; white-space: nowrap; }
   #ksearch:hover { color: var(--ink); } #ksearch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -929,7 +929,7 @@ function pdetail(i) {
 // ---------- dashboards: Smart Scan, Banks & Repos, Health (the Relic Studio shell, from this index's own numbers) ----------
 const SC = D.scan || { discovered: 0, indexed: 0, skipped: 0, vault: 0, loose: 0, loose_transcripts: 0, unknown: 0, empty: 0, bytes: 0 };
 const gbs = b => (b / 1e9).toFixed(1) + " GB";
-const stat = (k, v, c) => `<div class="stat"><div class="k">${k}</div><div class="v" style="color:${c}">${v}</div></div>`;
+const stat = (k, v, c, sub) => `<div class="stat"><div class="k">${k}</div><div class="v" style="color:${c}">${v}</div>${sub ? `<div class="s">${sub}</div>` : ""}</div>`;
 function totals() {
   let rows = 0, t = [0, 0, 0], ty = TYPES.map(() => 0), undated = 0, orphans = 0, sats = 0;
   const months = new Set();
@@ -947,15 +947,23 @@ function dashScan() {
     <p class="sub">Find every agent transcript on this machine, read only the bytes that are new, and rebuild the months, the meta and these views.</p>${scopeLine()}
     <div class="cols"><div class="main">
     <div class="hero"><button class="donut" id="sunmini" aria-label="Rows by kind. Open the full contents view"></button><div class="kl" id="sunleg"></div></div>
-    <div class="strip five">${stat("Files indexed", fmt(SC.indexed), "var(--green)")}${stat("Coverage", (100 * cov).toFixed(2) + "%", "var(--ink)")}${stat("Files discovered", fmt(SC.discovered), "var(--cyan)")}${SC.before_range ? stat("Before the range", fmt(SC.before_range), "var(--dim)") : stat("Not transcripts", fmt(SC.skipped), "var(--amber)")}${stat("Outside homes", fmt(SC.vault + SC.loose), "var(--amber)")}</div>
+    <div class="strip five">${(() => {
+      // what the index holds and how fresh it is; the file accounting lives in Index controls and Health
+      let lo = Infinity, hi = -Infinity; for (let k = 0; k < N; k++) if (S.t0[k] != null) { lo = Math.min(lo, S.t0[k]); hi = Math.max(hi, S.t1[k] ?? S.t0[k]); }
+      const months = lo < Infinity ? monthIdx(hi) - monthIdx(lo) + 1 : 0, mon = t => new Date((t + BKK) * 1000).toLocaleString("en", { month: "short", year: "numeric", timeZone: "UTC" });
+      return stat("Rows", fmt(T.rows), "var(--ink)", `≈${Math.round(T.rows / Math.max(1, SC.indexed)).toLocaleString()} per file`)
+        + stat("Sessions", fmt(N), "var(--ink)", `${fmt(T.t[0])} main · ${fmt(T.t[1])} sub · ${fmt(T.t[2])} workflow`)
+        + stat("Files indexed", fmt(SC.indexed), "var(--ink)", `${gbs(SC.bytes)} · ${(100 * cov).toFixed(2)}% of transcripts`)
+        + stat("Newest row", hi > -Infinity ? agoText(Date.now() / 1000 - hi) : "—", "var(--ink)", hi > -Infinity ? bkk(hi) + " Bangkok" : "")
+        + stat("Span", months ? `${months} months` : "—", "var(--ink)", lo < Infinity ? `${mon(lo)} → ${mon(hi)}` : "");
+    })()}</div>
     <div class="card"><h3>Index controls</h3>
       <div>The last run indexed <b>${fmt(SC.indexed)}</b> transcript files (${gbs(SC.bytes)}) out of <b>${fmt(SC.discovered)}</b> .jsonl discovered.
         ${fmt(SC.skipped)} in agent homes are not transcripts${SC.before_range ? `; ${fmt(SC.before_range)} were last written before ${esc(D.range.from)}, so they were not read` : ""}; ${fmt(SC.vault + SC.loose)} sit outside every home.</div>
       <div class="actions"><button class="go" id="dgo" ${SERVED ? "" : "disabled title='open it through relic-scan serve or the app'"}>Index now</button><button class="ghost" id="dchk" ${SERVED ? "" : "disabled"}>Check changes</button>${SERVED ? `<button class="link" id="dout">Show output</button><button class="link stop" id="dstop" hidden>Stop</button>` : ""}</div>
       <div class="track"><i id="dbar"></i></div><div class="diff" id="ddiff"></div>
       <div class="note" id="dmsg">Check changes scans and compares with the index; it changes nothing in it and only adds a line to the scan log. Index now runs the same scan, then reads only what changed.</div></div>
-    </div><aside class="side"><h3>Totals</h3>
-    <div class="strip">${stat("Sessions", fmt(N), "var(--ink)")}${stat("Rows", fmt(T.rows), "var(--ink)")}${stat("Indexed size", gbs(SC.bytes), "var(--ink)")}${stat("Last run", D.last_run ? agoText(Date.now() / 1000 - D.last_run) : "never", "var(--ink)")}</div>
+    </div><aside class="side">
     <h3>Recent scans</h3><div class="recent" id="srecent"><div class="muted">${SERVED ? "loading…" : "open it through relic-scan serve or the app"}</div></div>
     <a class="more" href="${file ? "?view=scans" : "/scans"}">Scan log →</a></aside></div>`;
 }
@@ -1099,7 +1107,7 @@ function contentsMini() {
   }
   $("sunmini").onclick = () => openContents();
   const hover = (i, on) => { const el = svg.querySelector(`path[data-i="${i}"]`); if (el) (on ? el.onmouseenter : el.onmouseleave)(); };
-  $("sunleg").innerHTML = `<div class="cap"><b>${total.toLocaleString()} rows</b> from ${fmt(SC.indexed)} files · ${fmt(N)} sessions</div>` + slices.map((k, i) => `<button class="row" data-i="${i}"><span class="dot" style="background:${k.color}"></span>
+  $("sunleg").innerHTML = slices.map((k, i) => `<button class="row" data-i="${i}"><span class="dot" style="background:${k.color}"></span>
       <span class="n">${esc(k.label)}</span><span class="v">${k.value.toLocaleString()}</span><span class="p">${(100 * k.value / total).toFixed(1)}%</span></button>`).join("");
   for (const b of $("sunleg").querySelectorAll("button.row")) {
     b.onmouseenter = () => hover(b.dataset.i, true); b.onmouseleave = () => hover(b.dataset.i, false);
