@@ -15,6 +15,9 @@ async function loadScans() {
   LOG = (await (await fetch("/api/scans")).json()).entries;
   if (!LOG.length) { $("slog").innerHTML = `<div class="muted" style="padding:24px">No scans yet. Every Index now and every Check changes adds one.</div>`; return; }
   // rows added: an index's total minus the total of the index before it
+  // what the ledger answered for new and rewritten paths: copies (not read), resumed from a known version, past changed
+  const led = e => [[e.copies, "copies"], [e.resumed, "resumed"], [e.past_changed, "past changed"]].filter(([n]) => n)
+    .map(([n, w]) => ` · ${n.toLocaleString()} ${w}`).join("");
   const prevRows = i => { for (let k = i + 1; k < LOG.length; k++) if (LOG[k].job === "index" && LOG[k].rows != null) return LOG[k].rows; return null; };
   $("slog").innerHTML = `<div class="lrow h"><span>When</span><span>Job</span><span class="r">New</span><span class="r">Grown</span><span class="r">Rewritten</span><span class="r">Gone</span><span class="r">Read</span><span class="r">Time</span><span class="x">Result</span></div>`
     + LOG.map((e, k) => { const pr = e.job === "index" ? prevRows(k) : null, d = pr != null && e.rows != null ? e.rows - pr : null;
@@ -23,7 +26,7 @@ async function loadScans() {
         <span><span class="chip ${e.job}">${e.job}</span></span>
         <span class="r">${zn(e.new)}</span><span class="r">${zn(e.grown)}</span><span class="r">${zn(e.rewritten)}</span><span class="r">${zn(e.gone)}</span>
         <span class="r">${e.bytes ? human(e.bytes) : `<span class="z">—</span>`}</span><span class="r">${e.secs.toFixed(1)}s</span>
-        <span class="x muted">${e.job === "index" ? (d != null ? `${d >= 0 ? "+" : ""}${d.toLocaleString()} rows` : `${(e.rows || 0).toLocaleString()} rows`) : (e.files ? "would read " + files(e.files) : e.gone ? `${e.gone.toLocaleString()} gone` : "nothing changed")}</span></div>`; }).join("");
+        <span class="x muted">${e.job === "index" ? (d != null ? `${d >= 0 ? "+" : ""}${d.toLocaleString()} rows` : `${(e.rows || 0).toLocaleString()} rows`) : (e.files ? "would read " + files(e.files) : e.gone ? `${e.gone.toLocaleString()} gone` : "nothing changed")}${led(e)}</span></div>`; }).join("");
   for (const r of $("slog").querySelectorAll(".lrow[data-i]")) {
     r.onclick = () => openScan(r);
     r.onkeydown = ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); openScan(r); } };
@@ -41,7 +44,7 @@ async function openScan(r) {
   const e = await (await fetch("/api/scans/" + r.dataset.i)).json();
   const list = e.diff || [], cap = 300;
   const line = ([st, p, size, from]) => `<div class="ld"><span class="st-${st}">${st}</span>
-    <span class="r">${st === "grown" ? "+" + human(size - from) : st === "gone" ? "was " + human(from) : human(size)}</span><code>${esc(ptilde2(p))}</code></div>`;
+    <span class="r">${st === "grown" || st === "resumed" ? "+" + human(size - from) : st === "gone" ? "was " + human(from) : st === "copy" ? "not read" : human(size)}</span><code>${esc(ptilde2(p))}</code></div>`;
   const draw = all => {
     box.innerHTML = (list.length ? (all ? list : list.slice(0, cap)).map(line).join("") : `<div class="muted">No file changed.</div>`)
       + (!all && list.length > cap ? `<button class="ghost" style="margin-top:12px;min-width:0;padding:8px 16px;font-size:14px">show all ${list.length.toLocaleString()}</button>` : "")

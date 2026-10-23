@@ -2,6 +2,7 @@
 //! meta, map and the scan log. A dry run (`--dry-run`, the page's Check changes) stops after the diff.
 
 use crate::*;
+use std::collections::HashMap;
 
 /// What a run found (and, unless it was a dry run, read): the diff between the disk and OUT/_state.tsv.
 #[derive(Clone, Debug, Default, serde::Serialize)]
@@ -26,6 +27,11 @@ pub struct Report {
     pub stopped: bool,
     /// its line in OUT/_scans.jsonl (None when the log could not be written, e.g. a check of a folder not made yet)
     pub log: Option<usize>,
+    /// the ledger's answers for new and rewritten paths (ledger.rs): copies not read, files read from a known version,
+    /// files whose past changed
+    pub copies: u64,
+    pub resumed: u64,
+    pub past_changed: u64,
 }
 
 
@@ -199,6 +205,57 @@ pub fn run_inner(a: RunArgs, lock: Option<std::fs::File>, serving: bool) -> Repo
     if odd > 0 {
         eprintln!("run: skipped {} files whose path holds a tab or a newline", num(odd));
     }
+    // the ledger: what each new or rewritten path is, wherever its lines were read before (ledger.rs)
+    let mut ledg = ledger::load(outp);
+    if ledg.is_none() && !dry_run && !st.is_empty() {
+        let tl = std::time::Instant::now();
+        let n = ledger::seed(outp, &mut st, threads);
+        eprintln!("ledger: seeded {} files from the state in {:.1}s -> {}/_ledger.tsv", num(n as u64), tl.elapsed().as_secs_f64(), out);
+        ledg = ledger::load(outp);
+    }
+    let mut copies: Vec<(String, ledger::Version)> = vec![];
+    let (mut resumed, mut past_changed, mut never) = (0u64, 0u64, 0u64);
+    if let Some(l) = ledg.as_ref().filter(|l| l.entries > 0) {
+        let fresh: Vec<String> = jobs.iter().filter(|j| j.ctx.offset == 0).map(|j| j.path.clone()).collect();
+        let answers: HashMap<String, ledger::Answer> = fresh.iter().cloned().zip(ledger::answer_all(l, &fresh, threads)).collect();
+        let at: HashMap<String, usize> = changes.iter().enumerate().map(|(i, c)| (c.1.clone(), i)).collect();
+        jobs.retain_mut(|j| {
+            let Some(a) = answers.get(&j.path) else { return true };
+            let ci = at.get(&j.path).copied();
+            match a {
+                ledger::Answer::Same(v) => {
+                    if let Some(i) = ci {
+                        changes[i].0 = "copy";
+                        changes[i].3 = j.size;
+                    }
+                    copies.push((j.path.clone(), v.clone()));
+                    false
+                }
+                ledger::Answer::Update(v) => {
+                    resumed += 1;
+                    if let Some(i) = ci {
+                        changes[i].0 = "resumed";
+                        changes[i].3 = v.bytes;
+                    }
+                    j.ctx = v.ctx();
+                    true
+                }
+                ledger::Answer::PastChanged => {
+                    past_changed += 1;
+                    if let Some(i) = ci {
+                        changes[i].0 = "past-changed";
+                    }
+                    true
+                }
+                ledger::Answer::Never => {
+                    never += 1;
+                    true
+                }
+            }
+        });
+        eprintln!("ledger: {} copies (not read) · {} read from a known version · {} whose past changed · {} never seen",
+                  num(copies.len() as u64), num(resumed), num(past_changed), num(never));
+    }
     let bytes: u64 = jobs.iter().map(|j| j.size.saturating_sub(j.ctx.offset)).sum();
     eprintln!("run: scan {:.1}s · new {} · grown {} · rewritten {} · unchanged {} · gone {} · {:.2} GB to read",
               t_scan, num(new), num(grown), num(rewritten), num(unchanged), num(gone as u64), bytes as f64 / 1e9);
@@ -212,7 +269,7 @@ pub fn run_inner(a: RunArgs, lock: Option<std::fs::File>, serving: bool) -> Repo
     }
     let report = Report {
         dry_run, new, grown, rewritten, unchanged, gone: gone as u64, before_range: early, files: jobs.len() as u64, bytes,
-        unreadable: unreadable.len() as u64,
+        unreadable: unreadable.len() as u64, copies: copies.len() as u64, resumed, past_changed,
         scan_secs: t_scan, ..Default::default()
     };
     let range_label = range.as_ref().map(|g| g.label.clone());
@@ -256,12 +313,25 @@ pub fn run_inner(a: RunArgs, lock: Option<std::fs::File>, serving: bool) -> Repo
     if CANCEL.load(Relaxed) && PHASE.load(Relaxed) == 2 {
         return stopped(report); // parse::run stopped before its merge: OUT and the state are as they were
     }
+    let mut read: Vec<(ledger::Version, &str)> = Vec::with_capacity(done.len() + copies.len());
     for (p, c) in done {
         let (dev, ino, size) = sizes.get(&p).copied().unwrap_or_default();
         let plen = c.offset.min(state::PREFIX);
         let ph = state::prefix_hash(&p, plen).unwrap_or(0);
-        st.insert(p, state::FileState { dev, ino, size, ctx: c, prefix_len: plen, prefix_hash: ph });
+        read.push((ledger::Version::of(&p, &c), "read"));
+        st.insert(p, state::FileState { dev, ino, size, ctx: c, prefix_len: plen, prefix_hash: ph, copy_of: None });
     }
+    // a copy the ledger recognised: its state is the version it matched; its rows are that file's
+    for (p, v) in &copies {
+        let (dev, ino, size) = sizes.get(p).copied().unwrap_or_default();
+        let c = v.ctx();
+        let plen = c.offset.min(state::PREFIX);
+        let ph = state::prefix_hash(p, plen).unwrap_or(0);
+        read.push((ledger::Version { path: p.clone(), ..v.clone() }, "copy"));
+        st.insert(p.clone(), state::FileState { dev, ino, size, ctx: c, prefix_len: plen, prefix_hash: ph,
+                                                copy_of: (v.path != *p).then(|| v.path.clone()) });
+    }
+    ledger::append(outp, &read);
     state::save(outp, &st);
     let t_parse = t0.elapsed().as_secs_f64() - t_scan;
     let t1 = std::time::Instant::now();

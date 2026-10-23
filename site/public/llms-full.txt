@@ -135,6 +135,10 @@ No. It only reads them; everything it writes goes to its own folder (~/.relic-sc
 
 On one Apple-silicon Mac it indexed 86,904 transcripts (75.6 GB) in 58 seconds from cold, and brings that index up to date in about 15 seconds by reading only new bytes.
 
+### Does it read the same transcript twice?
+
+No. A ledger (~/.relic-scan/_ledger.tsv, appended, never rewritten) keeps a hash chain of every file it has read. A copy at a new path or from another machine is recognised and not read; a file that grew is read only from where the known version ends; a file whose past changed is flagged. On one Mac, moving a mirror of 852 transcripts cost 0.00 GB of reading.
+
 ### What format is the index?
 
 Plain Parquet: one file per month of rows (every message, thinking block, tool call and result), plus sessions, files and every .jsonl, readable by DuckDB, Polars or pandas.
