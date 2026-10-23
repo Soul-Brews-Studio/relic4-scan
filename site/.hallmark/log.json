@@ -1,0 +1,13 @@
+[
+  {
+    "date": "2026-10-23",
+    "page": "site/public/scan/index.html",
+    "genre": "atmospheric",
+    "macrostructure": "05 Workbench",
+    "theme": "custom: paper oklch(15% 0.012 262), accent amber oklch(80% 0.15 75), Bricolage Grotesque + JetBrains Mono",
+    "nav": "N9 floating, dot index on the right, floating Next button", "stack": "Preact + htm + Tailwind v4 from CDN, no build; copy in content.js", "layout": "centred, symmetric sections: Smart Scan first, then speed, terminal, tour",
+    "footer": "Ft5 statement",
+    "enrichment": "real window captures and a TUI recording of a synthetic demo index",
+    "critique": "P5 H4 E4 S5 R4 V4"
+  }
+]

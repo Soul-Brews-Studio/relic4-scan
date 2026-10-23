@@ -1,0 +1,139 @@
+# ARRA Relic Scan: Every agent transcript, found and kept.
+
+> ARRA Relic Scan finds every AI-agent transcript on your machine (Claude Code, Codex, OMP, OMX, Gemini, Pi), indexes it into one Parquet file per month, and lets you browse it locally. Nothing leaves the machine.
+
+Claude Code, Codex, OMP, OMX, Gemini and Pi leave thousands of `.jsonl` files across homes, mirrors and archives. ARRA Relic Scan finds every one, indexes it into one Parquet file per month, and lets you browse it on your own machine. Nothing leaves it.
+
+Private beta · the downloads need access to Soul-Brews-Studio on GitHub · Apple silicon, Linux x86_64
+
+## Measured
+
+- **58 s** to index 86,904 transcripts (75.6 GB) from cold
+- **≈15 s** to bring that index up to date, reading only new bytes
+- **5.5 M** rows: every message, thinking block, tool call and result
+- **0** network calls from the app or its page
+
+Measured on one Apple-silicon Mac, October 2026, over its own agents' history. Your numbers follow your disk.
+
+## Start in the terminal
+
+`relic-scan tui` reads the index: overview, repositories, sessions and every `.jsonl`.
+
+`/` filters · `Enter` opens · `⌫` goes back · no background of its own, so it reads on dark and light terminals
+
+## The whole index at a glance
+
+Smart Scan shows every row by kind, the sessions and files behind them, and how far back your history goes.
+
+- user text, AI text, thinking, tool calls, results and errors
+- Check changes and Index now, one click each
+- the output folder under every title: Open folder, Export list
+
+## Check before you index
+
+Check changes walks your folders and says what an index would read. It writes nothing.
+
+- new, grown, rewritten and gone files, with the bytes to read
+- every index and every check kept in a scan log you can open
+- Stop ends a run during the walk or the parse, with nothing written
+
+## See what your agents wrote
+
+Pick a kind of row and see where it came from.
+
+- main sessions, subagents and workflow agents
+- own homes, mirrors, archives and rescued copies
+- agent by agent, month by month, stacked by kind
+
+## Every session as a star
+
+Rings are the months a session started; sectors are repositories. Subagents orbit the session that started them.
+
+- a query language: `repo:` `month:` `tier:` `errors>=20`
+- click a star for its rows, its copies and `claude --resume`
+- ⌘K finds any session, repo, home, file or scan
+
+## Home, repository, session
+
+The same index as a tree, newest first, with rows by kind on every line.
+
+- open a bank and see only that bank, with the way back
+- export what you see as CSV or JSON, with the time and the query
+
+## Where the gigabytes are
+
+Every `.jsonl` by folder and size, as rings, one colour per branch. Click to go in; open any folder in Finder.
+
+- indexed and not-indexed bytes for every folder
+- folders the scan could not read, listed in Health
+
+## It stays on your machine.
+
+- **127.0.0.1**: The page is served on this machine only, and makes no network calls.
+- **on a click**: Nothing is written until you press Index now. Checks only read.
+- **~/.relic-scan**: Your index is plain Parquet: one file per month, plus sessions, files and every .jsonl.
+- **four ways in**: A desktop app, the page in any browser, a terminal UI, and the `relic-scan` command.
+
+```
+$ relic-scan run
+run: scan 9.4s · new 0 · grown 1 · rewritten 5 · unchanged 86,900 · gone 0
+merge: 1 months in 4.4s · total 4.5s
+meta: 15 months (1 re-aggregated) · 86906 files · 45095 sessions
+map: 45095 sessions · 540 repos · 73 homes
+run: done in 15.4s
+
+45,095 sessions · 5,549,427 rows · 86,906 files · 0.0 GB read
+new 0 · grown 1 · rewritten 5 · unchanged 86,900
+scan 9.4s · parse+merge 4.7s · meta 1.1s · map 0.2s · total 15.4s
+```
+
+A real incremental run on the same Mac: six files had changed, so it read only those.
+
+## Questions
+
+### What is ARRA Relic Scan?
+
+A desktop app and command-line tool that finds every AI-agent transcript on your machine, indexes it into one Parquet file per month, and lets you browse it locally: a dashboard, a session map, a tree, a disk view and a terminal UI.
+
+### Which agents does it read?
+
+Claude Code, Codex, OMP, OMX, Gemini, Pi and thClaws: any .claude, .codex, .omp, .omx, .gemini, .pi or .thclaws home, plus backups, mirrors and archived copies of them.
+
+### Does it upload my transcripts anywhere?
+
+No. The app serves its page on 127.0.0.1 only, the page makes no network calls, and the index is written to ~/.relic-scan on your own disk.
+
+### Does it change my transcript files?
+
+No. It only reads them; everything it writes goes to its own folder (~/.relic-scan), and Check changes writes nothing at all.
+
+### How fast is it?
+
+On one Apple-silicon Mac it indexed 86,904 transcripts (75.6 GB) in 58 seconds from cold, and brings that index up to date in about 15 seconds by reading only new bytes.
+
+### What format is the index?
+
+Plain Parquet: one file per month of rows (every message, thinking block, tool call and result), plus sessions, files and every .jsonl, readable by DuckDB, Polars or pandas.
+
+### Which platforms does it run on?
+
+macOS on Apple silicon (a .dmg), and Linux x86_64 (.deb and .AppImage); the relic-scan command builds on macOS and Linux with Rust.
+
+### Is it free and open source?
+
+It is a private beta: the downloads sit in a private GitHub repository and need access to the Soul-Brews-Studio organisation.
+
+## Download
+
+Version 26.10.23-alpha.923, a private beta. The files sit in a private GitHub repository: sign in with an account that has access to Soul-Brews-Studio.
+
+- [macOS, .dmg · 6.6 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.923/ARRA-Relic-Scan_26.10.23-alpha.923_macos-arm64.dmg): Apple silicon · drag into Applications
+- [Linux, .deb · 7.5 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.923/ARRA-Relic-Scan_26.10.23-alpha.923_linux-amd64.deb): x86_64 · Debian, Ubuntu
+- [Linux, .AppImage · 85 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.923/ARRA-Relic-Scan_26.10.23-alpha.923_linux-amd64.AppImage): x86_64 · any distribution
+
+```sh
+gh api repos/Soul-Brews-Studio/relic4-scan/contents/install.sh \
+  -H 'Accept: application/vnd.github.raw' | sh
+```
+
+Your agents keep everything they did. Now you can find it.

@@ -1,0 +1,5 @@
+# every crawler, search and AI alike, may read this site
+User-agent: *
+Allow: /
+
+Sitemap: https://relic.buildwithoracle.com/sitemap.xml
