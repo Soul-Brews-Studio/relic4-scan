@@ -213,6 +213,9 @@ fn parse_file_chunked(path: &str, ctx: &Ctx, jt_compat: bool, st: &Stats, emit: 
         };
         smeta.take(engine::sess_meta_of(&r));
         let x = engine::extract(&r);
+        if x.role == "user" && x.text.contains("<channel source=\"") {
+            smeta.take(engine::channel_of(&x.text));
+        }
         if let Some(m) = engine::turn_model(&r) {
             turn = m;
         }

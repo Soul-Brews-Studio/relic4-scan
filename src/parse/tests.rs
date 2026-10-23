@@ -307,3 +307,20 @@ fn a_month_written_in_small_batches_holds_the_same_rows() {
     assert_eq!(a, b);
     let _ = fs::remove_dir_all(&d);
 }
+
+#[test]
+fn a_channel_message_names_the_sessions_channel() {
+    let m = engine::channel_of(r#"<channel source="plugin:discord:discord" chat_id="1551543230984757350" message_id="1" user="emraccoon" user_id="2" ts="2026-10-01T05:44:15.702Z"> hello </channel>"#);
+    assert_eq!((m.via.as_str(), m.chat.as_str(), m.from_user.as_str()), ("plugin:discord:discord", "1551543230984757350", "emraccoon"));
+    assert_eq!(engine::channel_of("no tag here"), engine::SessMeta::default());
+    let d = tmp("channel");
+    let p = d.join("c1.jsonl");
+    fs::write(&p, [
+        r#"{"type":"user","sessionId":"c1","timestamp":"2026-07-06T01:00:00.000Z","message":{"role":"user","content":"typed by hand"}}"#,
+        r#"{"type":"user","sessionId":"c1","timestamp":"2026-07-06T01:00:05.000Z","message":{"role":"user","content":"<channel source=\"plugin:discord:discord\" chat_id=\"77\" user=\"nat\"> hi </channel>"}}"#,
+        r#"{"type":"user","sessionId":"c1","timestamp":"2026-07-06T01:00:09.000Z","message":{"role":"user","content":"<channel source=\"plugin:telegram:telegram\" chat_id=\"88\" user=\"other\"> later </channel>"}}"#,
+    ].join("\n") + "\n").unwrap();
+    let c = parse_file(p.to_str().unwrap(), &Ctx::default(), false, &Stats::default(), &mut |_| {}).unwrap();
+    assert_eq!((c.meta.via.as_str(), c.meta.chat.as_str(), c.meta.from_user.as_str()), ("plugin:discord:discord", "77", "nat"), "the first channel message names it");
+    let _ = fs::remove_dir_all(&d);
+}

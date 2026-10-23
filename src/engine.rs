@@ -196,6 +196,11 @@ pub struct SessMeta {
     pub title: String,
     pub branch: String,
     pub version: String,
+    /// a message that came in through a channel plugin (Discord, Telegram, a fleet bridge): the plugin, the room and
+    /// the sender of the first such message of the session
+    pub via: String,
+    pub chat: String,
+    pub from_user: String,
 }
 
 pub fn sess_meta_of(r: &Map<String, Value>) -> SessMeta {
@@ -209,7 +214,19 @@ pub fn sess_meta_of(r: &Map<String, Value>) -> SessMeta {
         "ai-title" => gstr(r.get("aiTitle")),
         _ => String::new(),
     };
-    SessMeta { cwd, title, branch: gstr(r.get("gitBranch")), version: gstr(r.get("version")) }
+    SessMeta { cwd, title, branch: gstr(r.get("gitBranch")), version: gstr(r.get("version")), ..Default::default() }
+}
+
+/// The channel a user message came in by: `<channel source="plugin:discord:discord" chat_id="…" user="…" …>`.
+pub fn channel_of(text: &str) -> SessMeta {
+    let Some(i) = text.find("<channel source=\"") else { return SessMeta::default() };
+    let tag = &text[i..text[i..].find('>').map(|e| i + e).unwrap_or(text.len())];
+    let attr = |k: &str| -> String {
+        let pat = format!(" {k}=\"");
+        tag.find(&pat).map(|p| &tag[p + pat.len()..]).and_then(|s| s.split('"').next()).unwrap_or("").to_string()
+    };
+    let via = tag["<channel source=\"".len()..].split('"').next().unwrap_or("").to_string();
+    SessMeta { via, chat: attr("chat_id"), from_user: attr("user"), ..Default::default() }
 }
 
 impl SessMeta {
@@ -217,6 +234,10 @@ impl SessMeta {
     pub fn take(&mut self, x: SessMeta) {
         if self.cwd.is_empty() {
             self.cwd = x.cwd;
+        }
+        // the first channel message names the session's channel
+        if self.via.is_empty() {
+            (self.via, self.chat, self.from_user) = (x.via, x.chat, x.from_user);
         }
         for (a, b) in [(&mut self.title, x.title), (&mut self.branch, x.branch), (&mut self.version, x.version)] {
             if !b.is_empty() {
