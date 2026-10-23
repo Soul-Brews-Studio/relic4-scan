@@ -17,7 +17,7 @@ const code = s => esc(s).replace(/`([^`]+)`/g, "<code>$1</code>");
 const ld = [
   { "@context": "https://schema.org", "@type": "SoftwareApplication", name: SITE.name, url: SITE.url, description: SITE.summary,
     applicationCategory: "DeveloperApplication", operatingSystem: "macOS (Apple silicon, Intel), Linux (x86_64)", softwareVersion: SITE.version,
-    downloadUrl: [DL.mac, DL.intel, DL.deb, DL.appimage], releaseNotes: DL.notes, image: `${SITE.url}img/og.jpg`,
+    downloadUrl: [DL.mac, DL.intel, DL.deb, DL.appimage], releaseNotes: DL.notes, image: `${SITE.url}img/og-card.jpg`,
     screenshot: ["scan", "scans", "scan-contents", "map", "tree", "disk", "vaults", "reader", "export"].map(n => `${SITE.url}img/${n}.webp`),
     featureList: STEPS.map(s => `${s.h}: ${plain(s.p)}`),
     license: "https://www.gnu.org/licenses/agpl-3.0.html", isAccessibleForFree: true, sameAs: [SITE.repo],
