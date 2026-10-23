@@ -67,7 +67,7 @@ impl Version {
     /// The ctx a parse of a file holding this version goes on from.
     pub fn ctx(&self) -> crate::parse::Ctx {
         crate::parse::Ctx { offset: self.bytes, lines: self.lines, session: self.session.clone(), last_ms: self.last_ms,
-                            first: self.first, chain: self.chain }
+                            first: self.first, chain: self.chain, model: String::new() }
     }
 }
 

@@ -163,6 +163,35 @@ pub fn extract(r: &Map<String, Value>) -> Extract {
     Extract { typ, role, sess, ts, text }
 }
 
+/// Which model answered, and the API response a line belongs to. Claude Code and omp/pi write them on the assistant
+/// message: Claude `model`, `id`, `usage.output_tokens` (repeated on every content-block line of one response); omp
+/// `model`, `responseId`, `usage.output`. Codex writes no model on its messages: see turn_model.
+#[derive(Default, Debug, PartialEq)]
+pub struct Usage {
+    pub model: String,
+    pub msg_id: String,
+    pub out_tokens: Option<i64>,
+}
+
+pub fn usage_of(r: &Map<String, Value>) -> Usage {
+    let Some(Value::Object(m)) = r.get("message") else { return Usage::default() };
+    if gstr(m.get("role")) != "assistant" {
+        return Usage::default();
+    }
+    let id = gstr(m.get("id"));
+    let u = m.get("usage");
+    Usage {
+        model: gstr(m.get("model")),
+        msg_id: if id.is_empty() { gstr(m.get("responseId")) } else { id },
+        out_tokens: get(u, "output_tokens").or_else(|| get(u, "output")).and_then(Value::as_i64),
+    }
+}
+
+/// Codex names the model once per turn, in a `turn_context` line; it holds for the turn's rows after it.
+pub fn turn_model(r: &Map<String, Value>) -> Option<String> {
+    (gstr(r.get("type")) == "turn_context").then(|| gstr(get(r.get("payload"), "model"))).filter(|m| !m.is_empty())
+}
+
 const TOOL_HINTS: [&[u8]; 5] = [b"tool_use", b"tool_result", b"_call", b"toolCall", b"toolResult"];
 
 fn block_text(c: Option<&Value>) -> String {

@@ -56,6 +56,11 @@ pub struct Raw {
     pub body: Option<String>,
     pub err: Option<bool>,
     pub red: Option<String>,
+    /// on assistant text, thinking and tool-call rows: the model that answered, the API response's id, and its output
+    /// tokens (the merge keeps them on one row per msg_id)
+    pub model: Option<String>,
+    pub msg_id: Option<String>,
+    pub out_tokens: Option<i64>,
     pub file: Arc<str>, // one allocation per file, shared by its rows
     pub line: i64,
 }
@@ -116,6 +121,8 @@ pub struct Ctx {
     /// the ledger's view of the lines read so far: the first line's hash and the chain over every line (ledger.rs)
     pub first: i64,
     pub chain: crate::ledger::Chain,
+    /// Codex: the model the last turn_context named, for the rows after it
+    pub model: String,
 }
 
 /// Every complete line of a file from `from`, in chunks of `want` bytes, cut exactly as a whole-file read would
@@ -168,7 +175,7 @@ fn parse_file_chunked(path: &str, ctx: &Ctx, jt_compat: bool, st: &Stats, emit: 
     let eng = engine::engine_of(path);
     let file: Arc<str> = Arc::from(path);
     let (mut nline, mut session, mut last) = (ctx.lines, ctx.session.clone(), ctx.last_ms);
-    let (mut first, mut chain) = (ctx.first, ctx.chain);
+    let (mut first, mut chain, mut turn) = (ctx.first, ctx.chain, ctx.model.clone());
     // read a chunk, parse up to its last "\n", carry the rest into the next chunk; at the end of the file the rest
     // is cut as a whole-file read would cut it (complete()), so the rows are the same for any chunk size
     let used = each_line(path, ctx.offset, want, &st.bytes, &mut |line: &[u8]| {
@@ -192,6 +199,9 @@ fn parse_file_chunked(path: &str, ctx: &Ctx, jt_compat: bool, st: &Stats, emit: 
             }
         };
         let x = engine::extract(&r);
+        if let Some(m) = engine::turn_model(&r) {
+            turn = m;
+        }
         if !x.sess.is_empty() && session.is_empty() {
             session = x.sess.clone();
         }
@@ -208,6 +218,11 @@ fn parse_file_chunked(path: &str, ctx: &Ctx, jt_compat: bool, st: &Stats, emit: 
         }
         let stp = engine::stamp(ts);
         let sid = if x.sess.is_empty() { session.clone() } else { x.sess.clone() };
+        let u = engine::usage_of(&r);
+        let model = if !u.model.is_empty() { Some(u.model) } else if !turn.is_empty() { Some(turn.clone()) } else { None };
+        let (msg_id, out_tokens) = ((!u.msg_id.is_empty()).then_some(u.msg_id), u.out_tokens);
+        // what the model wrote: assistant text, thinking, tool calls (not the user's text, not tool results)
+        let by_model = |s: &str, role: &str| s == "thinking" || s == "call" || role == "assistant";
         // a thinking row is kept even with empty text: the model thought, only the text was not saved
         let think_text = think.clone().unwrap_or_default();
         for (s, body) in [("text", &x.text), ("thinking", &think_text)] {
@@ -219,7 +234,9 @@ fn parse_file_chunked(path: &str, ctx: &Ctx, jt_compat: bool, st: &Stats, emit: 
                 month: stp.month.clone(), s, h, idx: 0, engine: eng,
                 role: Some(if s == "thinking" { "thinking".into() } else { x.role.clone() }), typ: Some(x.typ.clone()),
                 sid: sid.clone(), ts: stp.ts.clone(), ts_th: stp.ts_th.clone(), text: Some(clean), kind: None, call_id: None,
-                name: None, body: None, err: None, red: (!kinds.is_empty()).then_some(kinds), file: file.clone(), line: nline,
+                name: None, body: None, err: None, red: (!kinds.is_empty()).then_some(kinds),
+                model: by_model(s, &x.role).then(|| model.clone()).flatten(), msg_id: by_model(s, &x.role).then(|| msg_id.clone()).flatten(),
+                out_tokens: by_model(s, &x.role).then_some(out_tokens).flatten(), file: file.clone(), line: nline,
             });
         }
         for (idx, t) in trs.into_iter().enumerate() {
@@ -228,17 +245,19 @@ fn parse_file_chunked(path: &str, ctx: &Ctx, jt_compat: bool, st: &Stats, emit: 
                 month: stp.month.clone(), s: "tools", h, idx: idx as i64, engine: eng, role: None, typ: None,
                 sid: sid.clone(), ts: stp.ts.clone(), ts_th: stp.ts_th.clone(), text: None, kind: Some(t.kind),
                 call_id: Some(t.call_id), name: (!t.name.is_empty()).then_some(t.name), body: Some(clean), err: Some(t.err),
-                red: (!kinds.is_empty()).then_some(kinds), file: file.clone(), line: nline,
+                red: (!kinds.is_empty()).then_some(kinds), model: by_model(t.kind, "").then(|| model.clone()).flatten(),
+                msg_id: by_model(t.kind, "").then(|| msg_id.clone()).flatten(), out_tokens: by_model(t.kind, "").then_some(out_tokens).flatten(),
+                file: file.clone(), line: nline,
             });
         }
         true
     })?;
     st.lines.fetch_add((nline - ctx.lines) as u64, Ordering::Relaxed);
     st.files.fetch_add(1, Ordering::Relaxed);
-    Some(Ctx { offset: ctx.offset + used, lines: nline, session, last_ms: last, first, chain })
+    Some(Ctx { offset: ctx.offset + used, lines: nline, session, last_ms: last, first, chain, model: turn })
 }
 
-mod merge;
+pub(crate) mod merge;
 mod parts;
 #[cfg(test)]
 pub(crate) mod tests;

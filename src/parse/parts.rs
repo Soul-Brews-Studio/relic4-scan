@@ -9,6 +9,7 @@ pub(super) fn raw_schema() -> Arc<Schema> {
         u("s"), Field::new("h", DataType::Int64, false), Field::new("idx", DataType::Int64, false), u("engine"), u("role"),
         u("type"), u("sid"), u("ts"), u("ts_th"), u("text"), u("kind"), u("call_id"), u("name"), u("body"),
         Field::new("err", DataType::Boolean, true), u("red"), u("file"), Field::new("line", DataType::Int64, false),
+        u("model"), u("msg_id"), Field::new("out_tokens", DataType::Int64, true),
     ]))
 }
 
@@ -21,6 +22,7 @@ pub(super) fn raw_batch(rows: &[Raw]) -> RecordBatch {
         st(&|r| r.text.as_deref()), st(&|r| r.kind), st(&|r| r.call_id.as_deref()), st(&|r| r.name.as_deref()),
         st(&|r| r.body.as_deref()), Arc::new(rows.iter().map(|r| r.err).collect::<BooleanArray>()), st(&|r| r.red.as_deref()),
         st(&|r| Some(&*r.file)), Arc::new(rows.iter().map(|r| r.line).collect::<Int64Array>()),
+        st(&|r| r.model.as_deref()), st(&|r| r.msg_id.as_deref()), Arc::new(rows.iter().map(|r| r.out_tokens).collect::<Int64Array>()),
     ];
     RecordBatch::try_new(raw_schema(), cols).expect("raw batch")
 }
