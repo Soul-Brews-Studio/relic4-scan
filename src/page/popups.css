@@ -74,8 +74,10 @@
   @media (max-width: 1200px) { #dash .disk { grid-template-columns: minmax(0, 1fr); } }
   /* scan log */
   #dash .log { padding: 0; overflow: hidden; }
-  #dash .lrow { display: grid; grid-template-columns: 170px 76px repeat(4, minmax(56px, 84px)) 96px 72px minmax(0, 1fr); gap: var(--sp-3);
+  /* fixed columns, even gaps; numbers right-aligned under right-aligned heads; the result stays on one line */
+  #dash .lrow { display: grid; grid-template-columns: 172px 64px repeat(4, 84px) 92px 64px minmax(160px, 1fr); column-gap: var(--sp-4);
                 align-items: center; padding: var(--sp-3) var(--sp-5); border-top: 1px solid var(--line); font-size: 14px; font-variant-numeric: tabular-nums; }
+  #dash .lrow .x { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: var(--sp-2); }
   #dash .lrow.h { border-top: 0; color: var(--dim); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; }
   #dash .lrow:not(.h) { cursor: pointer; }
   #dash .lrow:not(.h):hover, #dash .lrow.open { background: var(--hover); }
@@ -89,7 +91,7 @@
   #dash .ld .r { text-align: right; font-variant-numeric: tabular-nums; color: var(--dim); }
   #dash .ld code { font-family: var(--font-mono); font-size: 12px; overflow-wrap: anywhere; }
   #dash .st-new { color: var(--green); } #dash .st-grown { color: var(--cyan); } #dash .st-rewritten { color: var(--amber); } #dash .st-gone { color: var(--dim); }
-  @media (max-width: 1100px) { #dash .lrow { grid-template-columns: 130px 64px repeat(4, minmax(0, 1fr)) 80px; } #dash .lrow .x { display: none; } }
+  @media (max-width: 1100px) { #dash .lrow { grid-template-columns: 130px 56px repeat(4, minmax(0, 1fr)) 80px; column-gap: var(--sp-3); } #dash .lrow .x { display: none; } }
   @media (max-width: 900px) { #dash .strip { grid-template-columns: 1fr 1fr; } #dash .grid2 { grid-template-columns: 1fr; }
     #dash .overview, #dash .hero { grid-template-columns: minmax(0, 1fr); gap: var(--sp-5); } #dash .donut { max-width: 240px; }
     #dash .strip.five { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
