@@ -187,6 +187,45 @@ pub fn usage_of(r: &Map<String, Value>) -> Usage {
     }
 }
 
+/// What a line says about its session as a whole: where it ran, what it is called, the branch, the Claude version.
+/// Claude writes `cwd`, `gitBranch` and `version` on its lines and the name as a `custom-title` (or `ai-title`) line;
+/// Codex writes `cwd` in the payload of its session_meta and turn_context lines.
+#[derive(Default, Debug, Clone, PartialEq)]
+pub struct SessMeta {
+    pub cwd: String,
+    pub title: String,
+    pub branch: String,
+    pub version: String,
+}
+
+pub fn sess_meta_of(r: &Map<String, Value>) -> SessMeta {
+    let typ = gstr(r.get("type"));
+    let mut cwd = gstr(r.get("cwd"));
+    if cwd.is_empty() && matches!(typ.as_str(), "session_meta" | "turn_context") {
+        cwd = gstr(get(r.get("payload"), "cwd"));
+    }
+    let title = match typ.as_str() {
+        "custom-title" => gstr(r.get("customTitle")),
+        "ai-title" => gstr(r.get("aiTitle")),
+        _ => String::new(),
+    };
+    SessMeta { cwd, title, branch: gstr(r.get("gitBranch")), version: gstr(r.get("version")) }
+}
+
+impl SessMeta {
+    /// Fold a later line in: the first cwd stays (where the session began); the others follow the newest line.
+    pub fn take(&mut self, x: SessMeta) {
+        if self.cwd.is_empty() {
+            self.cwd = x.cwd;
+        }
+        for (a, b) in [(&mut self.title, x.title), (&mut self.branch, x.branch), (&mut self.version, x.version)] {
+            if !b.is_empty() {
+                *a = b;
+            }
+        }
+    }
+}
+
 /// Codex names the model once per turn, in a `turn_context` line; it holds for the turn's rows after it.
 pub fn turn_model(r: &Map<String, Value>) -> Option<String> {
     (gstr(r.get("type")) == "turn_context").then(|| gstr(get(r.get("payload"), "model"))).filter(|m| !m.is_empty())
