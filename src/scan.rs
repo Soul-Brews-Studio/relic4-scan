@@ -184,7 +184,13 @@ pub fn find_homes(roots: &[String], depth: usize, threads: usize, exclude: &[Str
                     if crate::CANCEL.load(std::sync::atomic::Ordering::Relaxed) {
                         return WalkState::Quit; // Stop on the page: the walk ends, the run then stops before writing
                     }
-                    let Ok(e) = res else { return WalkState::Continue };
+                    let e = match res {
+                        Ok(e) => e,
+                        Err(err) => {
+                            note_unreadable(&err);
+                            return WalkState::Continue;
+                        }
+                    };
                     if e.depth() == 0 {
                         return WalkState::Continue;
                     }
@@ -252,7 +258,13 @@ fn list_home(home: &Path, kind: &'static str, threads: usize, by_shape: bool) ->
                 if crate::CANCEL.load(std::sync::atomic::Ordering::Relaxed) {
                         return WalkState::Quit; // Stop on the page: the walk ends, the run then stops before writing
                     }
-                    let Ok(e) = res else { return WalkState::Continue };
+                    let e = match res {
+                        Ok(e) => e,
+                        Err(err) => {
+                            note_unreadable(&err);
+                            return WalkState::Continue;
+                        }
+                    };
                 if !e.path().extension().is_some_and(|x| x == "jsonl") {
                     return WalkState::Continue;
                 }
@@ -279,6 +291,34 @@ fn list_home(home: &Path, kind: &'static str, threads: usize, by_shape: bool) ->
         });
     let mut v = std::mem::take(&mut *out.lock().unwrap());
     v.sort_by(|a, b| a.path.cmp(&b.path));
+    v
+}
+
+/// Folders the walk was refused (no permission: macOS privacy protection gives EPERM), counted once each. A
+/// transcript inside one is never seen, so the count goes to the run summary, the scan log and Health.
+pub static UNREADABLE: std::sync::Mutex<Option<HashSet<String>>> = std::sync::Mutex::new(None);
+
+fn denied(e: &ignore::Error) -> Option<String> {
+    match e {
+        ignore::Error::WithPath { path, err } => {
+            let io = err.io_error()?;
+            (io.kind() == std::io::ErrorKind::PermissionDenied).then(|| path.to_string_lossy().to_string())
+        }
+        ignore::Error::WithDepth { err, .. } | ignore::Error::WithLineNumber { err, .. } => denied(err),
+        _ => None,
+    }
+}
+
+fn note_unreadable(e: &ignore::Error) {
+    if let Some(p) = denied(e) {
+        UNREADABLE.lock().unwrap().get_or_insert_with(HashSet::new).insert(p);
+    }
+}
+
+/// The folders refused since the last call, sorted, and the set emptied.
+pub fn take_unreadable() -> Vec<String> {
+    let mut v: Vec<String> = UNREADABLE.lock().unwrap().take().unwrap_or_default().into_iter().collect();
+    v.sort();
     v
 }
 

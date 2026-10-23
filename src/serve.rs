@@ -12,7 +12,7 @@
 //!   GET  /api/log?from=N  the server's output while a run or check goes (lines from N on, the next N, the live line)
 //!   GET  /api/export?sid=…&months=…&fmt=md|jsonl  one session's rows as a download (Markdown or JSON lines)
 //!   POST /api/run?only=…, /api/check?only=…  the same, over the files whose path holds that text
-//!   POST /api/reveal?path=…|sid=…  show an indexed file (or a folder holding one) in Finder; other paths are refused
+//!   POST /api/reveal?path=…|sid=…  show a .jsonl the scan saw (or a folder holding one) in Finder; other paths are refused
 //!   POST /api/stop     stop the run or check going on: it stops with nothing written, unless its merge has started
 //!   GET  /api/scans    the scan log (OUT/_scans.jsonl), newest first, without file lists
 //!   GET  /api/scans/N  one entry with its file list (the files the run read, or a check would read, and gone ones)
@@ -73,7 +73,28 @@ fn status(c: &Ctx) -> serde_json::Value {
     })
 }
 
-/// What `/api/reveal` may show: a file this index holds (by path, or a session by id), or a folder holding one.
+/// A path the page draws itself: "/", "/map.html", or one lower-case word ("/scan", "/disk", a view a newer page adds).
+/// Serving the page for any such word keeps a newer page working with an older server.
+fn is_view(p: &str) -> bool {
+    p == "/" || p == "/map.html" || (p.len() > 1 && p[1..].bytes().all(|b| b.is_ascii_lowercase()))
+}
+
+/// Every .jsonl the last scan saw (OUT/meta/jsonl.parquet), indexed or not.
+fn seen_paths(out: &Path) -> Vec<String> {
+    use arrow::array::{Array, StringArray};
+    let Ok(f) = std::fs::File::open(out.join("meta").join("jsonl.parquet")) else { return vec![] };
+    let Ok(b) = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(f) else { return vec![] };
+    let Ok(r) = b.build() else { return vec![] };
+    let mut v = vec![];
+    for batch in r.flatten() {
+        if let Some(a) = batch.column_by_name("path").and_then(|c| c.as_any().downcast_ref::<StringArray>()) {
+            v.extend((0..a.len()).filter(|&i| !a.is_null(i)).map(|i| a.value(i).to_string()));
+        }
+    }
+    v
+}
+
+/// What `/api/reveal` may show: a .jsonl the scan saw (by path, or a session by id), or a folder holding one.
 /// Anything else is refused, so the button can never be used to open an arbitrary path.
 fn reveal_target(out: &Path, q: &std::collections::HashMap<String, String>) -> Option<(String, bool)> {
     let st = crate::state::load(out);
@@ -84,11 +105,15 @@ fn reveal_target(out: &Path, q: &std::collections::HashMap<String, String>) -> O
         return hits.first().map(|p| (p.to_string(), true));
     }
     let p = q.get("path")?.trim_end_matches('/').to_string();
-    if st.contains_key(&p) {
+    if p.is_empty() || p.contains("/../") || p.ends_with("/..") {
+        return None;
+    }
+    let seen = seen_paths(out);
+    if st.contains_key(&p) || seen.iter().any(|k| *k == p) {
         return Some((p, true));
     }
     let dir = format!("{p}/");
-    st.keys().any(|k| k.starts_with(&dir)).then_some((p, false))
+    (st.keys().any(|k| k.starts_with(&dir)) || seen.iter().any(|k| k.starts_with(&dir))).then_some((p, false))
 }
 
 /// Show a file in the desktop's file manager (selected), or open a folder.
@@ -205,7 +230,7 @@ fn handle(s: TcpStream, c: &Arc<Ctx>) {
     let path = path.split(['?', '#']).next().unwrap_or("/");
     let page = c.out.join("meta").join("map.html");
     match (method, path) {
-        ("GET", "/" | "/scan" | "/scans" | "/banks" | "/health" | "/map" | "/tree" | "/paths" | "/map.html") => match std::fs::read(&page) {
+        ("GET", p) if is_view(p) => match std::fs::read(&page) {
             Ok(b) => reply(s, "200 OK", "text/html; charset=utf-8", &b),
             Err(_) => reply(s, "200 OK", "text/html; charset=utf-8", WELCOME.replace("{OUT}", &c.out.display().to_string()).as_bytes()),
         },
@@ -314,6 +339,16 @@ pub fn serve(out: &Path, port: u16, kind: Vec<String>) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn views_are_single_words() {
+        for v in ["/", "/scan", "/disk", "/map.html", "/somefutureview"] {
+            assert!(super::is_view(v), "{v}");
+        }
+        for v in ["/api/status", "/paths.json", "/favicon.ico", "/Scan", "/../etc", "/a-b"] {
+            assert!(!super::is_view(v), "{v}");
+        }
+    }
+
     #[test]
     fn query_strings_decode() {
         let q = super::query("GET /api/export?sid=ab-1&title=neo%20oracle+x&months=2026-09%2C2026-10&bad=%zz HTTP/1.1");
