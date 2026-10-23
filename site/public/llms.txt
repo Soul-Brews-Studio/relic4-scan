@@ -5,7 +5,7 @@
 Claude Code, Codex, OMP, OMX, Gemini and Pi leave thousands of `.jsonl` files across homes, mirrors and archives. ARRA Relic Scan finds every one, indexes it into one Parquet file per month, and lets you browse it on your own machine. Nothing leaves it.
 
 - Product page: https://relic.buildwithoracle.com/scan/
-- Release 26.10.23-alpha.923 (private beta; needs access to the Soul-Brews-Studio GitHub organisation): https://github.com/Soul-Brews-Studio/relic4-scan/releases/tag/v26.10.23-alpha.923
+- Release 26.10.23-alpha.1041 (private beta; needs access to the Soul-Brews-Studio GitHub organisation): https://github.com/Soul-Brews-Studio/relic4-scan/releases/tag/v26.10.23-alpha.1041
 - Made by Soul Brews Studio: https://buildwithoracle.com/
 
 ## Docs
@@ -20,5 +20,5 @@ Claude Code, Codex, OMP, OMX, Gemini and Pi leave thousands of `.jsonl` files ac
 - **Does it change my transcript files?** No. It only reads them; everything it writes goes to its own folder (~/.relic-scan), and Check changes writes nothing at all.
 - **How fast is it?** On one Apple-silicon Mac it indexed 86,904 transcripts (75.6 GB) in 58 seconds from cold, and brings that index up to date in about 15 seconds by reading only new bytes.
 - **What format is the index?** Plain Parquet: one file per month of rows (every message, thinking block, tool call and result), plus sessions, files and every .jsonl, readable by DuckDB, Polars or pandas.
-- **Which platforms does it run on?** macOS on Apple silicon (a .dmg), and Linux x86_64 (.deb and .AppImage); the relic-scan command builds on macOS and Linux with Rust.
+- **Which platforms does it run on?** macOS on Apple silicon and on Intel (a .dmg each), and Linux x86_64 (.deb and .AppImage); the relic-scan command builds on macOS and Linux with Rust.
 - **Is it free and open source?** It is a private beta: the downloads sit in a private GitHub repository and need access to the Soul-Brews-Studio organisation.
