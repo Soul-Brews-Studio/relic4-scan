@@ -93,6 +93,10 @@ const human = b => b >= 1e9 ? (b / 1e9).toFixed(1) + " GB" : b >= 1e6 ? (b / 1e6
 // a link to a view (a page served by relic-scan, or ?view= when opened as a file), with an optional query
 const KFILE = location.protocol === "file:";
 const kHref = (v, hash) => (KFILE ? `?view=${v}` : `/${v}`) + (hash ? "#" + encodeURIComponent(hash) : "");
+// gems: optional views, hidden until turned on in Settings (this browser only, like the theme)
+const GEMS = { disk: ["Disk", "every .jsonl as rings by folder and size, DaisyDisk style"] };
+const gemOn = g => (JSON.parse(localStorage.getItem("relic-gems") || "[]")).includes(g);
+const gemSet = (g, on) => { const s = new Set(JSON.parse(localStorage.getItem("relic-gems") || "[]")); on ? s.add(g) : s.delete(g); localStorage.setItem("relic-gems", JSON.stringify([...s])); };
 // every write the page asks of the server is a POST with the X-Relic header (a page on another site cannot send it)
 const relicPost = path => fetch(path, { method: "POST", headers: { "X-Relic": "1" } });
 // a popup over the page, made once: a scrim that closes it on click, one dialog box, Esc to close
