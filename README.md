@@ -14,9 +14,9 @@ ARRA Relic Scan finds every one, and every oracle's ψ vault, indexes them into 
 </p>
 
 <p align="center">
-  <a href="https://github.com/Soul-Brews-Studio/relic4-scan/releases"><img alt="release" src="https://img.shields.io/github/v/release/Soul-Brews-Studio/relic4-scan?include_prereleases&label=release&color=f5b73b"></a>
-  <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-AGPL--3.0-1d1405"></a>
-  <img alt="platforms" src="https://img.shields.io/badge/macOS%20%C2%B7%20Linux-desktop%20app%20%2B%20CLI-555">
+  <a href="https://github.com/Soul-Brews-Studio/relic4-scan/releases"><img alt="download: macOS and Linux" src="https://img.shields.io/badge/download-macOS%20%C2%B7%20Linux-f5b73b"></a>
+  <a href="LICENSE"><img alt="license: AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-1d1405"></a>
+  <a href="AGENTS.md"><img alt="for AI agents: AGENTS.md" src="https://img.shields.io/badge/AI%20agents-AGENTS.md-555"></a>
 </p>
 
 <p align="center"><img src="site/public/scan/img/scan.webp" alt="Smart Scan: a donut of rows by kind and the totals of the index" width="900"></p>
