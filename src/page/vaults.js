@@ -2,6 +2,9 @@
 // one row per vault (by its real path; repos that link to it are counted with it). Git worktree copies of a vault are
 // hidden unless asked. Open a row for its notes, newest first, each one click from Finder; they load only then.
 let VAULTS = null, VOPEN = -1, VQ = "", VCAP = 200, VWT = false, VGRP = "";
+// notes under 1 KB (pulses, stubs, auto-written logs) are hidden unless asked; an empty note is never shown
+const VSMALL_MAX = 1000;
+let VSMALL = false;
 const VNOTES = new Map();
 const VCOL = ["var(--cyan)", "var(--amber)", "var(--green)", "var(--barfg)"];
 function dashVaults() {
@@ -68,6 +71,7 @@ function vdetail(v, secs) {
       ${v.links.length ? `<span class="muted">linked from ${v.links.map(l => `<code>${esc(vtilde(l))}</code>`).join(", ")}</span>` : ""}
       ${v.skipped_repos ? `<span class="muted">${fmt(v.skipped_repos)} cloned repo${v.skipped_repos > 1 ? "s" : ""} inside skipped</span>` : ""}</div>
     <div class="msg" id="vmsg" role="status"></div>
+    <div class="note" id="vsmall" style="margin:0 0 10px"></div>
     <div class="vsplit"><nav class="vgroups" id="vgroups" aria-label="Groups in this vault"></nav>
       <div id="vnotes"><div class="muted">loading the notes…</div></div></div></div>`;
 }
@@ -78,12 +82,16 @@ async function vnotes(v) {
   if (v.id !== VOPEN || !$("vnotes")) return;
   // the groups: ψ/<group>/…, one level by the folder a note sits in under the vault (the section's first folder)
   const grp = rel => rel.includes("/") ? rel.split("/")[0] : "(top)";
-  const G = new Map(); for (const it of items) G.set(grp(it[0]), (G.get(grp(it[0])) || 0) + 1);
-  $("vgroups").innerHTML = [["", items.length], ...[...G].sort((a, b) => b[1] - a[1])].map(([g, n]) =>
+  const shown = items.filter(it => it[3] > 0 && (VSMALL || it[3] >= VSMALL_MAX)), small = items.filter(it => it[3] > 0 && it[3] < VSMALL_MAX).length;
+  const G = new Map(); for (const it of shown) G.set(grp(it[0]), (G.get(grp(it[0])) || 0) + 1);
+  if (VGRP && !G.has(VGRP)) VGRP = "";
+  $("vsmall").innerHTML = small ? `${VSMALL ? "Showing" : "Hiding"} ${fmt(small)} small note${small > 1 ? "s" : ""} (under 1 KB, such as pulses and stubs). <a href="#" id="vsm" style="color:var(--cyan)">${VSMALL ? "hide them" : "show them"}</a>` : "";
+  if ($("vsm")) $("vsm").onclick = e => { e.preventDefault(); VSMALL = !VSMALL; VCAP = 200; vnotes(v); };
+  $("vgroups").innerHTML = [["", shown.length], ...[...G].sort((a, b) => b[1] - a[1])].map(([g, n]) =>
     `<button class="${g === VGRP ? "on" : ""}" data-g="${esc(g)}" aria-pressed="${g === VGRP}"><span>${g ? esc(g === "(top)" ? "(top level)" : `ψ/${g}/`) : "All notes"}</span><b>${fmt(n)}</b></button>`).join("");
   for (const b of $("vgroups").querySelectorAll("button")) b.onclick = () => { VGRP = b.dataset.g; VCAP = 200; vnotes(v); };
   const words = VQ.toLowerCase().split(/\s+/).filter(Boolean);
-  const hit = items.filter(([rel, , t]) => (!VGRP || grp(rel) === VGRP) && words.every(w => (t + " " + rel).toLowerCase().includes(w)));
+  const hit = shown.filter(([rel, , t]) => (!VGRP || grp(rel) === VGRP) && words.every(w => (t + " " + rel).toLowerCase().includes(w)));
   $("vnotes").innerHTML = (hit.length ? hit.slice(0, VCAP).map(([rel, sec, t, size, ms]) => `<button class="vnote" data-p="${esc(v.path + "/" + rel)}" data-t="${esc(t)}" data-r="${esc(rel)}" title="read ${esc(rel)}">
       <span class="d">${vday(ms)}</span><span class="s">${esc(sec)}</span><span class="t">${esc(t)}</span><span class="z">${human(size)}</span></button>`).join("")
     : `<div class="note">No note matches.</div>`)
