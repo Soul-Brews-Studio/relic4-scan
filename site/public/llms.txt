@@ -6,7 +6,7 @@ Claude Code, Codex, OMP, OMX, Gemini and Pi leave thousands of `.jsonl` files ac
 
 - Product page: https://relic.buildwithoracle.com/scan/
 - Source (GNU AGPL v3): https://github.com/Soul-Brews-Studio/relic4-scan
-- Release 26.10.23-alpha.1117: https://github.com/Soul-Brews-Studio/relic4-scan/releases/tag/v26.10.23-alpha.1117
+- Release 26.10.23-alpha.1308: https://github.com/Soul-Brews-Studio/relic4-scan/releases/tag/v26.10.23-alpha.1308
 - Made by Soul Brews Studio: https://buildwithoracle.com/
 
 ## Instructions for AI agents

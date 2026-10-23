@@ -8,7 +8,7 @@ export const SITE = {
   org: "Soul Brews Studio",
   tagline: "Every agent transcript, found and kept.",
   summary: "ARRA Relic Scan finds every AI-agent transcript on your machine (Claude Code, Codex, OMP, OMX, Gemini, Pi), indexes it into one Parquet file per month, and lets you browse it locally. Nothing leaves the machine.",
-  version: "26.10.23-alpha.1117",
+  version: "26.10.23-alpha.1308",
   repo: "https://github.com/Soul-Brews-Studio/relic4-scan",
   license: "GNU AGPL v3",
 };
@@ -109,7 +109,7 @@ export const FAQ = [
 export const GET = {
   p: `Version ${SITE.version}, free and open source under the GNU AGPL v3. The source, the release notes and every file are on GitHub.`,
   rows: [
-    ["macOS", "Apple silicon · drag into Applications", ".dmg · 6.7 MB", DL.mac],
+    ["macOS", "Apple silicon · drag into Applications", ".dmg · 6.8 MB", DL.mac],
     ["macOS", "Intel · drag into Applications", ".dmg · 7.1 MB", DL.intel],
     ["Linux", "x86_64 · Debian, Ubuntu", ".deb · 7.6 MB", DL.deb],
     ["Linux", "x86_64 · any distribution", ".AppImage · 85 MB", DL.appimage],
