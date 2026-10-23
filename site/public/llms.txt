@@ -9,9 +9,19 @@ Claude Code, Codex, OMP, OMX, Gemini and Pi leave thousands of `.jsonl` files ac
 - Release 26.10.23-alpha.1117: https://github.com/Soul-Brews-Studio/relic4-scan/releases/tag/v26.10.23-alpha.1117
 - Made by Soul Brews Studio: https://buildwithoracle.com/
 
+## Instructions for AI agents
+
+- [agents.md](https://relic.buildwithoracle.com/scan/agents.md): install, run, query (DuckDB over ~/.relic-scan), build and change the code; the repository's AGENTS.md
+- Install: `curl -fsSL https://raw.githubusercontent.com/Soul-Brews-Studio/relic4-scan/main/install.sh | sh`
+- Index: `relic-scan run` (ask the human first: it reads every transcript on the machine, read only)
+- Query: month files `~/.relic-scan/YYYY-MM.parquet` (sid, ts, role, kind, name, text), `meta/sessions.parquet`, `meta/vaults.json`
+
+A prompt a person can give their agent: "Install ARRA Relic Scan on this machine and tell me what my AI agents have been working on. Follow https://relic.buildwithoracle.com/scan/agents.md: install the relic-scan command, ask me before the first index, then run it and answer my questions from ~/.relic-scan with DuckDB. Keep everything on this machine."
+
 ## Docs
 
 - [Full page text](https://relic.buildwithoracle.com/llms-full.txt): features, measured speed, privacy, FAQ and downloads
+- [Source](https://github.com/Soul-Brews-Studio/relic4-scan) (GNU AGPL v3)
 
 ## Questions
 
@@ -22,4 +32,6 @@ Claude Code, Codex, OMP, OMX, Gemini and Pi leave thousands of `.jsonl` files ac
 - **How fast is it?** On one Apple-silicon Mac it indexed 86,904 transcripts (75.6 GB) in 58 seconds from cold, and brings that index up to date in about 15 seconds by reading only new bytes.
 - **What format is the index?** Plain Parquet: one file per month of rows (every message, thinking block, tool call and result), plus sessions, files and every .jsonl, readable by DuckDB, Polars or pandas.
 - **Which platforms does it run on?** macOS on Apple silicon and on Intel (a .dmg each), and Linux x86_64 (.deb and .AppImage); the relic-scan command builds on macOS and Linux with Rust.
+- **Can an AI agent install and use it?** Yes. The repository's AGENTS.md (also at relic.buildwithoracle.com/scan/agents.md) tells a coding agent how to install, run, query and build it; the agent should ask before the first index, because it reads every transcript on the machine.
+- **How does an agent query the index?** With DuckDB, Polars or pandas over ~/.relic-scan: month files (YYYY-MM.parquet) hold every message and tool call with sid, ts, role, kind, name and text; meta/sessions.parquet has one line per session; meta/vaults.json lists every ψ vault.
 - **Is it free and open source?** Yes. The source is on GitHub (github.com/Soul-Brews-Studio/relic4-scan) under the GNU AGPL v3, and every download is free.

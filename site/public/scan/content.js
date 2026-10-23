@@ -101,6 +101,8 @@ export const FAQ = [
   ["How fast is it?", "On one Apple-silicon Mac it indexed 86,904 transcripts (75.6 GB) in 58 seconds from cold, and brings that index up to date in about 15 seconds by reading only new bytes."],
   ["What format is the index?", "Plain Parquet: one file per month of rows (every message, thinking block, tool call and result), plus sessions, files and every .jsonl, readable by DuckDB, Polars or pandas."],
   ["Which platforms does it run on?", "macOS on Apple silicon and on Intel (a .dmg each), and Linux x86_64 (.deb and .AppImage); the relic-scan command builds on macOS and Linux with Rust."],
+  ["Can an AI agent install and use it?", "Yes. The repository's AGENTS.md (also at relic.buildwithoracle.com/scan/agents.md) tells a coding agent how to install, run, query and build it; the agent should ask before the first index, because it reads every transcript on the machine."],
+  ["How does an agent query the index?", "With DuckDB, Polars or pandas over ~/.relic-scan: month files (YYYY-MM.parquet) hold every message and tool call with sid, ts, role, kind, name and text; meta/sessions.parquet has one line per session; meta/vaults.json lists every ψ vault."],
   ["Is it free and open source?", "Yes. The source is on GitHub (github.com/Soul-Brews-Studio/relic4-scan) under the GNU AGPL v3, and every download is free."],
 ];
 
@@ -125,6 +127,21 @@ export const BUILD = {
     ["Build the desktop app", "just app         # .app and .dmg for this Mac\njust app-intel   # the same for Intel Macs, from Apple silicon\njust linux       # .deb and .AppImage, in Docker"],
   ],
   more: "`just` lists every recipe; `just test` runs the tests; `just up` indexes this machine and serves the page on 127.0.0.1.",
+};
+
+// for AI agents: a prompt a person can hand to their agent, and the queries an agent runs; site/seo.mjs publishes the
+// repository's AGENTS.md as /scan/agents.md and points llms.txt at it
+export const AGENT = {
+  h: "For AI agents",
+  p: "Hand this to Claude Code, Codex or any coding agent. It installs relic-scan, asks before it reads anything, and answers from the index on your machine.",
+  prompt: "Install ARRA Relic Scan on this machine and tell me what my AI agents have been working on. Follow https://relic.buildwithoracle.com/scan/agents.md: install the relic-scan command, ask me before the first index, then run it and answer my questions from ~/.relic-scan with DuckDB. Keep everything on this machine.",
+  queries: [
+    ["sessions per repository", "duckdb -c \"select cat as repo, count(*) as sessions from 'meta/sessions.parquet' group by 1 order by sessions desc limit 10\""],
+    ["what I asked about something", "duckdb -c \"select ts_th, left(text, 120) as text from '*.parquet' where role = 'user' and text ilike '%parquet%' order by ts desc limit 20\""],
+    ["the tools used most", "duckdb -c \"select name, count(*) as calls from '*.parquet' where kind = 'call' group by 1 order by calls desc limit 10\""],
+    ["vaults with the most notes", "jq -r '.vaults[] | select(.kind != \"worktree\") | [.notes, .name] | @tsv' meta/vaults.json | head"],
+  ],
+  links: [["agents.md", "/scan/agents.md"], ["llms.txt", "/llms.txt"], ["AGENTS.md on GitHub", "https://github.com/Soul-Brews-Studio/relic4-scan/blob/main/AGENTS.md"]],
 };
 
 export const FOOTER = { license: "Open source under the GNU AGPL v3", say: "Your agents keep everything they did. Now you can find it.", note: "Every capture on this page comes from a demo index of made-up repositories." };
