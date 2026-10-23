@@ -76,7 +76,7 @@ function dashHealth() {
   const mirrors = D.homes.filter(h => h.origin !== "own").length;
   const UR = D.unreadable || { count: 0, folders: [] };
   const checks = [
-    [UR.count ? "warn" : "ok", UR.count ? `${fmt(UR.count)} folders could not be read (no permission), so a transcript inside them is never seen. On macOS, give the terminal or Relic Scan Full Disk Access to include them.`
+    [UR.count ? "warn" : "ok", UR.count ? `${fmt(UR.count)} folders could not be read (no permission), so a transcript inside them is never seen. On macOS, give the terminal or ARRA Relic Scan Full Disk Access to include them.`
       : "Every folder under the roots could be read.", UR.count ? ["#unreadable", "see them"] : null],
     [age > 86400 ? "warn" : "ok", age === Infinity ? "Never indexed." : `Last run ${agoText(age)}${age > 86400 ? ": transcripts written since then are not in the index yet" : ""}.`, age > 86400 ? ["/scan", "index"] : null],
     [SC.loose_transcripts ? "warn" : "ok", SC.loose_transcripts ? `${fmt(SC.loose_transcripts)} .jsonl outside every agent home look like transcripts. They are listed, not indexed (usually test fixtures).` : "No transcript sits outside an agent home.", SC.loose_transcripts ? ["/paths#-is:indexed verdict:transcript", "see them"] : null],

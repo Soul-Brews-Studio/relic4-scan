@@ -1,4 +1,4 @@
-//! Relic Scan desktop (Tauri v2): the relic-scan page in a native window.
+//! ARRA Relic Scan desktop (Tauri v2): the relic-scan page in a native window.
 //!
 //! The app starts the same server `relic-scan serve` runs, inside this process on a free 127.0.0.1 port, and opens a
 //! window on it. Map, tree, paths, the theme button and the index button all work as in the browser; the index
@@ -35,7 +35,7 @@ fn main() {
         .setup(move |app| {
             let url = format!("http://127.0.0.1:{port}/{view}").parse().expect("url");
             WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
-                .title("Relic Scan")
+                .title("ARRA Relic Scan")
                 .inner_size(1440.0, 900.0)
                 .min_inner_size(900.0, 600.0)
                 .build()?;

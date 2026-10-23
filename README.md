@@ -38,15 +38,17 @@ The first run reads everything: on m5 that is 83,673 files and 67.6 GB in about 
 - **Peak memory:** files are read in 32 MiB chunks (`RELIC_SCAN_CHUNK` bytes to change it). The biggest files are parsed side by side, so reading them whole used to hold gigabytes at once.
 - **Local only:** the server binds 127.0.0.1, and the page makes no network calls.
 
-**Desktop app (Tauri v2):** `desktop/` wraps the same page in a native window.
+**Desktop app, ARRA Relic Scan (Tauri v2):** `desktop/` wraps the same page in a native window.
 - **How it runs:** it starts the server inside its own process on a free 127.0.0.1 port and opens a window on it.
 - **Index button:** runs an incremental run in that process. On a first launch the window shows a welcome page with the button.
 - **`RELIC_SCAN_KIND`:** `all` (the default, the same folder as `relic-scan run`), `claude`, or a comma-separated list.
 - **`RELIC_SCAN_OUT`:** overrides the output directory.
 ```
 cd desktop && cargo build --release && ./target/release/relic-scan-desktop    # run it (--view banks|health|map|tree|paths)
-cargo install tauri-cli --version '^2' --locked && cargo tauri build          # Relic Scan.app
+cargo install tauri-cli --version '^2' --locked && cargo tauri build          # ARRA Relic Scan.app
 ```
+**Installer:** `cargo tauri build --bundles app,dmg` also makes `target/release/bundle/dmg/ARRA Relic Scan_<version>_aarch64.dmg`, a drag-to-Applications window (660x400, the app at (180,190) and Applications at (480,190), the layout Oracle Pulse uses). Its background is `desktop/dmg/background.tiff` (1x and 2x), made by `desktop/dmg/make-background.sh`; it is light because Finder draws the icon labels in black.
+
 How it compares with Relic Scanner and Relic Studio, the SwiftUI apps over relic3: [docs/COMPARE.md](docs/COMPARE.md).
 
 **Build from a checkout instead:**
