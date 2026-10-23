@@ -15,6 +15,10 @@
           --focus: #7d8bb5; --hover: #e9edf6; --sel: #fde6dc; --track: #e1e5ee; --barbg: #dde2ed; --barfg: #5b6fa6;
           --btn: #ffffff; --code: #2f47a6; --link: #3554b5; color-scheme: light; }
   * { box-sizing: border-box; }
+  /* moving between views: the old page stays until the new one is drawn, then a short cross-fade (no blank flash) */
+  @view-transition { navigation: auto; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 140ms; }
+  @media (prefers-reduced-motion: reduce) { ::view-transition-old(root), ::view-transition-new(root) { animation: none; } }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
                font: 13px/1.45 ui-monospace, "SF Mono", Menlo, monospace; overflow: hidden; }
   canvas { position: fixed; inset: 0; display: block; cursor: crosshair; }
@@ -341,7 +345,7 @@ document.documentElement.dataset.theme = LIGHT ? "light" : "dark";
 // one page, three views: /map, /tree and /paths when served, ?view=tree|paths when opened as a file
 // served: / is Smart Scan; opened as a file (no server, no index button): the map
 const VIEWS = ["scans", "scan", "banks", "health", "map", "tree", "paths"];
-const VIEW = VIEWS.find(v => location.pathname.endsWith("/" + v) || new URLSearchParams(location.search).get("view") === v)
+let VIEW = VIEWS.find(v => location.pathname.endsWith("/" + v) || new URLSearchParams(location.search).get("view") === v)
   || (location.protocol.startsWith("http") && /\/$/.test(location.pathname) ? "scan" : "map");
 const DASH = ["scan", "scans", "banks", "health"].includes(VIEW);
 const S = D.s, N = S.sid.length, BKK = 7 * 3600;
@@ -1375,6 +1379,7 @@ if (SERVED) {
   $("tmin").onclick = e => { e.stopPropagation(); tmin(!term.classList.contains("min")); };
   term.querySelector(".th").onclick = () => { if (term.classList.contains("min")) tmin(false); };
   addEventListener("keydown", e => { if (e.key === "Escape" && !term.hidden) $("tclose").click(); });
+  window.relicRefresh = () => poll();
   window.relicStop = async () => { await fetch("/api/stop", { method: "POST", headers: { "X-Relic": "1" } }); poll(); };
   window.relicCheck = async () => {
     b.disabled = true; b.textContent = "⟳ checking…";
@@ -1570,6 +1575,25 @@ addEventListener("keydown", e => {
   else if (e.key === "/" && !typing && (!KP || KP.hidden)) { e.preventDefault(); kOpen(); }
 });
 if (VIEW === "scan" && location.hash === "#contents") setTimeout(() => openContents(), 0);
+
+// the dashboard views (Smart Scan, Banks & Repos, Health, Scan log) share one page: switching among them redraws in
+// place, with no reload; history keeps back and forward working. The map, tree and paths still load as pages.
+const SOFT = ["scan", "scans", "banks", "health"];
+function softGo(v, push = true) {
+  if (!DASH || !SOFT.includes(v) || location.protocol === "file:") return false;
+  VIEW = v;
+  if (push) history.pushState({ v }, "", "/" + v);
+  tabs(); renderDash(); window.scrollTo(0, 0);
+  if (window.relicRefresh) window.relicRefresh();
+  return true;
+}
+document.addEventListener("click", e => {
+  const a = e.target.closest && e.target.closest("#side a[href]");
+  if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+  const v = new URL(a.href, location.href).pathname.replace(/^\//, "");
+  if (softGo(v)) e.preventDefault();
+});
+addEventListener("popstate", () => { const v = location.pathname.replace(/^\//, "") || "scan"; if (!softGo(v, false)) location.reload(); });
 </script>
 </body>
 </html>
