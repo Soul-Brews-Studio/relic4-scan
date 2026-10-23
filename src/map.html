@@ -15,6 +15,10 @@
           --focus: #7d8bb5; --hover: #e9edf6; --sel: #fde6dc; --track: #e1e5ee; --barbg: #dde2ed; --barfg: #5b6fa6;
           --btn: #ffffff; --code: #2f47a6; --link: #3554b5; color-scheme: light; }
   * { box-sizing: border-box; }
+  /* moving between views: the old page stays until the new one is drawn, then a short cross-fade (no blank flash) */
+  @view-transition { navigation: auto; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 140ms; }
+  @media (prefers-reduced-motion: reduce) { ::view-transition-old(root), ::view-transition-new(root) { animation: none; } }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
                font: 13px/1.45 ui-monospace, "SF Mono", Menlo, monospace; overflow: hidden; }
   canvas { position: fixed; inset: 0; display: block; cursor: crosshair; }
@@ -104,7 +108,9 @@
   #dash .overview .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-6) var(--sp-5); margin: 0; }
   #dash .stat .k { font-size: 11px; letter-spacing: .2em; color: var(--dim); font-weight: 700; text-transform: uppercase; }
   #dash .stat { min-width: 0; }
-  #dash .stat .s { margin-top: 6px; color: var(--dim); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* the detail under a stat may take two lines (never cut off), one fact a line */
+  #dash .stat .s { margin-top: 6px; color: var(--dim); font-size: 13px; line-height: 1.45; font-variant-numeric: tabular-nums; }
+  #dash .stat .s span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #dash .strip.five .stat .v { font-size: 28px; white-space: nowrap; letter-spacing: -.01em; }
   #dash .stat .v { font-size: 34px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; }
   #dash .go { background: var(--amber); color: var(--on-amber); border: 0; border-radius: 10px; padding: 14px 26px;
@@ -339,7 +345,7 @@ document.documentElement.dataset.theme = LIGHT ? "light" : "dark";
 // one page, three views: /map, /tree and /paths when served, ?view=tree|paths when opened as a file
 // served: / is Smart Scan; opened as a file (no server, no index button): the map
 const VIEWS = ["scans", "scan", "banks", "health", "map", "tree", "paths"];
-const VIEW = VIEWS.find(v => location.pathname.endsWith("/" + v) || new URLSearchParams(location.search).get("view") === v)
+let VIEW = VIEWS.find(v => location.pathname.endsWith("/" + v) || new URLSearchParams(location.search).get("view") === v)
   || (location.protocol.startsWith("http") && /\/$/.test(location.pathname) ? "scan" : "map");
 const DASH = ["scan", "scans", "banks", "health"].includes(VIEW);
 const S = D.s, N = S.sid.length, BKK = 7 * 3600;
@@ -955,11 +961,11 @@ function dashScan() {
       // what the index holds and how fresh it is; the file accounting lives in Index controls and Health
       let lo = Infinity, hi = -Infinity; for (let k = 0; k < N; k++) if (S.t0[k] != null) { lo = Math.min(lo, S.t0[k]); hi = Math.max(hi, S.t1[k] ?? S.t0[k]); }
       const months = lo < Infinity ? monthIdx(hi) - monthIdx(lo) + 1 : 0, mon = t => new Date((t + BKK) * 1000).toLocaleString("en", { month: "short", year: "numeric", timeZone: "UTC" });
-      return stat("Rows", fmt(T.rows), "var(--ink)", `≈${Math.round(T.rows / Math.max(1, SC.indexed)).toLocaleString()} per file`)
-        + stat("Sessions", fmt(N), "var(--ink)", `${short(T.t[0])} main · ${short(T.t[1])} sub · ${short(T.t[2])} wf`)
-        + stat("Files indexed", fmt(SC.indexed), "var(--ink)", `${gbs(SC.bytes)} · ${(100 * cov).toFixed(2)}% covered`)
-        + stat("Newest row", hi > -Infinity ? agoText(Date.now() / 1000 - hi) : "—", "var(--ink)", hi > -Infinity ? bkk(hi) : "")
-        + stat("Span", months ? `${months} months` : "—", "var(--ink)", lo < Infinity ? `${mon(lo)} → ${mon(hi)}` : "");
+      return stat("Rows", fmt(T.rows), "var(--ink)", `<span>≈${Math.round(T.rows / Math.max(1, SC.indexed)).toLocaleString()} per file</span><span>≈${Math.round(T.rows / Math.max(1, N)).toLocaleString()} per session</span>`)
+        + stat("Sessions", fmt(N), "var(--ink)", `<span>${fmt(T.t[0])} main</span><span>${fmt(T.t[1])} sub · ${fmt(T.t[2])} workflow</span>`)
+        + stat("Files indexed", fmt(SC.indexed), "var(--ink)", `<span>${gbs(SC.bytes)}</span><span>${(100 * cov).toFixed(2)}% of transcripts</span>`)
+        + stat("Newest row", hi > -Infinity ? agoText(Date.now() / 1000 - hi) : "—", "var(--ink)", hi > -Infinity ? `<span>${bkk(hi).slice(0, 10)}</span><span>${bkk(hi).slice(11)} Bangkok</span>` : "")
+        + stat("Span", months ? `${months} months` : "—", "var(--ink)", lo < Infinity ? `<span>${mon(lo)} →</span><span>${mon(hi)}</span>` : "");
     })()}</div>
     <div class="card"><h3>Index controls</h3>
       <div>The last run indexed <b>${fmt(SC.indexed)}</b> transcript files (${gbs(SC.bytes)}) out of <b>${fmt(SC.discovered)}</b> .jsonl discovered.
@@ -1154,7 +1160,8 @@ function contentsFull() {
         <span class="v">${p.v.toLocaleString()}</span><span class="p">${(100 * p.v / tot).toFixed(1)}%</span></div>`).join("")}</section>`;
   };
   const months = group("month").sort((a, b) => a.key < b.key ? -1 : 1), top = Math.max(1, ...months.map(m => m.v));
-  // every row: each month's column is stacked by kind (tool calls at the bottom, as in the chips' order reversed)
+  // every row: each month's column is stacked by kind, the biggest kind overall at the bottom, the same order in every column
+  const kindsBySize = KINDS.slice().sort((a, b) => sunSum({ type: b[0] }) - sunSum({ type: a[0] }));
   const byMonthKind = new Map(); if (!sel) for (const r of sunAgg()) { const id = r.month + "|" + r.type; byMonthKind.set(id, (byMonthKind.get(id) || 0) + r.v); }
   const mname = k => k === "undated" ? "undated" : new Date(k + "-01T00:00:00Z").toLocaleString("en", { month: "short", timeZone: "UTC" });
   const colour = sel ? kcolor(sel) : "var(--accent)";
@@ -1164,7 +1171,7 @@ function contentsFull() {
     <section class="months"><h4>By month <span class="muted">· the month each session started (Bangkok)${sel ? "" : " · stacked by kind"}</span></h4>
       <div class="mchart">${months.map(m => `<div class="mc" title="${m.key}: ${m.v.toLocaleString()} rows">
         <div class="b"><span class="mv">${short(m.v)}</span>${sel ? `<i style="height:${(82 * m.v / top).toFixed(1)}%;background:${colour}"></i>`
-          : `<div class="stack" style="height:${(82 * m.v / top).toFixed(1)}%">${KINDS.map(([key, l]) => { const v = byMonthKind.get(m.key + "|" + key) || 0;
+          : `<div class="stack" style="height:${(82 * m.v / top).toFixed(1)}%">${kindsBySize.map(([key, l]) => { const v = byMonthKind.get(m.key + "|" + key) || 0;
               return v ? `<i style="flex:${v};background:${kcolor(key)}" title="${m.key} · ${esc(l)}: ${v.toLocaleString()}"></i>` : ""; }).join("")}</div>`}</div>
         <span class="ml">${mname(m.key)}${m.key.endsWith("-01") || m === months[0] ? `<b>${m.key.slice(0, 4)}</b>` : ""}</span></div>`).join("")}</div></section>
     <p class="foot">A line copied into several homes is one row, under the first home that holds it.</p>`;
@@ -1372,6 +1379,7 @@ if (SERVED) {
   $("tmin").onclick = e => { e.stopPropagation(); tmin(!term.classList.contains("min")); };
   term.querySelector(".th").onclick = () => { if (term.classList.contains("min")) tmin(false); };
   addEventListener("keydown", e => { if (e.key === "Escape" && !term.hidden) $("tclose").click(); });
+  window.relicRefresh = () => poll();
   window.relicStop = async () => { await fetch("/api/stop", { method: "POST", headers: { "X-Relic": "1" } }); poll(); };
   window.relicCheck = async () => {
     b.disabled = true; b.textContent = "⟳ checking…";
@@ -1567,6 +1575,25 @@ addEventListener("keydown", e => {
   else if (e.key === "/" && !typing && (!KP || KP.hidden)) { e.preventDefault(); kOpen(); }
 });
 if (VIEW === "scan" && location.hash === "#contents") setTimeout(() => openContents(), 0);
+
+// the dashboard views (Smart Scan, Banks & Repos, Health, Scan log) share one page: switching among them redraws in
+// place, with no reload; history keeps back and forward working. The map, tree and paths still load as pages.
+const SOFT = ["scan", "scans", "banks", "health"];
+function softGo(v, push = true) {
+  if (!DASH || !SOFT.includes(v) || location.protocol === "file:") return false;
+  VIEW = v;
+  if (push) history.pushState({ v }, "", "/" + v);
+  tabs(); renderDash(); window.scrollTo(0, 0);
+  if (window.relicRefresh) window.relicRefresh();
+  return true;
+}
+document.addEventListener("click", e => {
+  const a = e.target.closest && e.target.closest("#side a[href]");
+  if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+  const v = new URL(a.href, location.href).pathname.replace(/^\//, "");
+  if (softGo(v)) e.preventDefault();
+});
+addEventListener("popstate", () => { const v = location.pathname.replace(/^\//, "") || "scan"; if (!softGo(v, false)) location.reload(); });
 </script>
 </body>
 </html>
