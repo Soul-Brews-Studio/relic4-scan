@@ -47,7 +47,7 @@ app-intel: tools
     cd desktop && cargo tauri build --target x86_64-apple-darwin --bundles app,dmg
     @ls -1 desktop/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
 
-# Linux .deb and .AppImage, built in Docker (any host; `just linux white` uses the docker context named white)
+# Linux .deb and .AppImage, built in Docker (any host; `just linux builder` uses the docker context named builder)
 linux CONTEXT="default":
     docker --context {{CONTEXT}} buildx build -f desktop/linux/Dockerfile --target out --output type=local,dest=target/linux .
     @ls -1 target/linux

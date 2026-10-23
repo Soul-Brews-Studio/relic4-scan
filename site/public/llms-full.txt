@@ -4,7 +4,7 @@
 
 Claude Code, Codex, OMP, OMX, Gemini and Pi leave thousands of `.jsonl` files across homes, mirrors and archives. ARRA Relic Scan finds every one, indexes it into one Parquet file per month, and lets you browse it on your own machine. Nothing leaves it.
 
-Private beta · the downloads need access to Soul-Brews-Studio on GitHub · Apple silicon and Intel Macs, Linux x86_64
+Free and open source (AGPL-3.0) · Apple silicon and Intel Macs, Linux x86_64
 
 ## Measured
 
@@ -145,11 +145,11 @@ macOS on Apple silicon and on Intel (a .dmg each), and Linux x86_64 (.deb and .A
 
 ### Is it free and open source?
 
-It is a private beta: the downloads sit in a private GitHub repository and need access to the Soul-Brews-Studio organisation.
+Yes. The source is on GitHub (github.com/Soul-Brews-Studio/relic4-scan) under the GNU AGPL v3, and every download is free.
 
 ## Download
 
-Version 26.10.23-alpha.1117, a private beta. The files sit in a private GitHub repository: sign in with an account that has access to Soul-Brews-Studio.
+Version 26.10.23-alpha.1117, free and open source under the GNU AGPL v3. The source, the release notes and every file are on GitHub.
 
 - [macOS, .dmg · 6.7 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1117/ARRA-Relic-Scan_26.10.23-alpha.1117_macos-arm64.dmg): Apple silicon · drag into Applications
 - [macOS, .dmg · 7.1 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1117/ARRA-Relic-Scan_26.10.23-alpha.1117_macos-x64.dmg): Intel · drag into Applications
@@ -157,18 +157,17 @@ Version 26.10.23-alpha.1117, a private beta. The files sit in a private GitHub r
 - [Linux, .AppImage · 85 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1117/ARRA-Relic-Scan_26.10.23-alpha.1117_linux-amd64.AppImage): x86_64 · any distribution
 
 ```sh
-gh api repos/Soul-Brews-Studio/relic4-scan/contents/install.sh \
-  -H 'Accept: application/vnd.github.raw' | sh
+curl -fsSL https://raw.githubusercontent.com/Soul-Brews-Studio/relic4-scan/main/install.sh | sh
 ```
 
 ## Build it yourself
 
-The source is a Rust workspace with a `justfile`. You need Rust, `just` and access to the repository on GitHub.
+The source is a Rust workspace with a `justfile`, on GitHub. You need Rust and `just`.
 
 1. Get the source
 
 ```sh
-gh repo clone Soul-Brews-Studio/relic4-scan && cd relic4-scan
+git clone https://github.com/Soul-Brews-Studio/relic4-scan && cd relic4-scan
 ```
 
 2. Get the tools

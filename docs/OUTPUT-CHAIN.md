@@ -9,7 +9,7 @@ What relic4-scan phase 2 must reproduce, traced through the code and checked on 
 ```
 ╔════════════════════════════════════════════════════════════════════════════════════╗
 ║  ONE LINE -> ONE TRUTH ROW  (jsonl-truth today, relic4-scan phase 2 tomorrow)      ║
-║  re-derived 125 real beta@m5 files: events 4,526/4,526 · tools 9,078/9,078 equal   ║
+║  re-derived 125 real dev@mac files: events 4,526/4,526 · tools 9,078/9,078 equal   ║
 ╚════════════════════════════════════════════════════════════════════════════════════╝
 
  1 ─ THE CHAIN (where each rule lives)

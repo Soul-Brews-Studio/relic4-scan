@@ -18,7 +18,7 @@ Four Sonnet readers went through the repos read-only and cited file:line. What f
 - **Antigravity (Google's agent IDE)** writes `~/.gemini/antigravity*/brain/<id>/.system_generated/logs/transcript_full.jsonl`, with a compact `transcript.jsonl` beside it (`agent-relic-v2/README.md`).
   - → Prefer `_full`, or every message is counted twice. Still untested on a real session.
 - **Scope discovery before stat.** A scoped walk took 0.33 s for 8.8k files, against 3.2–5.1 s for a full walk of 215k (`relic-lessons/CORE.md:27`).
-  - → Add `--since` later. The full walk on m5 is already 8 s for 91k files.
+  - → Add `--since` later. The full walk on an M5 Mac is already 8 s for 91k files.
 
 ## Parse (phase 2)
 - **Each line goes in the period of its own timestamp,** never its session's start. 561 long sessions held 22% of all lines, 1.69M of 7.68M (`agent-relic-v2.1` commit `6a7fe76`, `relic-lessons/CORE.md:49`).
@@ -61,11 +61,11 @@ Four Sonnet readers went through the repos read-only and cited file:line. What f
 | full index | v3 351.9 s (6.7 GB RSS) · v2.1 430.7 s | relic-lessons/TIMELINE.md:35,41 |
 | incremental, 37 changed files | 111 s → 43 s after PR #63 | relic-lessons/book/04-write.md:72 |
 | line reader | 0.62 s per 1.44 GB | relic-lessons/CORE.md |
-| phase 1 here (m5, beta) | **91,293 files · 76.1 GB · 8.0 s** | this lab |
+| phase 1 here (an M5 Mac) | **91,293 files · 76.1 GB · 8.0 s** | this lab |
 
 ## Validation method (copy it)
 - v2's `VALIDATION.md` ran an old-vs-new parity check on a synthetic and an APFS-cloned real corpus: exact identity, text and counts, byte-identical archives, paired medians, and the failed run kept (`agent-relic-v2/VALIDATION.md`).
 - → relic4-scan's proof:
-  - beta@m5's `h` set must equal the truth rows whose `machines` contain `beta@m5`;
+  - the M5 Mac's `h` set must equal the truth rows whose `machines` contain `dev@mac`;
   - text, tools and redaction must be byte-equal on every shared `(s, h, idx)`;
   - every difference is listed, never summarised away.

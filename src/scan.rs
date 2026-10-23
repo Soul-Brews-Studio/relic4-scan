@@ -27,7 +27,7 @@ use std::time::{Instant, UNIX_EPOCH};
 use ignore::{WalkBuilder, WalkState};
 use serde::Serialize;
 
-/// Live counters for the progress line while a scan runs (the walk takes ~10 s on m5 and prints nothing else).
+/// Live counters for the progress line while a scan runs (the walk takes ~10 s on an M5 Mac and prints nothing else).
 pub static WALKED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 pub static HOMES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 pub static LISTED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
@@ -418,7 +418,7 @@ pub fn run(roots: &[String], depth: usize, threads: usize, exclude: &[String], f
             agent: String::new(), verdict: String::new(), size: md.len(), mtime, dev: md.dev(), ino: md.ino(),
         });
     }
-    // loose files are few (12k on m5 vs 91k in homes): always read their first lines, even in the light scan, so a
+    // loose files are few (12k on an M5 Mac vs 91k in homes): always read their first lines, even in the light scan, so a
     // transcript that sits outside every home is named, not guessed
     sniff_all(&mut loose, threads, true);
     ScanResult { homes: out, files, loose, secs_homes, secs_files: t1.elapsed().as_secs_f64() }
