@@ -36,7 +36,7 @@ pub(super) fn rx() -> &'static Rx {
             wf: r(r"/subagents/workflows/.*agent-[^/]+\.jsonl$"),
             sub: r(r"/subagents/agent-[^/]+\.jsonl$"),
             main_uuid: r(&format!(r"/{UUID}\.jsonl$")),
-            main_rollout: r(&format!(r"rollout-.*{UUID}\.jsonl$")),
+            main_rollout: r(&format!(r"rollout-.*{UUID}\.jsonl(\.zst)?$")),
             main_omp: r(r"/\.(omp|pi)/.*_[0-9a-f-]+\.jsonl$"),
             // omp keeps a subagent's transcript inside its parent session's folder, named for its task:
             //   sessions/<project>/<time>_<uuid>/<Task>.jsonl  (the parent is sessions/<project>/<time>_<uuid>.jsonl)

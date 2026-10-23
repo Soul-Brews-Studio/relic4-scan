@@ -117,6 +117,11 @@ pub fn tier(path: &str) -> &'static str {
     crate::meta::tier_of(path)
 }
 
+/// A transcript file by name: `.jsonl`, or `.jsonl.zst` (Codex archives its older rollouts compressed).
+pub fn is_jsonl(p: &Path) -> bool {
+    p.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.ends_with(".jsonl") || n.ends_with(".jsonl.zst"))
+}
+
 fn is_uuid_jsonl(n: &str) -> bool {
     let Some(stem) = n.strip_suffix(".jsonl") else { return false };
     let b = stem.as_bytes();
@@ -206,7 +211,7 @@ pub fn find_homes(roots: &[String], depth: usize, threads: usize, exclude: &[Str
                             HOMES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                             return WalkState::Skip; // a home's own subfolders are not homes
                         }
-                    } else if e.path().extension().is_some_and(|x| x == "jsonl") {
+                    } else if is_jsonl(e.path()) {
                         if let Some(h) = shape_root(e.path()) {
                             sh.lock().unwrap().push(h);
                         }
@@ -270,7 +275,7 @@ fn list_home(home: &Path, kind: &'static str, threads: usize, by_shape: bool) ->
                             return WalkState::Continue;
                         }
                     };
-                if !e.path().extension().is_some_and(|x| x == "jsonl") {
+                if !is_jsonl(e.path()) {
                     return WalkState::Continue;
                 }
                 // follow a symlinked file (dead links drop here), like statSync in jt
