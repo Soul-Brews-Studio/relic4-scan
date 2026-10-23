@@ -248,6 +248,34 @@ Other keys:
 
 It sets no background colour, so it reads the same on dark and light terminals. Colour in the CLI output appears only on a terminal and is off with `NO_COLOR`.
 
+## ψ vaults and Export
+- **ψ vaults.** The walk notes every `ψ` folder it passes (an oracle's vault, or a link to one). After each index, every
+  real vault is read once: its markdown notes go to `OUT/meta/vaults.json`, plain JSON, readable by `jq`, DuckDB or the
+  page. Each vault lists its notes (path inside the vault, section such as `memory/learnings`, title from the first
+  `# ` heading, size, date) and the repos that reach it through a link. Nothing in a vault is changed.
+  ```sh
+  jq '.vaults[] | {name, notes, path}' ~/.relic-scan/meta/vaults.json
+  ```
+- **ψ Vaults view:** every vault with its sections as one bar. Open one for its notes, grouped by folder (`ψ/memory/`,
+  `ψ/inbox/`, …), newest first and filterable. A note opens in a reader that renders its markdown in the page (front matter,
+  headings, lists and tasks, code, tables, quotes, links); **Show in Finder** is one click from there. The page renders
+  everything escaped, and `/api/note` returns only markdown files inside a listed vault (up to 2 MB).
+- **Export view:** every metadata table in one place (sessions, files, homes, scans, vault notes) as CSV or JSON, saved to
+  `~/Downloads`; and the month files (`OUT/YYYY-MM.parquet`) with their sizes, each one click from Finder
+  (`/api/months`, `/api/reveal?what=month&m=2026-10`).
+
+## Build it yourself
+A `justfile` holds every build (`just` lists them):
+
+```sh
+gh repo clone Soul-Brews-Studio/relic4-scan && cd relic4-scan
+just build       # target/release/relic-scan
+just install     # copies it into ~/.local/bin
+just test        # every test
+just app         # the desktop app and its .dmg for this Mac (just app-intel: for Intel Macs)
+just linux       # .deb and .AppImage in Docker (just linux white: on the white docker context)
+```
+
 ## Repository layout
 - `src/`: the `relic-scan` crate (CLI, server, TUI, and the page it serves).
 - `desktop/`: the Tauri desktop app, its icons, the DMG background and the Linux build (`desktop/linux/Dockerfile`).
@@ -256,7 +284,7 @@ It sets no background colour, so it reads the same on dark and light terminals. 
   sources), [LEARNED.md](docs/LEARNED.md), [OUTPUT-CHAIN.md](docs/OUTPUT-CHAIN.md) (what phase 2 must reproduce) and
   [COMPARE.md](docs/COMPARE.md).
 - `verify/`: the full-corpus proofs in Python.
-- `install.sh`: builds and installs the CLI.
+- `install.sh`: builds and installs the CLI; `justfile`: every build from a checkout.
 
 ## Source layout
 No file is longer than 500 lines; a long one is split into a folder of modules.

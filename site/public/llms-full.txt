@@ -4,7 +4,7 @@
 
 Claude Code, Codex, OMP, OMX, Gemini and Pi leave thousands of `.jsonl` files across homes, mirrors and archives. ARRA Relic Scan finds every one, indexes it into one Parquet file per month, and lets you browse it on your own machine. Nothing leaves it.
 
-Private beta · the downloads need access to Soul-Brews-Studio on GitHub · Apple silicon, Linux x86_64
+Private beta · the downloads need access to Soul-Brews-Studio on GitHub · Apple silicon and Intel Macs, Linux x86_64
 
 ## Measured
 
@@ -117,7 +117,7 @@ Plain Parquet: one file per month of rows (every message, thinking block, tool c
 
 ### Which platforms does it run on?
 
-macOS on Apple silicon (a .dmg), and Linux x86_64 (.deb and .AppImage); the relic-scan command builds on macOS and Linux with Rust.
+macOS on Apple silicon and on Intel (a .dmg each), and Linux x86_64 (.deb and .AppImage); the relic-scan command builds on macOS and Linux with Rust.
 
 ### Is it free and open source?
 
@@ -125,15 +125,50 @@ It is a private beta: the downloads sit in a private GitHub repository and need 
 
 ## Download
 
-Version 26.10.23-alpha.923, a private beta. The files sit in a private GitHub repository: sign in with an account that has access to Soul-Brews-Studio.
+Version 26.10.23-alpha.1041, a private beta. The files sit in a private GitHub repository: sign in with an account that has access to Soul-Brews-Studio.
 
-- [macOS, .dmg · 6.6 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.923/ARRA-Relic-Scan_26.10.23-alpha.923_macos-arm64.dmg): Apple silicon · drag into Applications
-- [Linux, .deb · 7.5 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.923/ARRA-Relic-Scan_26.10.23-alpha.923_linux-amd64.deb): x86_64 · Debian, Ubuntu
-- [Linux, .AppImage · 85 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.923/ARRA-Relic-Scan_26.10.23-alpha.923_linux-amd64.AppImage): x86_64 · any distribution
+- [macOS, .dmg · 6.6 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1041/ARRA-Relic-Scan_26.10.23-alpha.1041_macos-arm64.dmg): Apple silicon · drag into Applications
+- [macOS, .dmg · 7.0 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1041/ARRA-Relic-Scan_26.10.23-alpha.1041_macos-x64.dmg): Intel · drag into Applications
+- [Linux, .deb · 7.5 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1041/ARRA-Relic-Scan_26.10.23-alpha.1041_linux-amd64.deb): x86_64 · Debian, Ubuntu
+- [Linux, .AppImage · 85 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1041/ARRA-Relic-Scan_26.10.23-alpha.1041_linux-amd64.AppImage): x86_64 · any distribution
 
 ```sh
 gh api repos/Soul-Brews-Studio/relic4-scan/contents/install.sh \
   -H 'Accept: application/vnd.github.raw' | sh
 ```
+
+## Build it yourself
+
+The source is a Rust workspace with a `justfile`. You need Rust, `just` and access to the repository on GitHub.
+
+1. Get the source
+
+```sh
+gh repo clone Soul-Brews-Studio/relic4-scan && cd relic4-scan
+```
+
+2. Get the tools
+
+```sh
+curl https://sh.rustup.rs -sSf | sh   # Rust
+brew install just                     # or: cargo install just
+```
+
+3. Build the command
+
+```sh
+just build     # target/release/relic-scan
+just install   # copies it into ~/.local/bin
+```
+
+4. Build the desktop app
+
+```sh
+just app         # .app and .dmg for this Mac
+just app-intel   # the same for Intel Macs, from Apple silicon
+just linux       # .deb and .AppImage, in Docker
+```
+
+`just` lists every recipe; `just test` runs the tests; `just up` indexes this machine and serves the page on 127.0.0.1.
 
 Your agents keep everything they did. Now you can find it.

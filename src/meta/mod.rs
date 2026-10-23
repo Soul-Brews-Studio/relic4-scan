@@ -293,3 +293,24 @@ pub fn jsonl(out: &Path, r: &crate::scan::ScanResult, st: &HashMap<String, FileS
     eprintln!("meta: jsonl {} (home {} · ψ vault {} in {} vaults · other {}) in {:.1}s -> {}/meta/jsonl.parquet",
               all.len(), n("home"), n("vault"), vaults.len(), n("other"), t0.elapsed().as_secs_f64(), out.display());
 }
+
+/// OUT/YYYY-MM.parquet for a month written as YYYY-MM, if that file exists.
+pub fn month_file(out: &Path, m: &str) -> Option<std::path::PathBuf> {
+    let ok = m.len() == 7 && m.as_bytes()[4] == b'-' && m.bytes().enumerate().all(|(i, b)| i == 4 || b.is_ascii_digit());
+    let p = out.join(format!("{m}.parquet"));
+    (ok && p.is_file()).then_some(p)
+}
+
+/// Every month file in OUT, oldest first: {month, bytes, modified_ms} (for the Export view's list of months).
+pub fn months(out: &Path) -> serde_json::Value {
+    let mut v: Vec<(String, u64, i64)> = std::fs::read_dir(out).into_iter().flatten().flatten().filter_map(|e| {
+        let n = e.file_name().to_string_lossy().to_string();
+        let m = n.strip_suffix(".parquet")?.to_string();
+        month_file(out, &m)?;
+        let md = e.metadata().ok()?;
+        let t = md.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_millis() as i64;
+        Some((m, md.len(), t))
+    }).collect();
+    v.sort();
+    serde_json::json!({"out": out.display().to_string(), "months": v.iter().map(|(m, b, t)| serde_json::json!({"month": m, "bytes": b, "modified_ms": t})).collect::<Vec<_>>()})
+}

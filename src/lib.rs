@@ -34,6 +34,7 @@ pub mod state;
 pub mod tee;
 pub mod tui;
 pub mod ui;
+pub mod vault;
 
 
 

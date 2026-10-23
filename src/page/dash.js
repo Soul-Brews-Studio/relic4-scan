@@ -104,9 +104,11 @@ function dashHealth() {
       <div class="ulist">${UR.folders.map(p => `<code>${esc(p.replace(D.home || "\u0000", "~"))}</code>`).join("")}</div></div>` : ""}`;
 }
 function renderDash() {
-  $("dash").innerHTML = VIEW === "scan" ? dashScan() : VIEW === "scans" ? dashScans() : VIEW === "disk" ? dashDisk() : VIEW === "settings" ? dashSettings() : VIEW === "banks" ? dashBanks() : dashHealth();
+  $("dash").innerHTML = VIEW === "scan" ? dashScan() : VIEW === "scans" ? dashScans() : VIEW === "disk" ? dashDisk() : VIEW === "settings" ? dashSettings() : VIEW === "banks" ? dashBanks() : VIEW === "vaults" ? dashVaults() : VIEW === "export" ? dashExport() : dashHealth();
   if (VIEW === "scans") loadScans();
   if (VIEW === "disk") diskLoad();
+  if (VIEW === "vaults") vaultsLoad();
+  if (VIEW === "export") exportLoad();
   if (VIEW === "settings") loadSettings();
   if (VIEW === "scan") contentsMini();
   for (const el of $("dash").querySelectorAll("[data-go]")) el.onclick = () => { location.href = el.dataset.go; };

@@ -117,8 +117,10 @@ pub fn run_inner(a: RunArgs, lock: Option<std::fs::File>, serving: bool) -> Repo
     let depth = if depth == 8 { cfg.depth } else { depth };
     let agent = agent.unwrap_or_else(default_agent);
     let _ = scan::take_unreadable();
+    let _ = scan::take_vaults();
     let mut r = with_ticker(|| scan::run(&roots, depth, threads, &exclude, false));
     let unreadable = scan::take_unreadable();
+    let vaults = scan::take_vaults();
     if !unreadable.is_empty() {
         eprintln!("run: {} folders could not be read (no permission); a transcript inside them is not seen", num(unreadable.len() as u64));
     }
@@ -269,6 +271,11 @@ pub fn run_inner(a: RunArgs, lock: Option<std::fs::File>, serving: bool) -> Repo
     let _ = std::fs::write(outp.join("meta").join("unreadable.json"),
                            serde_json::json!({"count": unreadable.len(), "folders": unreadable.iter().take(500).collect::<Vec<_>>()}).to_string());
     meta::jsonl(outp, &r, &st);
+    // every ψ vault and its notes, as plain JSON (meta/vaults.json)
+    let tv = std::time::Instant::now();
+    let vs = crate::vault::index(vaults, outp, threads);
+    eprintln!("vaults: {} ψ vaults · {} notes · {:.1} GB (+ {} worktree copies) in {:.1}s -> {}/meta/vaults.json", num(vs.vaults as u64),
+              num(vs.notes), vs.bytes as f64 / 1e9, num(vs.worktrees as u64), tv.elapsed().as_secs_f64(), out);
     let m = meta::build(outp, &agent, &st, threads);
     let t_meta = t1.elapsed().as_secs_f64();
     let t2 = std::time::Instant::now();

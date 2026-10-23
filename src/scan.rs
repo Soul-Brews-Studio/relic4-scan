@@ -195,6 +195,11 @@ pub fn find_homes(roots: &[String], depth: usize, threads: usize, exclude: &[Str
                         return WalkState::Continue;
                     }
                     WALKED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    // an oracle's ψ vault, real or a link to one (the walk does not follow links, so a linked vault
+                    // is read once, by its real path, after the scan)
+                    if e.file_name() == "ψ" && e.file_type().is_some_and(|t| t.is_dir() || t.is_symlink()) {
+                        VAULTS.lock().unwrap().push(e.path().to_path_buf());
+                    }
                     if e.file_type().is_some_and(|t| t.is_dir()) {
                         if let Some(kind) = e.file_name().to_str().and_then(agent_kind) {
                             f.lock().unwrap().push((e.path().to_path_buf(), kind));
@@ -291,6 +296,17 @@ fn list_home(home: &Path, kind: &'static str, threads: usize, by_shape: bool) ->
         });
     let mut v = std::mem::take(&mut *out.lock().unwrap());
     v.sort_by(|a, b| a.path.cmp(&b.path));
+    v
+}
+
+/// Every `ψ` folder (or link to one) the walk passed; vault::index reads them once the scan is done.
+pub static VAULTS: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
+
+/// The vaults found since the last call, sorted and deduplicated, and the list emptied.
+pub fn take_vaults() -> Vec<PathBuf> {
+    let mut v = std::mem::take(&mut *VAULTS.lock().unwrap());
+    v.sort();
+    v.dedup();
     v
 }
 
