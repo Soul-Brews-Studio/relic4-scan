@@ -99,10 +99,31 @@ function contentsFull() {
     ${bar("Where the file lives", group("place"), "var(--green)", p => p)}
     ${bar("Agent", group("agent"), "var(--amber)", a => a)}
     <section class="months"><h4>By month <span class="muted">· the month each session started (Bangkok)${sel ? "" : " · stacked by kind"}</span></h4>
-      <div class="mchart">${months.map(m => `<div class="mc" title="${m.key}: ${m.v.toLocaleString()} rows">
-        <div class="b"><span class="mv">${short(m.v)}</span>${sel ? `<i style="height:${(82 * m.v / top).toFixed(1)}%;background:${colour}"></i>`
+      <div class="mchart" id="mch">${months.map(m => `<div class="mc">
+        <div class="b"><span class="mv">${short(m.v)}</span>${sel ? `<i data-m="${m.key}" data-k="${sel}" data-v="${m.v}" style="height:${(82 * m.v / top).toFixed(1)}%;background:${colour}"></i>`
           : `<div class="stack" style="height:${(82 * m.v / top).toFixed(1)}%">${kindsBySize.map(([key, l]) => { const v = byMonthKind.get(m.key + "|" + key) || 0;
-              return v ? `<i style="flex:${v};background:${kcolor(key)}" title="${m.key} · ${esc(l)}: ${v.toLocaleString()}"></i>` : ""; }).join("")}</div>`}</div>
-        <span class="ml">${mname(m.key)}${m.key.endsWith("-01") || m === months[0] ? `<b>${m.key.slice(0, 4)}</b>` : ""}</span></div>`).join("")}</div></section>
+              return v ? `<i data-m="${m.key}" data-k="${key}" data-v="${v}" style="flex:${v};background:${kcolor(key)}"></i>` : ""; }).join("")}</div>`}</div>
+        <span class="ml">${mname(m.key)}${m.key.endsWith("-01") || m === months[0] ? `<b>${m.key.slice(0, 4)}</b>` : ""}</span></div>`).join("")}</div>
+      <div class="mtip" id="mtip" hidden></div></section>
     <p class="foot">A line copied into several homes is one row, under the first home that holds it.</p>`;
+  // hover a bar or a band: which month, which kind, how many rows, its share of the month (or of that kind)
+  const monthTotal = new Map(months.map(m => [m.key, m.v])), kindTotal = sel ? here : 0;
+  const longMonth = k => k === "undated" ? "undated" : new Date(k + "-01T00:00:00Z").toLocaleString("en", { month: "long", year: "numeric", timeZone: "UTC" });
+  const tip = $("mtip"), chart = $("mch");
+  chart.onmousemove = e => {
+    const i = e.target.closest("i[data-m]");
+    for (const x of chart.querySelectorAll("i.hot")) if (x !== i) x.classList.remove("hot");
+    if (!i) { tip.hidden = true; return; }
+    i.classList.add("hot");
+    const m = i.dataset.m, v = +i.dataset.v, label = KINDS.find(k => k[0] === i.dataset.k)[1], mt = monthTotal.get(m);
+    tip.innerHTML = sel
+      ? `<b>${longMonth(m)}</b><span>${esc(label)}</span><span><b>${v.toLocaleString()}</b> rows · ${(100 * v / Math.max(1, kindTotal)).toFixed(1)}% of all ${esc(label)}</span>`
+      : `<b>${longMonth(m)}</b><span><i style="background:${kcolor(i.dataset.k)}"></i>${esc(label)}</span>
+         <span><b>${v.toLocaleString()}</b> rows · ${(100 * v / Math.max(1, mt)).toFixed(1)}% of the month</span><span class="muted">month total ${mt.toLocaleString()}</span>`;
+    const box = chart.parentNode.getBoundingClientRect();
+    tip.hidden = false;
+    tip.style.left = Math.min(e.clientX - box.left + 14, box.width - tip.offsetWidth - 4) + "px";
+    tip.style.top = (e.clientY - box.top - tip.offsetHeight - 10) + "px";
+  };
+  chart.onmouseleave = () => { tip.hidden = true; for (const x of chart.querySelectorAll("i.hot")) x.classList.remove("hot"); };
 }
