@@ -18,6 +18,7 @@
 //!   relic-scan meta --out DIR [--agent user@host]
 //!       DIR/YYYY-MM.parquet + DIR/_state.tsv -> DIR/meta/files.parquet + DIR/meta/sessions.parquet
 
+pub mod config;
 pub mod engine;
 pub mod export;
 pub mod map;

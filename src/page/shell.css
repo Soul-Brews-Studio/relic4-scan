@@ -75,6 +75,10 @@
   #side a.on { background: var(--raised); }
   #side a.on .ic { color: var(--accent); }
   #side a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  #side .subs { margin: 0 0 4px 21px; padding-left: 8px; border-left: 1px solid var(--line); }
+  #side a.sub { padding: 7px 10px; font-size: 14px; }
+  #side a.sub .ic, #side a.sub .ic svg { width: 17px; height: 17px; }
+  @media (max-width: 1100px) { #side .subs { margin-left: 0; padding-left: 0; border-left: 0; } }
   #side .sep { height: 1px; background: var(--line); margin: 12px 10px; }
   #side .foot { margin-top: auto; padding: 0 10px; font-size: 12px; color: var(--dim); line-height: 1.5; }
   #side .foot b { color: var(--ink); letter-spacing: .14em; font-size: 11px; }

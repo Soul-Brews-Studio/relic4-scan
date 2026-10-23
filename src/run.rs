@@ -110,7 +110,11 @@ pub fn run_inner(a: RunArgs, lock: Option<std::fs::File>, serving: bool) -> Repo
     for c in [&scan::WALKED, &scan::HOMES, &scan::LISTED, &parse::DONE, &parse::TOTAL] {
         c.store(0, Relaxed);
     }
-    let roots = if roots.is_empty() { vec!["~".to_string(), "/opt/Code".to_string()] } else { roots };
+    // the Settings page's choices, unless a flag says otherwise (--root replaces the roots, --exclude adds, --depth wins)
+    let cfg = config::load(outp);
+    let roots = if roots.is_empty() { cfg.roots.clone() } else { roots };
+    let exclude: Vec<String> = exclude.into_iter().chain(cfg.exclude.iter().cloned()).collect();
+    let depth = if depth == 8 { cfg.depth } else { depth };
     let agent = agent.unwrap_or_else(default_agent);
     let _ = scan::take_unreadable();
     let mut r = with_ticker(|| scan::run(&roots, depth, threads, &exclude, false));

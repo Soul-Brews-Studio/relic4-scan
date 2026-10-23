@@ -138,3 +138,27 @@
   #cpop .ml { font-size: 12px; color: var(--dim); height: 30px; text-align: center; line-height: 1.2; } #cpop .ml b { display: block; font-weight: 600; color: var(--ink); font-size: 11px; }
   #cpop .foot { grid-column: 1 / -1; margin: 0; color: var(--dim); font-size: 13px; }
   @media (max-width: 1100px) { #cpop .detail { grid-template-columns: minmax(0, 1fr); } }
+  /* settings: one form, labels above their fields, one column */
+  #dash .set { max-width: 760px; }
+  #dash .set h3 { margin: var(--sp-5) 0 var(--sp-3); } #dash .set h3:first-child { margin-top: 0; }
+  #dash .set label { display: grid; gap: 4px; margin: 0 0 var(--sp-4); }
+  #dash .set label > b { font-weight: 600; } #dash .set label > span { color: var(--dim); font-size: 13px; }
+  #dash .set label.row2 { grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-5); }
+  #dash .set label.row2 > b, #dash .set label.row2 > span { grid-column: 1; } #dash .set label.row2 > :last-child { grid-column: 2; grid-row: 1 / span 2; }
+  #dash .set textarea, #dash .set input, #dash .set select { font: 14px var(--font-mono); color: var(--ink); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  #dash .set textarea { width: 100%; resize: vertical; } #dash .set input { width: 90px; }
+  #dash .set textarea:focus-visible, #dash .set input:focus-visible, #dash .set select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  #dash .set .note.bad { color: var(--amber); }
+  #dash .set dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px var(--sp-5); margin: 0; font-size: 14px; }
+  #dash .set dt { color: var(--dim); } #dash .set dd { margin: 0; overflow-wrap: anywhere; } #dash .set code { font-family: var(--font-mono); font-size: 13px; }
+  #dash .set .field { display: grid; gap: 6px; margin: 0 0 var(--sp-5); }
+  #dash .set .field > b { font-weight: 600; } #dash .set .field > span { color: var(--dim); font-size: 13px; }
+  #dash .chips2 { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+  #dash .chip2 { display: inline-flex; align-items: center; gap: 2px; padding: 3px 4px 3px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); }
+  #dash .chip2 code { font: 13px var(--font-mono); color: var(--ink); }
+  #dash .chip2 button { background: none; border: 0; color: var(--dim); font: 16px/1 var(--font-ui); padding: 2px 6px; border-radius: 999px; cursor: pointer; }
+  #dash .chip2 button:hover { color: var(--ink); background: var(--hover); } #dash .chip2 button:focus-visible { outline: 2px solid var(--accent); }
+  #dash .add2 { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; margin-top: var(--sp-2); }
+  #dash .add2 input { flex: 1; min-width: 200px; width: auto; }
+  #dash .ghost.sm { min-width: 0; padding: 7px 14px; font-size: 14px; }

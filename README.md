@@ -181,6 +181,8 @@ The same walk that finds the homes collects the loose files, so they add no extr
   - **Show output** opens a popup with the server's own output during a run or check (the scan line, the parse bar, the summary card), streamed from `GET /api/log`.
 - **⌘K search** (or `/`, or the search button top right): one box over what the page holds: views, actions (index, check, output, contents, theme), sessions (by id, repo or project; empty shows the latest), repos, homes, every `.jsonl` path, scan-log entries, and filters in the map/tree query language. Each result opens its view; some carry actions: **open folder** (shows the file in Finder; the server refuses any path the index does not hold), copy the resume command, copy the path, and **check** or **index** just that file or home (`only=` on the API). ⌘↵ runs the first action.
 - **Stop:** while an index or check runs, Stop (on Smart Scan and in the output popup) ends it during the walk or the parse with nothing written; the next run reads the same bytes again. Once the merge has started it finishes.
+- **Settings** (`/settings`): the folders to walk, paths to skip and the depth, edited as chips (type and Enter, a suggestion, or **Choose folder…**, which opens the desktop's own folder picker through the server), an automatic Check changes every 15, 30 or 60 minutes while the server runs (it never indexes on its own), and the theme. Saved in `OUT/_config.json` (`GET`/`POST /api/config`); `relic-scan run` and Index now use it, and a flag on the command line wins.
+- **Sidebar:** Tree, Paths and Disk sit under Session map.
 - **Scan log** (`/scans`): every index and check from `OUT/_scans.jsonl`, newest first: new, grown, rewritten and gone files, bytes read, time, and rows added. Open one to see its files (the 2,000 biggest reads are kept per entry). `relic-scan log` prints the same list, and `relic-scan log --diff N` lists the files of entry N.
 - **Banks & Repos** (`/banks`): one card per jsonl home with sessions, rows, files, size, origin and newest session; a card opens the tree on that home. Below them is a repository index with org/repo, sessions and rows; a row opens the map on that repo.
 - **Health** (`/health`): checks computed from the index, each with a link to the matching view:
@@ -243,12 +245,12 @@ No file is longer than 500 lines; a long one is split into a folder of modules.
 - `src/meta/`: the tables (`mod.rs`), the path rules (`rules.rs`), the per-month pass and its cache (`agg.rs`), tests.
 - `src/tui/`: state and loading (`mod.rs`, `load.rs`), keys (`keys.rs`), drawing (`draw.rs`).
 - `src/page/`: the page as small files: the shell `index.html`, three CSS files, and the scripts in the order they run
-  (`core`, `map`, `shell`, `tree`, `paths`, `dash`, `contents`, `disk`, `scanlog`, `main`, `palette`). `map.rs` puts them
+  (`core`, `map`, `shell`, `tree`, `paths`, `dash`, `contents`, `disk`, `scanlog`, `settings`, `main`, `palette`). `map.rs` puts them
   back together into one self-contained page; there is no build step and no network. Shared helpers live in `core.js`:
   `human()` for bytes, `relicPost()` for every write to the server, and `overlay()` for every popup.
 
 ## Tests
-`cargo test` runs 18 tests in under a second, with no other repo needed:
+`cargo test` runs 22 tests in under a second, with no other repo needed:
 - the path rules: tier, repo (cat), project, parent and home;
 - `splitlines` and the jt cut of a last line;
 - the message key and the meta cache line;
@@ -256,6 +258,8 @@ No file is longer than 500 lines; a long one is split into a folder of modules.
 - **incremental == cold:** a file grown three times, once cut mid-line, gives the same month file as one cold parse;
 - **scan log:** entries are numbered by line, a torn line is skipped, and a big diff keeps its biggest reads;
 - **output capture:** a line redrawn with `\r` replaces itself;
+- **settings:** a save keeps what is valid and refuses an empty or missing folder, a depth outside 1-32 and an odd auto-check interval, leaving the file as it was;
+- **server:** query strings decode, export month names are names (never paths), and the page is served for any one-word view;
 - **dry run:** a check reports one new file and writes nothing; after an index it reports one unchanged file; after an append it reports exactly the appended bytes;
 - **date ranges:** the flags become days (bad dates and a `--from` after `--to` are refused); rows are kept by Bangkok day; a folder keeps its range and a full index never takes one; a one-day run gives exactly that day's rows of a full parse, and still reads to the end of the file.
 
