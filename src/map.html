@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>relic-scan · session star map</title>
 <style>
+  /* Hallmark · audit + fix: app shell sidebar · genre: atmospheric (dark AI tool, light twin) · tone: technical · anchor hue: cyan
+   * fonts: system stacks on purpose (the page is offline, no font downloads) · ui sans for chrome, mono for data
+   * pre-emit critique: P4 H4 E4 S4 R5 V3 */
   :root { --bg: #05070d; --ink: #d9dde8; --dim: #7c8496; --line: #1c2333; --panel: rgba(10, 13, 22, .92);
           --focus: #3a4766; --hover: #121827; --sel: #2a1a17; --track: #1a2030; --barbg: #2a3550; --barfg: #6b7fb0;
           --btn: #111727; --code: #c9d4ff; --link: #8fa3d6; color-scheme: dark; }
@@ -15,8 +18,11 @@
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
                font: 13px/1.45 ui-monospace, "SF Mono", Menlo, monospace; overflow: hidden; }
   canvas { position: fixed; inset: 0; display: block; cursor: crosshair; }
-  :root { --side: 232px; --amber: #f5b73b; --cyan: #67c8ef; --green: #6fd6a0; --card: #12151c; --sideb: #13161d; }
-  :root[data-theme="light"] { --amber: #b7791f; --cyan: #1f7fbf; --green: #1f9d63; --card: #ffffff; --sideb: #eceff5; }
+  :root { --side: 232px; --amber: #f5b73b; --cyan: #67c8ef; --green: #6fd6a0; --card: #12151c; --sideb: #13161d;
+          --raised: #1d2230; --on-amber: #1d1405; --accent: var(--cyan);
+          --font-ui: -apple-system, system-ui, sans-serif; --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+          --ease-out: cubic-bezier(.2, .7, .2, 1); --dur-short: 120ms; }
+  :root[data-theme="light"] { --amber: #b7791f; --cyan: #1f7fbf; --green: #1f9d63; --card: #fbfcfe; --sideb: #eceff5; --raised: #dde3ee; }
   @media (max-width: 1100px) { :root { --side: 64px; } #side .lbl, #side .brand .t, #side .foot { display: none; } }
   #bar { position: fixed; left: calc(var(--side) + 14px); top: 12px; right: 374px; display: flex; gap: 10px; align-items: center; }
   #q { flex: 1; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px;
@@ -53,26 +59,38 @@
   html.doc #legend { background: var(--bg); padding: 6px 8px; left: calc(var(--side) + 6px); bottom: 6px; border-radius: 6px; }
   /* sidebar: the Relic Studio shell */
   #side { position: fixed; left: 0; top: 0; bottom: 0; width: var(--side); background: var(--sideb); border-right: 1px solid var(--line);
-          z-index: 5; display: flex; flex-direction: column; padding: 22px 12px 18px; font-family: -apple-system, system-ui, sans-serif; }
-  #side .brand { display: flex; gap: 12px; align-items: center; padding: 0 8px 26px; }
-  #side .logo { width: 46px; height: 46px; border-radius: 12px; flex: none; display: grid; place-items: center;
-                background: linear-gradient(135deg, #ff3cac, #00d6ff); color: #fff; font: 800 22px/1 -apple-system, system-ui, sans-serif; }
-  #side .t b { display: block; font-size: 21px; letter-spacing: .06em; color: var(--ink); }
-  #side .t i { display: block; font-style: normal; font-size: 11px; letter-spacing: .32em; color: var(--amber); font-weight: 700; }
-  #side a { display: flex; gap: 12px; align-items: center; color: var(--ink); text-decoration: none; padding: 10px 12px; border-radius: 9px;
-            font-size: 15px; margin-bottom: 3px; border-left: 3px solid transparent; }
+          z-index: 5; display: flex; flex-direction: column; padding: 22px 12px 18px; font-family: var(--font-ui); }
+  #side .brand { display: flex; gap: 12px; align-items: center; padding: 0 6px 28px; }
+  #side .logo { width: 40px; height: 40px; border-radius: 10px; flex: none; display: grid; place-items: center;
+                background: var(--raised); border: 1px solid var(--line); color: var(--accent); }
+  #side .logo svg { width: 24px; height: 24px; }
+  #side .t b { display: block; font-size: 18px; font-weight: 700; letter-spacing: .1em; color: var(--ink); line-height: 1.1; }
+  #side .t i { display: block; font: 400 11px/1.4 var(--font-mono); letter-spacing: .28em; color: var(--dim); font-style: normal; }
+  /* one icon voice: 24-unit grid, 1.6 stroke, round caps, currentColor */
+  #side a { display: flex; gap: 12px; align-items: center; color: var(--ink); text-decoration: none; padding: 9px 10px; border-radius: 8px;
+            font-size: 14.5px; font-weight: 500; margin-bottom: 2px; white-space: nowrap;
+            transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out); }
+  #side .ic { width: 20px; height: 20px; flex: none; color: var(--dim); transition: color var(--dur-short) var(--ease-out); }
+  #side .ic svg { width: 20px; height: 20px; display: block; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
   #side a:hover { background: var(--hover); }
-  #side a.on { background: var(--hover); border-left-color: var(--cyan); font-weight: 600; }
-  #side .ic { width: 22px; text-align: center; color: var(--cyan); font-size: 17px; }
-  #side .sep { height: 1px; background: var(--line); margin: 10px 8px 12px; }
+  #side a:hover .ic { color: var(--ink); }
+  #side a.on { background: var(--raised); }
+  #side a.on .ic { color: var(--accent); }
+  #side a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  #side .sep { height: 1px; background: var(--line); margin: 12px 10px; }
   #side .foot { margin-top: auto; padding: 0 10px; font-size: 12px; color: var(--dim); line-height: 1.5; }
   #side .foot b { color: var(--ink); letter-spacing: .14em; font-size: 11px; }
   #side .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-right: 8px; }
+  @media (max-width: 1100px) { #side { padding: 18px 10px; } #side .brand { padding: 0 2px 22px; } #side a { justify-content: center; padding: 10px 0; } }
   /* dashboard views: scan, banks, health */
   #dash { display: none; margin-left: var(--side); padding: 44px 48px 60px; max-width: 1180px; font-family: -apple-system, system-ui, sans-serif; }
   #dash .eyebrow { color: var(--amber); font-size: 12px; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; }
   #dash h1 { font-size: 44px; line-height: 1.1; margin: 8px 0 8px; font-weight: 800; letter-spacing: -.01em; }
-  #dash .sub { color: var(--dim); font-size: 17px; margin: 0 0 30px; }
+  #dash .sub { color: var(--dim); font-size: 17px; margin: 0 0 10px; }
+  #dash .scope { color: var(--dim); font-size: 13px; margin: 0 0 30px; }
+  #dash .scope b { color: var(--accent); font-weight: 600; }
+  #dash .scope code { font-family: var(--font-mono); font-size: 12px; overflow-wrap: anywhere; }
+  #side .rng { color: var(--accent); font-weight: 600; }
   #dash .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 24px 26px; margin-bottom: 18px; }
   #dash .card h3 { margin: 0 0 14px; font-size: 17px; color: var(--amber); display: flex; gap: 10px; align-items: center; }
   #dash .card h3.c { color: var(--cyan); }
@@ -80,14 +98,14 @@
   #dash .stat .k { font-size: 11px; letter-spacing: .2em; color: var(--dim); font-weight: 700; text-transform: uppercase; }
   #dash .stat .v { font-size: 34px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; }
   #dash .ringwrap { display: grid; place-items: center; margin: 0 0 26px; }
-  #dash .go { background: linear-gradient(180deg, #f7c04f, #e9a92a); color: #1d1405; border: 0; border-radius: 10px; padding: 14px 26px;
+  #dash .go { background: var(--amber); color: var(--on-amber); border: 0; border-radius: 10px; padding: 14px 26px;
               font: 700 17px -apple-system, system-ui, sans-serif; cursor: pointer; min-width: 220px; }
   #dash .go:disabled { opacity: .55; cursor: default; }
   #dash .ghost { background: var(--hover); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 14px 26px;
                  font: 600 17px -apple-system, system-ui, sans-serif; cursor: pointer; min-width: 220px; margin-left: 12px; }
   #dash .note { color: var(--dim); font-size: 13px; margin-top: 14px; }
   #dash .track { height: 6px; border-radius: 3px; background: var(--line); margin: 16px 0 6px; overflow: hidden; }
-  #dash .track i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ff3cac, #00d6ff); transition: width .4s; }
+  #dash .track i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .4s; }
   #dash .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
   #dash .bank { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px 24px; cursor: pointer; }
   #dash .bank:hover { border-color: var(--focus); }
@@ -111,8 +129,9 @@
   #dash .head .big { font-size: 40px; }
   @media (max-width: 900px) { #dash .strip { grid-template-columns: 1fr 1fr; } #dash .grid2 { grid-template-columns: 1fr; } }
   #panel { scrollbar-width: thin; z-index: 3; }
-  #idx { background: var(--panel); color: var(--sub, #7fd3ff); border: 1px solid var(--line); border-radius: 5px; padding: 7px 10px; font: inherit; cursor: pointer; white-space: nowrap; }
+  #idx { background: var(--panel); color: var(--accent); border: 1px solid var(--line); border-radius: 5px; padding: 7px 10px; font: inherit; cursor: pointer; white-space: nowrap; }
   #idx:disabled { color: var(--dim); cursor: default; }
+  #idx:focus-visible, #theme:focus-visible, #dash button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   #theme { background: var(--panel); color: var(--dim); border: 1px solid var(--line); border-radius: 5px; padding: 7px 10px; font: inherit; cursor: pointer; }
   #theme:hover { color: var(--ink); }
   .tn { display: grid; grid-template-columns: minmax(0, 1fr) 112px 132px 132px 92px; gap: 10px; align-items: center;
@@ -485,14 +504,27 @@ function tabs() {
   // a session query carries between map and tree; paths has its own words; the dashboards take none
   const h = v => ["map", "tree"].includes(v) && ["map", "tree"].includes(VIEW) ? location.hash : "";
   const href = v => file ? `?view=${v}${h(v)}` : `/${v}${h(v)}`;
-  const item = (v, ic, l) => `<a class="${VIEW === v ? "on" : ""}" href="${href(v)}" title="${l}"><span class="ic">${ic}</span><span class="lbl">${l}</span></a>`;
+  const item = (v, ic, l) => `<a class="${VIEW === v ? "on" : ""}" href="${href(v)}" title="${l}"${VIEW === v ? ` aria-current="page"` : ""}><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[ic]}</svg></span><span class="lbl">${l}</span></a>`;
   const ago = D.last_run ? agoText(Date.now() / 1000 - D.last_run) : "never";
-  $("side").innerHTML = `<div class="brand"><div class="logo">◎</div><div class="t"><b>RELIC</b><i>SCAN</i></div></div>`
-    + item("scan", "✦", "Smart Scan") + item("banks", "⌂", "Banks & Repos") + item("health", "✚", "Health")
-    + `<div class="sep"></div>` + item("map", "✺", "Session map") + item("tree", "☰", "Tree") + item("paths", "▤", "Paths")
+  $("side").innerHTML = `<div class="brand"><div class="logo"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/><circle cx="18" cy="6" r="1.6" fill="currentColor" stroke="none"/></svg></div><div class="t"><b>RELIC</b><i>scan</i></div></div>`
+    + `<nav aria-label="Views">`
+    + item("scan", "scan", "Smart Scan") + item("banks", "banks", "Banks & Repos") + item("health", "health", "Health")
+    + `<div class="sep"></div>` + item("map", "map", "Session map") + item("tree", "tree", "Tree") + item("paths", "paths", "Paths")
+    + `</nav>`
     + `<div class="foot"><div><span class="dot" id="sdot"></span><b id="sstate">RELIC READY</b></div>
-       <div>Index runs only when you click it.</div><div>last run ${ago}</div></div>`;
+       ${D.range ? `<div class="rng">only ${esc(D.range.label)}</div>` : ""}<div>Index runs only when you click it.</div><div>last run ${ago}</div></div>`;
 }
+// the sidebar's icons: one hand-drawn set (radar, stacked disks, pulse, constellation, outline, folder)
+const ICONS = {
+  scan: `<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12l5.5-5.5"/>`,
+  banks: `<ellipse cx="12" cy="6" rx="7" ry="2.5"/><path d="M5 6v6c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6"/><path d="M5 12v6c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-6"/>`,
+  health: `<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>`,
+  map: `<circle cx="5.5" cy="17" r="1.8"/><circle cx="10" cy="6.5" r="1.8"/><circle cx="18.5" cy="9.5" r="1.8"/><circle cx="15" cy="18.5" r="1.8"/><path d="M6.3 15.3l2.9-7M11.7 7.1l5.1 1.8M17.8 11.2l-2.1 5.6"/>`,
+  tree: `<path d="M5 4v14a2 2 0 0 0 2 2h3M5 8h5"/><rect x="11" y="5.5" width="8" height="5" rx="1.5"/><rect x="11" y="16" width="8" height="5" rx="1.5"/>`,
+  paths: `<path d="M3.5 7.5a2 2 0 0 1 2-2h3.8l2 2.5h7.2a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>`,
+};
+// which folder this page shows; a ranged folder (run --month/--day/--from/--to) says so, so it is never read as the full index
+const scopeLine = () => `<p class="scope">${D.range ? `<b>Only ${esc(D.range.human)}</b> · ` : ""}<code>${esc(D.out || "")}</code></p>`;
 const agoText = d => d < 90 ? "just now" : d < 5400 ? Math.round(d / 60) + " min ago" : d < 129600 ? Math.round(d / 3600) + " h ago" : Math.round(d / 86400) + " days ago";
 
 // ---------- tree: jsonl home -> repo -> session -> satellites ----------
@@ -739,12 +771,9 @@ const gbs = b => (b / 1e9).toFixed(1) + " GB";
 function ring(frac, big, label, pct) {
   const R = 118, C = 2 * Math.PI * R, arc = `stroke-dasharray="${C * Math.max(0.002, Math.min(1, frac))} ${C}" transform="rotate(-90 160 160)"`;
   return `<svg width="320" height="320" viewBox="0 0 320 320" role="img" aria-label="${label} ${big}, ${pct}">
-    <defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5fd0f3"/><stop offset="1" stop-color="#f3ef8a"/></linearGradient>
-      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter></defs>
     <circle cx="160" cy="160" r="${R + 24}" fill="none" stroke="var(--line)" stroke-dasharray="1 7"/>
     <circle cx="160" cy="160" r="${R}" fill="none" stroke="var(--line)" stroke-width="22"/>
-    <circle cx="160" cy="160" r="${R}" fill="none" stroke="url(#rg)" stroke-width="22" stroke-linecap="round" ${arc} filter="url(#glow)" opacity=".55"/>
-    <circle cx="160" cy="160" r="${R}" fill="none" stroke="url(#rg)" stroke-width="22" stroke-linecap="round" ${arc}/>
+    <circle cx="160" cy="160" r="${R}" fill="none" stroke="var(--accent)" stroke-width="22" stroke-linecap="round" ${arc}/>
     <text x="160" y="152" text-anchor="middle" font-size="42" font-weight="800" fill="var(--ink)">${big}</text>
     <text x="160" y="178" text-anchor="middle" font-size="14" font-weight="600" fill="var(--cyan)">${label}</text>
     <line x1="115" x2="205" y1="196" y2="196" stroke="var(--line)"/>
@@ -765,14 +794,14 @@ function totals() {
 function dashScan() {
   const T = totals(), cov = SC.indexed / Math.max(1, SC.indexed + SC.loose_transcripts);
   return `<div class="eyebrow">Memory intake</div><h1>Smart Scan</h1>
-    <p class="sub">Find every agent transcript on this machine, read only the bytes that are new, and rebuild the months, the meta and these views.</p>
+    <p class="sub">Find every agent transcript on this machine, read only the bytes that are new, and rebuild the months, the meta and these views.</p>${scopeLine()}
     <div class="ringwrap">${ring(cov, fmt(SC.indexed), "files indexed", (100 * cov).toFixed(2) + "%")}</div>
-    <div class="card"><h3>▣ Index controls</h3>
+    <div class="card"><h3>Index controls</h3>
       <div>The last run indexed <b>${fmt(SC.indexed)}</b> transcript files (${gbs(SC.bytes)}) out of <b>${fmt(SC.discovered)}</b> .jsonl discovered.
-        ${fmt(SC.skipped)} in agent homes are not transcripts; ${fmt(SC.vault + SC.loose)} sit outside every home.</div>
+        ${fmt(SC.skipped)} in agent homes are not transcripts${SC.before_range ? `; ${fmt(SC.before_range)} were last written before ${esc(D.range.from)}, so they were not read` : ""}; ${fmt(SC.vault + SC.loose)} sit outside every home.</div>
       <div style="margin-top:18px"><button class="go" id="dgo" ${SERVED ? "" : "disabled title='open it through relic-scan serve or the app'"}>▶&nbsp; Index now</button><button class="ghost" id="dref">↻&nbsp; Refresh status</button></div>
       <div class="track"><i id="dbar"></i></div><div class="note" id="dmsg">Refresh only reads. Index now is the one write action, and it runs only when you click it; a run reads new bytes only.</div></div>
-    <div class="strip">${stat("Files indexed", fmt(SC.indexed), "var(--green)")}${stat("Files discovered", fmt(SC.discovered), "var(--cyan)")}${stat("Not transcripts", fmt(SC.skipped), "var(--amber)")}${stat("Outside homes", fmt(SC.vault + SC.loose), "var(--amber)")}</div>
+    <div class="strip">${stat("Files indexed", fmt(SC.indexed), "var(--green)")}${stat("Files discovered", fmt(SC.discovered), "var(--cyan)")}${SC.before_range ? stat("Before the range", fmt(SC.before_range), "var(--dim)") : stat("Not transcripts", fmt(SC.skipped), "var(--amber)")}${stat("Outside homes", fmt(SC.vault + SC.loose), "var(--amber)")}</div>
     <div class="strip">${stat("Sessions", fmt(N), "var(--ink)")}${stat("Rows", fmt(T.rows), "var(--ink)")}${stat("Indexed size", gbs(SC.bytes), "var(--ink)")}${stat("Last run", D.last_run ? agoText(Date.now() / 1000 - D.last_run) : "never", "var(--ink)")}</div>`;
 }
 function homeStats() {
@@ -803,9 +832,9 @@ function dashBanks() {
       <span style="color:var(--cyan)">▰</span><div class="r"><b>${esc(c)}</b><code>${esc(orgRepo(r.k))}</code></div>
       <div class="x"><b>${fmt(r.n)}</b><div>sessions · ${fmt(r.rows)} rows</div></div></div>`).join("");
   return `<div class="eyebrow">Memory topology</div><h1>Banks &amp; Repositories</h1>
-    <p class="sub">Where the transcripts live on this machine, and which repositories hold the most of them. A session copied into several banks counts in each.</p>
+    <p class="sub">Where the transcripts live on this machine, and which repositories hold the most of them. A session copied into several banks counts in each.</p>${scopeLine()}
     <div class="grid2">${banks}</div>
-    <div class="card" style="margin-top:22px"><h3 class="c">⌥ Repository index · ${fmt(repos.length)}</h3>${list}
+    <div class="card" style="margin-top:22px"><h3 class="c">Repository index · ${fmt(repos.length)}</h3>${list}
       ${repos.length > repoCap ? `<div class="note"><a href="#" id="rmore" style="color:var(--cyan)">show ${fmt(Math.min(100, repos.length - repoCap))} more</a></div>` : ""}</div>`;
 }
 function dashHealth() {
@@ -817,6 +846,7 @@ function dashHealth() {
     [T.orphans / Math.max(1, T.sats) > 0.01 ? "warn" : "ok", `${fmt(T.sats - T.orphans)} of ${fmt(T.sats)} subagent and workflow sessions found their main session${T.orphans ? `; ${fmt(T.orphans)} have none on disk` : ""}.`, null],
     [T.undated ? "info" : "ok", T.undated ? `${fmt(T.undated)} sessions carry no timestamp; their rows are in the undated month.` : "Every session has a timestamp.", null],
     [SC.empty ? "info" : "ok", SC.empty ? `${fmt(SC.empty)} indexed files produced no rows (empty or summary-only sessions).` : "Every indexed file produced rows.", SC.empty ? ["/paths#is:indexed rows=0", "see them"] : null],
+    ...(SC.before_range ? [["info", `This folder holds only ${esc(D.range.human)}: ${fmt(SC.before_range)} files last written before it were not read. The full index is a run without --month, --day, --from or --to.`, null]] : []),
     ["info", `${fmt(SC.skipped)} files in agent homes are not transcripts (workflow journals, prompt logs, omx logs) and were skipped by the content sniff.`, ["/paths#is:skipped", "see them"]],
     ["info", `${fmt(SC.unknown)} files had no recognised shape and were indexed anyway: a transcript-shaped path is never dropped.`, SC.unknown ? ["/paths#verdict:unknown", "see them"] : null],
     ["info", `${mirrors} of ${D.homes.length} homes are mirrors, rescues or copies; the same line read twice is folded into one row.`, ["/banks", "banks"]],
@@ -825,12 +855,12 @@ function dashHealth() {
   const warns = checks.filter(c => c[0] === "warn").length;
   const L = { ok: ["var(--green)", "✓"], warn: ["var(--amber)", "!"], info: ["var(--cyan)", "i"] };
   return `<div class="eyebrow">System readiness</div><h1>Health</h1>
-    <p class="sub">Signals computed from this index itself: nothing here is estimated.</p>
+    <p class="sub">Signals computed from this index itself: nothing here is estimated.</p>${scopeLine()}
     <div class="card head"><span class="big" style="color:${warns ? "var(--amber)" : "var(--green)"}">${warns ? "⚠" : "✓"}</span>
       <div><b style="font-size:18px">${warns ? `${warns} warning${warns > 1 ? "s" : ""} reported` : "All clear"}</b>
       <div class="note" style="margin:2px 0 0">Page built ${esc(D.built)} · ${esc(D.out || "")}</div></div></div>
     <div class="strip">${stat("Rows", fmt(T.rows), "var(--cyan)")}${stat("Sessions", fmt(N), "var(--green)")}${stat("Months", fmt(T.months), "var(--amber)")}${stat("Warnings", warns, warns ? "var(--amber)" : "var(--green)")}</div>
-    <div class="card"><h3>⚑ Checks</h3>${checks.map(([lv, txt, link]) => `<div class="warn"><span class="lvl" style="background:${L[lv][0]}">${L[lv][1]}</span>
+    <div class="card"><h3>Checks</h3>${checks.map(([lv, txt, link]) => `<div class="warn"><span class="lvl" style="background:${L[lv][0]}">${L[lv][1]}</span>
       <div>${txt}</div>${link ? `<a href="${link[0]}">${link[1]} →</a>` : "<span></span>"}</div>`).join("")}</div>`;
 }
 function renderDash() {

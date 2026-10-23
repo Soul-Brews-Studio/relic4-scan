@@ -23,6 +23,7 @@ The first run reads everything: on m5 that is 83,673 files and 67.6 GB in about 
 |---|---|
 | `relic-scan up [--kind K] [--port 8787]` | `run`, then `serve` |
 | `relic-scan run [--kind K] [--out DIR]` | Scan, parse only new bytes, then write meta, map and paths. It ends with a summary card. |
+| `relic-scan run --month 2026-10` | Only rows of those Bangkok days, in a folder of their own. Also `--day 2026-10-22`, or `--from` and `--to` (each a day or a month, either one optional). See [Only some days](#only-some-days). |
 | `relic-scan serve [--kind K]` | Serves `/map`, `/tree` and `/paths` on 127.0.0.1 only. The page is read on every request, so a `run` in another shell shows up on reload. The page's **⟳ index** button runs an incremental run in the server (`POST /api/run`, which needs an `X-Relic: 1` header; progress at `GET /api/status`). Before the first run, every view shows a welcome page with the same button. |
 | `relic-scan tui [--kind K]` | The terminal browser (below). |
 | `relic-scan meta` / `map` | Rebuild only the meta tables, or only the page. |
@@ -87,6 +88,17 @@ Only months that received rows are rewritten; every other month file is left unt
 For comparison, relic v3 needed 43 s for an incremental run with 37 changed files. Where the next win is:
 - the light scan re-walks every home (8.5 s): cache the home list and only stat known files, or watch with FSEvents;
 - rewriting the current month (4.3 s): a small delta file plus compaction would trade the "1 month = 1 file" rule for speed.
+
+## Only some days
+`--month`, `--day`, `--from` and `--to` keep only the rows whose Bangkok date is in the range. A row with no time at all is left out.
+- **Its own folder:** without `--out`, the run writes `~/.relic-scan/<kinds or all>@<range>`, for example `~/.relic-scan/all@2026-10` or `~/.relic-scan/claude@2026-10-22`. Pass that path as `--out` to `serve`, `tui`, `meta` and `map`; the summary card prints it.
+- **Why a folder of its own:** the rest of each file is still read, and the state moves past it, so those rows never come back into that folder. For the same reason:
+  - a run with a range stops if its folder was indexed without one (`~/.relic-scan` itself, for example);
+  - the folder keeps its range in `OUT/_range`, and a run asking for a different range stops;
+  - a run with no date flags on such a folder (including the page's index button) uses the folder's range.
+- **Incremental like any run:** a second `--month 2026-10` reads only new bytes.
+- **Files untouched since before the range are skipped** without being read: a line is written when it happens, so such a file holds no row in the range. There is one day of slack for clocks.
+- **Not the same rows as filtering the full index:** two identical lines are one row, kept at its first copy. If the first copy is outside the range, the range folder keeps the later copy, while the full index has only the earlier one.
 
 ## scan: light (default) vs --full
 | | reads file contents | m5 (beta), 91,297 files / 76 GB | verdicts |
@@ -216,12 +228,13 @@ Other keys:
 It sets no background colour, so it reads the same on dark and light terminals. Colour in the CLI output appears only on a terminal and is off with `NO_COLOR`.
 
 ## Tests
-`cargo test` runs 11 tests in under a second, with no other repo needed:
+`cargo test` runs 15 tests in under a second, with no other repo needed:
 - the path rules: tier, repo (cat), project, parent and home;
 - `splitlines` and the jt cut of a last line;
 - the message key and the meta cache line;
 - **chunked reading:** chunk sizes from 1 byte to 4 KB give the same rows as a whole-file read;
-- **incremental == cold:** a file grown three times, once cut mid-line, gives the same month file as one cold parse.
+- **incremental == cold:** a file grown three times, once cut mid-line, gives the same month file as one cold parse;
+- **date ranges:** the flags become days (bad dates and a `--from` after `--to` are refused); rows are kept by Bangkok day; a folder keeps its range and a full index never takes one; a one-day run gives exactly that day's rows of a full parse, and still reads to the end of the file.
 
 The full-corpus proofs (`verify/*.py`) compare against agent-relic-v4 and need its Python environment. In addition, a 4,023-file fixture (7.1 GB, including the 24 biggest files) gave every month, `files.parquet`, `sessions.parquet` and `jsonl.parquet` equal to the previous binary's. Peak RSS fell from 5.81 GB to 3.72 GB at the same speed.
 

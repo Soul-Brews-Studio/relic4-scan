@@ -8,6 +8,8 @@
 //!   relic-scan run --out DIR [--full] [--root DIR]... [--agent user@host]
 //!       incremental: scan, diff against DIR/_state.tsv, parse only new bytes, rewrite only touched months,
 //!       then meta (below)
+//!   relic-scan run --month 2026-10 | --day 2026-10-22 | --from 2026-09-15 [--to 2026-10-15]
+//!       only rows of those Bangkok days, into ~/.relic-scan/<kinds or all>@<range> (a folder that keeps its range)
 //!   relic-scan up [--kind claude] [--port 8787]
 //!       run (into ~/.relic-scan unless --out), then serve http://127.0.0.1:8787/map and /tree
 //!   relic-scan serve [--out DIR] [--port 8787]
@@ -20,6 +22,7 @@ pub mod engine;
 pub mod map;
 pub mod meta;
 pub mod parse;
+pub mod range;
 pub mod scan;
 pub mod serve;
 pub mod sniff;
@@ -60,6 +63,39 @@ pub struct RunArgs {
     /// so it never mixes with a run over every kind.
     #[arg(long)]
     pub kind: Vec<String>,
+    /// only rows of this Bangkok month, YYYY-MM. Without --out it writes ~/.relic-scan/<kinds or all>@<month>; the
+    /// rest of each file is read and left behind, so a range never writes into a folder indexed without one
+    #[arg(long, conflicts_with_all = ["day", "from", "to"])]
+    pub month: Option<String>,
+    /// only rows of this Bangkok day, YYYY-MM-DD (same folder rule as --month)
+    #[arg(long, conflicts_with_all = ["from", "to"])]
+    pub day: Option<String>,
+    /// only rows on or after this Bangkok day, YYYY-MM-DD or YYYY-MM (same folder rule as --month)
+    #[arg(long)]
+    pub from: Option<String>,
+    /// only rows on or before this Bangkok day, YYYY-MM-DD or YYYY-MM (same folder rule as --month)
+    #[arg(long)]
+    pub to: Option<String>,
+}
+
+impl RunArgs {
+    /// The date range the flags ask for (None without --month/--day/--from/--to).
+    pub fn range(&self) -> Result<Option<range::Range>, String> {
+        range::Range::from_args(self.month.as_deref(), self.day.as_deref(), self.from.as_deref(), self.to.as_deref())
+    }
+
+    /// Where this run writes: --out, else ~/.relic-scan[/<kinds>], else with a range ~/.relic-scan/<kinds or all>@<range>.
+    pub fn out_dir(&self) -> Result<String, String> {
+        let Some(g) = self.range()? else { return Ok(out_dir(&self.out, &self.kind)) };
+        if self.out != DEFAULT_OUT {
+            return Ok(expand(&self.out));
+        }
+        let mut k = self.kind.clone();
+        k.sort();
+        k.dedup();
+        let k = if k.is_empty() { "all".to_string() } else { k.join("+") };
+        Ok(expand(&format!("{DEFAULT_OUT}/{k}@{}", g.label)))
+    }
 }
 
 pub fn gb(b: u64) -> String {
@@ -169,15 +205,32 @@ pub static PHASE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new
 /// `run` with the OUT lock already taken (the server takes it before it answers, so a busy OUT is a 409, not an exit).
 pub fn run_with(a: RunArgs, lock: Option<std::fs::File>) {
     use std::sync::atomic::Ordering::Relaxed;
-    let RunArgs { out, roots, depth, threads, exclude, full, agent, jt_compat, only, kind } = a;
-    let out_flag = if out == DEFAULT_OUT { String::new() } else { format!(" --out {}", tilde(&expand(&out))) };
-    let out = out_dir(&out, &kind);
+    // the server catches a panic and reports it; the CLI says why and exits
+    let serving = lock.is_some();
+    let fail = |e: String| -> ! {
+        if serving {
+            panic!("{e}");
+        }
+        eprintln!("relic-scan: {e}");
+        std::process::exit(1);
+    };
+    let (asked, out_path) = match (a.range(), a.out_dir()) {
+        (Ok(g), Ok(o)) => (g, o),
+        (Err(e), _) | (_, Err(e)) => fail(e),
+    };
+    let RunArgs { roots, depth, threads, exclude, full, agent, jt_compat, only, kind, .. } = a;
+    let out = out_path;
     let t0 = std::time::Instant::now();
     let outp = std::path::Path::new(&out);
     let _lock = match lock {
         Some(l) => l,
         None => lock_out(outp),
     };
+    let range = range::Range::settle(outp, asked).unwrap_or_else(|e| fail(e));
+    let out_flag = if out != out_dir(DEFAULT_OUT, &kind) { format!(" --out {}", tilde(&out)) } else { String::new() };
+    if let Some(g) = &range {
+        eprintln!("run: only rows from {} (Bangkok days) -> {}", g.human(), tilde(&out));
+    }
     PHASE.store(1, Relaxed);
     for c in [&scan::WALKED, &scan::HOMES, &scan::LISTED, &parse::DONE, &parse::TOTAL] {
         c.store(0, Relaxed);
@@ -195,8 +248,13 @@ pub fn run_with(a: RunArgs, lock: Option<std::fs::File>) {
     let mut jobs = vec![];
     let mut seen = std::collections::HashSet::new();
     let mut odd = 0u64;
+    let mut early = 0u64;
     for f in &r.files {
         if !only.is_empty() && !only.iter().any(|o| f.path.contains(o.as_str())) {
+            continue;
+        }
+        if range.as_ref().is_some_and(|g| !g.may_hold(f.mtime)) {
+            early += 1;
             continue;
         }
         if f.verdict == "not-transcript" {
@@ -242,6 +300,9 @@ pub fn run_with(a: RunArgs, lock: Option<std::fs::File>) {
     if !filtered {
         st.retain(|k, _| seen.contains(k));
     }
+    if early > 0 {
+        eprintln!("run: skipped {} files last written before the range", num(early));
+    }
     if odd > 0 {
         eprintln!("run: skipped {} files whose path holds a tab or a newline", num(odd));
     }
@@ -251,7 +312,7 @@ pub fn run_with(a: RunArgs, lock: Option<std::fs::File>) {
     let sizes: std::collections::HashMap<String, (u64, u64, u64)> =
         r.files.iter().map(|f| (f.path.clone(), (f.dev, f.ino, f.size))).collect();
     PHASE.store(2, Relaxed);
-    let done = if jobs.is_empty() { Default::default() } else { parse::run(jobs, outp, &agent, threads, jt_compat, false) };
+    let done = if jobs.is_empty() { Default::default() } else { parse::run(jobs, outp, &agent, threads, jt_compat, false, range.as_ref()) };
     for (p, c) in done {
         let (dev, ino, size) = sizes.get(&p).copied().unwrap_or_default();
         let plen = c.offset.min(state::PREFIX);
@@ -278,7 +339,7 @@ pub fn run_with(a: RunArgs, lock: Option<std::fs::File>) {
         format!("new {} · grown {} · rewritten {} · unchanged {}", num(new), num(grown), num(rewritten), num(unchanged)),
         ui::dim(&format!("scan {} · parse+merge {} · meta {} · map {} · total {}", s(t_scan), s(t_parse), s(t_meta), s(t_map),
                          s(t0.elapsed().as_secs_f64()))),
-        format!("{} {}", ui::dim("→"), tilde(&out)),
+        format!("{} {}{}", ui::dim("→"), tilde(&out), range.as_ref().map(|g| ui::dim(&format!(" · only {}", g.human()))).unwrap_or_default()),
         format!("{} relic-scan serve{kind_flag}   {} relic-scan tui{kind_flag}", ui::pink("▸"), ui::pink("▸")),
     ]));
 }
@@ -313,6 +374,7 @@ pub fn banner() {
     cmd("relic-scan tui [--kind claude]", "browse sessions, repos and paths in the terminal");
     cmd("relic-scan serve [--kind claude]", "serve /map /tree /paths without indexing again");
     cmd("relic-scan run [--kind claude]", "index only (incremental: new bytes only)");
+    cmd("relic-scan run --month 2026-10", "only one month (or --day, --from/--to), in a folder of its own");
     cmd("relic-scan --help", "every command and flag");
     eprintln!();
 }
