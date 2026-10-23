@@ -3,9 +3,9 @@
 The relic chain has three steps. Each tool reads the previous one's output and never changes it.
 
 ```
- relic-scan                 relic-extract                      relic-embed (next)
+ relic-scan                 relic-extract                      relic4 embed
  find + index         ──►   pick, clean, dedupe, cut     ──►   vectors, search
- ~/.relic-scan/             ~/.relic-extract/<stream>/
+ ~/.relic-scan/             ~/.relic-extract/<stream>/         vec/_cache/<model>@<hash>
    YYYY-MM.parquet            YYYY-MM.parquet
    meta/sessions.parquet    settings: ~/.arra/relic.toml
 ```
@@ -14,7 +14,11 @@ The relic chain has three steps. Each tool reads the previous one's output and n
    every ψ vault. It indexes them into one Parquet file per Bangkok month.
 2. **relic-extract** reads those month files and writes the parts to embed: one row per chunk. A TOML file sets what goes
    in, and the tool cleans, dedupes and cuts the text.
-3. **relic-embed** (next) turns the chunks into vectors.
+3. **relic4** ([agent-relic-v4](https://github.com/Soul-Brews-Studio/agent-relic-v4)) embeds the chunks. It reads
+   `~/.relic-extract/text` and embeds only the keys that have no vector yet.
+
+relic-scan is public. relic-extract and agent-relic-v4 are private repositories for now, so Part 2 and step 3 need
+access to them.
 
 Every output below comes from a real run on a demo home of made-up repositories: 993 transcripts, 33 MB. The home folder
 is shortened to `~`. On a real machine, expect bigger numbers: one Mac has 87,000 files, 75 GB and 5.4 M rows, indexed
@@ -236,6 +240,9 @@ git clone https://github.com/Soul-Brews-Studio/relic-extract && cd relic-extract
 just install          # builds, then puts relic-extract in ~/.local/bin
 ```
 
+The repository is private for now: cloning it needs access. Building needs Rust (`cargo`) and
+[just](https://github.com/casey/just).
+
 ### 2. Write the config
 
 ```
@@ -248,7 +255,7 @@ wrote ~/.arra/relic.toml
 ```toml
 [extract]
 source = "~/.relic-scan"        # relic-scan's output: YYYY-MM.parquet + meta/sessions.parquet
-out = "~/.relic-extract"        # <stream>/YYYY-MM.parquet, ready for relic-embed
+out = "~/.relic-extract"        # <stream>/YYYY-MM.parquet, ready to embed
 months = "changed"              # "changed" | "all" | ["2026-10", "2026-09"]
 sessions = "any"                # cat/probe from meta/sessions.parquet: "any" tier (main preferred) | "main" only
 
@@ -265,11 +272,14 @@ field = "text"
 roles = ["user", "assistant"]
 
 [extract.streams.text.clean]    # before cutting
+enabled = true
 strip_tags = ["system-reminder"]          # <tag>…</tag> removed anywhere
 commands = "args"                         # a slash command becomes "/name args"
 min_chars = 0                             # drop messages shorter than this
+drop_over_chars = 1000000                 # a pasted dump; 0 = keep every length
 redact = true                             # tokens and keys -> [kind:abcd…N]
-# … drop_tags, drop_prefixes, drop_texts: harness text that is not the conversation
+# … drop_tags, drop_prefixes, drop_texts ("(holding)" and other status chatter):
+#   harness text that is not the conversation
 
 [extract.streams.thinking]
 enabled = false
@@ -285,8 +295,10 @@ There are three streams: `text` (on by default), `thinking` and `tools`. A missi
 defaults. `relic-extract config` prints the settings in effect, and `--config FILE` or `ARRA_CONFIG` points to another
 file.
 
-The clean step matters on real data. On one Mac, a quarter of the October user text was `<system-reminder>` blocks the
-harness added, not words a person typed.
+The clean step matters on real data. The demo home holds no harness text, so it prints "cleaned out 0" everywhere
+below. On a real Mac, October 2026 had 88,116 messages: the clean step took out 12,785 of them, and cut the text from
+108.3 M characters to 44.9 M kept. Most of what goes is `<system-reminder>` blocks, command output and status chatter
+the harness added, not words a person typed.
 
 ### 3. See what a run would cut
 
@@ -401,7 +413,7 @@ uses it for both.
 ```sh
 relic-scan run        # new bytes only; copies from other machines cost a hash
 relic-extract run     # only the months relic-scan rewrote
-# relic-embed run     # next: only the keys without a vector
+RELIC4_RECIPE=text-v2 uv run relic4 embed text-v2   # in agent-relic-v4: only the keys without a vector
 ```
 
 ## When something is off
