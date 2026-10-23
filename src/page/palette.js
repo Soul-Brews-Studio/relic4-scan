@@ -32,7 +32,7 @@ const kRun = async (path, dry) => {
 function kGroups(qRaw) {
   const q = qRaw.trim().toLowerCase(), G = [];
   const add = (name, items, cap = 6) => { if (items.length) G.push({ name, items, cap }); };
-  const views = [["scan", "Smart Scan"], ["banks", "Banks & Repos"], ["health", "Health"], ["scans", "Scan log"], ["map", "Session map"], ["tree", "Tree"], ["paths", "Paths"], ["disk", "Disk"], ["settings", "Settings"]];
+  const views = [["scan", "Smart Scan"], ["banks", "Banks & Repos"], ["health", "Health"], ["scans", "Scan log"], ["map", "Session map"], ["tree", "Tree"], ["paths", "Paths"], ...(gemOn("disk") ? [["disk", "Disk"]] : []), ["settings", "Settings"]];
   const rank = (arr, text) => arr.map(x => [x, q ? kScore(text(x), q) : 0]).filter(([, r]) => r != null).sort((a, b) => a[1] - b[1]).map(([x]) => x);
   add("Go to", rank(views, v => v[1]).map(([v, l]) => ({ t: l, d: VIEW === v ? "you are here" : "", go: () => { location.href = kHref(v); } })));
   const acts = [

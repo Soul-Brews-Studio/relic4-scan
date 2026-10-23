@@ -41,6 +41,9 @@ async function loadSettings() {
       <label class="row2"><b>Check changes automatically</b><span>while this server runs; it never indexes on its own</span>
         <select id="s-auto">${[[0, "off"], [15, "every 15 minutes"], [30, "every 30 minutes"], [60, "every hour"]]
           .map(([v, l]) => `<option value="${v}" ${c.auto_check_min === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+      <h3>Gems</h3>
+      ${Object.entries(GEMS).map(([g, [name, what]]) => `<label class="row2"><b>${esc(name)}</b><span>${esc(what)} · this browser only</span>
+        <input type="checkbox" class="gem" data-gem="${g}" ${gemOn(g) ? "checked" : ""}></label>`).join("")}
       <h3>Look</h3>
       <label class="row2"><b>Theme</b><span>this browser only</span>
         <select id="s-theme">${["auto", "dark", "light"].map(v => `<option ${theme === v ? "selected" : ""}>${v}</option>`).join("")}</select></label>
@@ -54,6 +57,8 @@ async function loadSettings() {
   const parents = [...new Set(D.homes.map(h => h.path.replace(D.home || "\u0000", "~").split("/").slice(0, 2).join("/")))].sort();
   const roots = chipList($("s-roots"), c.roots, { placeholder: "~/some/folder", suggest: parents, pick: true });
   const skips = chipList($("s-ex"), c.exclude, { placeholder: "node_modules", suggest: ["node_modules", ".git", "Library", ".Trash", ".cache", "target", "wt/"] });
+  // a gem shows or hides at once in the sidebar (no Save needed)
+  for (const b of document.querySelectorAll("#sform .gem")) b.onchange = () => { gemSet(b.dataset.gem, b.checked); tabs(); };
   $("s-reset").onclick = () => { roots.set(d.roots); skips.set([]); $("s-depth").value = d.depth; $("s-auto").value = "0"; $("s-msg").textContent = "Defaults filled in; Save to keep them."; };
   $("sform").onsubmit = async e => {
     e.preventDefault();

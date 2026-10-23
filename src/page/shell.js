@@ -11,7 +11,7 @@ function tabs() {
   $("side").innerHTML = `<a class="brand" href="${href("scan")}" title="Smart Scan" aria-label="relic-scan: back to Smart Scan"><div class="logo"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/><circle cx="18" cy="6" r="1.6" fill="currentColor" stroke="none"/></svg></div><div class="t"><b>RELIC</b><i>scan</i></div></a>`
     + `<nav aria-label="Views">`
     + item("scan", "scan", "Smart Scan") + item("banks", "banks", "Banks & Repos") + item("health", "health", "Health") + item("scans", "log", "Scan log")
-    + `<div class="sep"></div>` + item("map", "map", "Session map") + `<div class="subs">` + sub("tree", "tree", "Tree") + sub("paths", "paths", "Paths") + sub("disk", "disk", "Disk") + `</div>`
+    + `<div class="sep"></div>` + item("map", "map", "Session map") + `<div class="subs">` + sub("tree", "tree", "Tree") + sub("paths", "paths", "Paths") + (gemOn("disk") || VIEW === "disk" ? sub("disk", "disk", "Disk") : "") + `</div>`
     + `<div class="sep"></div>` + item("settings", "settings", "Settings")
     + `</nav>`
     + `<div class="foot"><div><span class="dot" id="sdot"></span><b id="sstate">RELIC READY</b></div>

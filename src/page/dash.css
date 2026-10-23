@@ -162,3 +162,4 @@
   #dash .add2 { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; margin-top: var(--sp-2); }
   #dash .add2 input { flex: 1; min-width: 200px; width: auto; }
   #dash .ghost.sm { min-width: 0; padding: 7px 14px; font-size: 14px; }
+  #dash .set input.gem { width: 20px; height: 20px; accent-color: var(--accent); }
