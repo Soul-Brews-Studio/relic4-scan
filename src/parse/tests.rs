@@ -287,3 +287,23 @@ fn a_zst_rollout_gives_the_rows_of_the_plain_one_and_is_read_once() {
     assert_eq!(crate::sniff::sniff(packed.to_str().unwrap()).verdict, "transcript");
     let _ = fs::remove_dir_all(&d);
 }
+
+#[test]
+fn a_month_written_in_small_batches_holds_the_same_rows() {
+    // one Arrow string array holds at most 2 GiB: a big month goes out in batches (RELIC_SCAN_BATCH_ROWS rows each)
+    let d = tmp("batches");
+    let src = d.join("s.jsonl");
+    fs::write(&src, lines(2, 40)).unwrap();
+    let sp = src.to_str().unwrap().to_string();
+    let job = || Job { path: sp.clone(), size: fs::metadata(&src).unwrap().len(), verdict: String::new(), ctx: Ctx::default() };
+    let (big, small) = (d.join("big"), d.join("small"));
+    run(vec![job()], &big, "t@x", 2, false, false, None);
+    // safe here: the other tests read the variable too, and any batch size gives the same rows
+    unsafe { std::env::set_var("RELIC_SCAN_BATCH_ROWS", "7") };
+    run(vec![job()], &small, "t@x", 2, false, false, None);
+    unsafe { std::env::remove_var("RELIC_SCAN_BATCH_ROWS") };
+    let (a, b) = (month_rows(&big.join("2026-07.parquet")), month_rows(&small.join("2026-07.parquet")));
+    assert!(a.len() > 100, "{}", a.len());
+    assert_eq!(a, b);
+    let _ = fs::remove_dir_all(&d);
+}

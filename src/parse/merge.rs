@@ -2,6 +2,11 @@
 
 use super::*;
 
+/// Rows per Arrow batch when a month is written (see merge_month); RELIC_SCAN_BATCH_ROWS changes it (tests, memory).
+fn batch_rows() -> usize {
+    std::env::var("RELIC_SCAN_BATCH_ROWS").ok().and_then(|v| v.parse().ok()).filter(|&n| n > 0).unwrap_or(50_000)
+}
+
 
 /// One candidate copy of a truth row, from the existing month file or from a new raw part.
 pub(super) struct Cand {
@@ -165,31 +170,6 @@ pub fn merge_month(parts_dir: &Path, month: &str, out: &Path, agent: &str) -> (u
         }
     }
     let first_of: HashMap<usize, i64> = tokens.into_values().collect();
-    let strs = |f: &dyn Fn(&Cand) -> Option<&str>| -> ArrayRef { Arc::new(order.iter().map(|&i| f(&cands[i])).collect::<StringArray>()) };
-    let mut hb = Int64Builder::new();
-    let mut ib = Int64Builder::new();
-    let mut eb = BooleanBuilder::new();
-    let mut machines = ListBuilder::new(StringBuilder::new());
-    let mut sources = ListBuilder::new(StringBuilder::new());
-    for &i in &order {
-        let c = &cands[i];
-        hb.append_value(c.h);
-        ib.append_value(c.idx);
-        eb.append_option(c.err);
-        machines.values().append_value(agent);
-        machines.append(true);
-        let mut all: BTreeMap<&str, i64> = srcs[&c.h].iter().map(|(f, l)| (f.as_str(), *l)).collect();
-        for h in also.get(&i).into_iter().flatten() {
-            for (f, l) in &srcs[h] {
-                let e = all.entry(f.as_str()).or_insert(*l);
-                *e = (*e).min(*l);
-            }
-        }
-        for (f, l) in all {
-            sources.values().append_value(format!("{agent}:{f}:{l}"));
-        }
-        sources.append(true);
-    }
     let u = |n: &str| Field::new(n, DataType::Utf8, true);
     let list = |n: &str| Field::new(n, DataType::List(Arc::new(Field::new("item", DataType::Utf8, true))), true);
     let schema = Arc::new(Schema::new(vec![
@@ -198,20 +178,48 @@ pub fn merge_month(parts_dir: &Path, month: &str, out: &Path, agent: &str) -> (u
         Field::new("err", DataType::Boolean, true), u("red"), list("machines"), list("sources"),
         u("model"), u("msg_id"), Field::new("out_tokens", DataType::Int64, true),
     ]));
-    let cols: Vec<ArrayRef> = vec![
-        strs(&|c| Some(c.s.as_str())), Arc::new(hb.finish()), Arc::new(ib.finish()), strs(&|c| c.engine.as_deref()),
-        strs(&|c| c.role.as_deref()), strs(&|c| c.typ.as_deref()), strs(&|c| c.sid.as_deref()), strs(&|c| c.ts.as_deref()),
-        strs(&|c| c.ts_th.as_deref()), strs(&|c| c.text.as_deref()), strs(&|c| c.kind.as_deref()), strs(&|c| c.call_id.as_deref()),
-        strs(&|c| c.name.as_deref()), strs(&|c| c.body.as_deref()), Arc::new(eb.finish()), strs(&|c| c.red.as_deref()),
-        Arc::new(machines.finish()), Arc::new(sources.finish()), strs(&|c| c.model.as_deref()), strs(&|c| c.msg_id.as_deref()),
-        Arc::new(order.iter().map(|i| first_of.get(i).copied()).collect::<Int64Array>()),
-    ];
-    let batch = RecordBatch::try_new(schema.clone(), cols).unwrap();
     fs::create_dir_all(out).unwrap();
     let tmp = out.join(format!("{month}.parquet.part"));
     let props = WriterProperties::builder().set_compression(Compression::ZSTD(ZstdLevel::try_new(1).unwrap())).build();
-    let mut w = ArrowWriter::try_new(fs::File::create(&tmp).unwrap(), schema, Some(props)).unwrap();
-    w.write(&batch).unwrap();
+    let mut w = ArrowWriter::try_new(fs::File::create(&tmp).unwrap(), schema.clone(), Some(props)).unwrap();
+    // The month goes out in batches of BATCH_ROWS: one Arrow string array holds at most 2 GiB of text, and a month of
+    // tool output (Codex archives made one) is larger than that.
+    for rows in order.chunks(batch_rows()) {
+        let strs = |f: &dyn Fn(&Cand) -> Option<&str>| -> ArrayRef { Arc::new(rows.iter().map(|&i| f(&cands[i])).collect::<StringArray>()) };
+        let mut hb = Int64Builder::new();
+        let mut ib = Int64Builder::new();
+        let mut eb = BooleanBuilder::new();
+        let mut machines = ListBuilder::new(StringBuilder::new());
+        let mut sources = ListBuilder::new(StringBuilder::new());
+        for &i in rows {
+            let c = &cands[i];
+            hb.append_value(c.h);
+            ib.append_value(c.idx);
+            eb.append_option(c.err);
+            machines.values().append_value(agent);
+            machines.append(true);
+            let mut all: BTreeMap<&str, i64> = srcs[&c.h].iter().map(|(f, l)| (f.as_str(), *l)).collect();
+            for h in also.get(&i).into_iter().flatten() {
+                for (f, l) in &srcs[h] {
+                    let e = all.entry(f.as_str()).or_insert(*l);
+                    *e = (*e).min(*l);
+                }
+            }
+            for (f, l) in all {
+                sources.values().append_value(format!("{agent}:{f}:{l}"));
+            }
+            sources.append(true);
+        }
+        let cols: Vec<ArrayRef> = vec![
+            strs(&|c| Some(c.s.as_str())), Arc::new(hb.finish()), Arc::new(ib.finish()), strs(&|c| c.engine.as_deref()),
+            strs(&|c| c.role.as_deref()), strs(&|c| c.typ.as_deref()), strs(&|c| c.sid.as_deref()), strs(&|c| c.ts.as_deref()),
+            strs(&|c| c.ts_th.as_deref()), strs(&|c| c.text.as_deref()), strs(&|c| c.kind.as_deref()), strs(&|c| c.call_id.as_deref()),
+            strs(&|c| c.name.as_deref()), strs(&|c| c.body.as_deref()), Arc::new(eb.finish()), strs(&|c| c.red.as_deref()),
+            Arc::new(machines.finish()), Arc::new(sources.finish()), strs(&|c| c.model.as_deref()), strs(&|c| c.msg_id.as_deref()),
+            Arc::new(rows.iter().map(|i| first_of.get(i).copied()).collect::<Int64Array>()),
+        ];
+        w.write(&RecordBatch::try_new(schema.clone(), cols).unwrap()).unwrap();
+    }
     w.into_inner().unwrap().sync_all().unwrap(); // the month is on disk before _state.tsv can point past it
     fs::rename(&tmp, &existing).unwrap(); // atomic: readers see the old month or the new one, never half
     (order.len(), copies)
