@@ -25,12 +25,20 @@ const ICONS = {
   map: `<circle cx="5.5" cy="17" r="1.8"/><circle cx="10" cy="6.5" r="1.8"/><circle cx="18.5" cy="9.5" r="1.8"/><circle cx="15" cy="18.5" r="1.8"/><path d="M6.3 15.3l2.9-7M11.7 7.1l5.1 1.8M17.8 11.2l-2.1 5.6"/>`,
   tree: `<path d="M5 4v14a2 2 0 0 0 2 2h3M5 8h5"/><rect x="11" y="5.5" width="8" height="5" rx="1.5"/><rect x="11" y="16" width="8" height="5" rx="1.5"/>`,
   disk: `<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/><path d="M12 3.5V9M18.4 15.5l-3.9-2.2"/>`,
-  settings: `<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>`,
+  settings: `<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>`,
   search: `<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>`,
   log: `<path d="M4 6h11M4 12h6M4 18h8"/><circle cx="17" cy="16" r="4"/><path d="M17 14.2v1.9l1.2 1"/>`,
   paths: `<path d="M3.5 7.5a2 2 0 0 1 2-2h3.8l2 2.5h7.2a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>`,
 };
 // which folder this page shows; a ranged folder (run --month/--day/--from/--to) says so, so it is never read as the full index
 const rangeChip = () => D.range ? ` <span class="rchip">${esc(D.range.label)} only</span>` : "";
-const scopeLine = () => `<p class="scope">${D.range ? `<b>Only ${esc(D.range.human)}</b> · ` : ""}<code>${esc(D.out || "")}</code></p>`;
+// where the index lives, with the two ways out of it: open that folder, or export what the view lists
+const scopeLine = () => `<p class="scope">${D.range ? `<b>Only ${esc(D.range.human)}</b> · ` : ""}<span class="lbl">output</span> <code>${esc(D.out || "")}</code>`
+  + `${SERVED ? `<button class="lnk" data-reveal="out" title="open the index folder (month files and meta) in Finder">Open folder</button>` : ""}`
+  + `<button class="lnk" data-export title="save what this view lists as CSV or JSON">Export list</button></p>`;
+document.addEventListener("click", e => {
+  const r = e.target.closest("[data-reveal]"), x = e.target.closest("[data-export]");
+  if (r) kReveal("what=" + r.dataset.reveal).then(ok => { r.textContent = ok ? "Opened in Finder" : "Could not open"; setTimeout(() => r.textContent = "Open folder", 2400); });
+  if (x) openExport();
+});
 const agoText = d => d < 90 ? "just now" : d < 5400 ? Math.round(d / 60) + " min ago" : d < 129600 ? Math.round(d / 3600) + " h ago" : Math.round(d / 86400) + " days ago";

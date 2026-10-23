@@ -8,6 +8,8 @@
           --focus: #7d8bb5; --hover: #e9edf6; --sel: #fde6dc; --track: #e1e5ee; --barbg: #dde2ed; --barfg: #5b6fa6;
           --btn: #ffffff; --code: #2f47a6; --link: #3554b5; color-scheme: light; }
   * { box-sizing: border-box; }
+  /* scrollbars follow the theme (color-scheme above picks dark or light native parts), thin and quiet */
+  * { scrollbar-width: thin; scrollbar-color: var(--barbg) transparent; }
   /* moving between views: the old page stays until the new one is drawn, then a short cross-fade (no blank flash) */
   @view-transition { navigation: auto; }
   ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 140ms; }

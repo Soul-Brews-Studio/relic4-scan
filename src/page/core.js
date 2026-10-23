@@ -97,6 +97,8 @@ const kHref = (v, hash) => (KFILE ? `?view=${v}` : `/${v}`) + (hash ? "#" + enco
 const GEMS = { disk: ["Disk", "every .jsonl as rings by folder and size, DaisyDisk style"] };
 const gemOn = g => (JSON.parse(localStorage.getItem("relic-gems") || "[]")).includes(g);
 const gemSet = (g, on) => { const s = new Set(JSON.parse(localStorage.getItem("relic-gems") || "[]")); on ? s.add(g) : s.delete(g); localStorage.setItem("relic-gems", JSON.stringify([...s])); };
+// a share for people: "37.1%", and "100%" (not "100.0%", which no column fits)
+const pct = (v, t) => { const p = 100 * v / Math.max(1, t); return (p >= 99.95 ? "100" : p.toFixed(1)) + "%"; };
 // every write the page asks of the server is a POST with the X-Relic header (a page on another site cannot send it)
 const relicPost = path => fetch(path, { method: "POST", headers: { "X-Relic": "1" } });
 // a popup over the page, made once: a scrim that closes it on click, one dialog box, Esc to close

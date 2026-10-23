@@ -3,8 +3,8 @@
 // a folder that are each under 0.5% of the centre fold into one grey "smaller objects" slice, as DaisyDisk draws it
 let DISK = null, DFOCUS = null;
 function dashDisk() {
-  return `<div class="eyebrow">Storage</div><h1>Disk${rangeChip()}</h1>
-    <p class="sub">Every .jsonl the scan saw, by folder and size. Click a slice to go in, the centre to go back.</p>${scopeLine()}
+  return `<h1>Disk${rangeChip()}</h1>
+    <p class="sub">Every .jsonl by folder and size. Click a slice to go in, the centre to go back.</p>${scopeLine()}
     <div class="dcrumbs" id="dcr"></div><div class="disk"><div id="dsv"><div class="muted">${SERVED ? "loading every path…" : "The disk view needs the server: open this page through relic-scan serve or the app."}</div></div><div class="dl" id="dlg"></div></div>`;
 }
 function diskLoad() {
@@ -30,7 +30,10 @@ function diskLoad() {
     const squash = n => { for (const k of n.kids.values()) squash(k);
       while (!n.file && n !== root && n.kids.size === 1) { const [c] = n.kids.values(); if (c.file) break; n.name += "/" + c.name; n.path = c.path; n.kids = c.kids; for (const g of n.kids.values()) g.parent = n; } };
     squash(root);
-    DISK = DFOCUS = root; diskRender();
+    // open at the first folder that branches: a root holding only "~" says nothing
+    let start = root;
+    while (start.kids.size === 1) { const [c] = start.kids.values(); if (c.file) break; start = c; }
+    DISK = root; DFOCUS = start; diskRender();
   }).catch(e => { $("dsv").innerHTML = `<div class="muted">could not load /paths.json (${esc(String(e))})</div>`; });
 }
 const dabs = n => n.path.replace(/^~/, D.home || "~");
@@ -43,16 +46,18 @@ function dkids(n, min) {
 }
 function diskRender() {
   const f = DFOCUS, R = [70, 140, 200, 250, 292], segs = [], min = f.size * 0.005, hue = new Map();
+  // each branch gets its own hue at the first ring where folders split, and keeps it outwards, lighter as it goes
   const walk = (n, depth, a0, a1, h) => {
     if (depth > 4) return;
+    const kids = dkids(n, min), split = h == null && kids.filter(k => !k.rest).length > 1;
     let a = a0, i = 0;
-    for (const c of dkids(n, min)) {
-      const w = (a1 - a0) * c.size / Math.max(1, n.size), ch = depth === 1 ? (i * 47 + 200) % 360 : h;
-      if (w > 0.003) { segs.push([c, depth, a, a + w, ch]); if (!c.rest && !c.file) walk(c, depth + 1, a, a + w, ch); }
+    for (const c of kids) {
+      const w = (a1 - a0) * c.size / Math.max(1, n.size), ch = split ? (i * 47 + 200) % 360 : h;
+      if (w > 0.003) { segs.push([c, depth, a, a + w, ch ?? 210]); if (!c.rest && !c.file) walk(c, depth + 1, a, a + w, ch); }
       a += w; i++;
     }
   };
-  walk(f, 1, 0, 2 * Math.PI, 0);
+  walk(f, 1, 0, 2 * Math.PI, null);
   const col = (c, d, h) => c.rest ? (LIGHT ? "#d6dbe7" : "#262d3d") : `hsl(${h} ${c.file ? 45 : 65}% ${LIGHT ? 62 - d * 6 : 46 + d * 7}%)`;
   const centre = n => `<text class="ct" text-anchor="middle" y="0">${human(n.size)}</text>
     <text class="cs" text-anchor="middle" y="26">${esc((n.name || "").length > 22 ? n.name.slice(0, 21) + "…" : n.name)}</text>`;
