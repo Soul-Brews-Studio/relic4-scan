@@ -1,3 +1,6 @@
 target/
 desktop/target/
 desktop/gen/
+site/raw/
+.DS_Store
+.wrangler/

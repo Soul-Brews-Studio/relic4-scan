@@ -88,6 +88,6 @@ What relic4-scan phase 2 must reproduce, traced through the code and checked on 
   DuckDB: GROUP BY s,h,idx  any_value(first by path order)  list(sources)
           -> truth/YYYY-MM.duckdb   proof: same 125 files, same rows, byte-equal
 
-  verify/understand.py re-derives it · LEARNED.md · RESEARCH.md · engine.py is the reference
+  ../verify/understand.py re-derives it · LEARNED.md · RESEARCH.md · engine.py is the reference
 ```
 </details>
