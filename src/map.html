@@ -103,7 +103,9 @@
   #dash .overview svg { width: 220px; height: 220px; display: block; }
   #dash .overview .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-6) var(--sp-5); margin: 0; }
   #dash .stat .k { font-size: 11px; letter-spacing: .2em; color: var(--dim); font-weight: 700; text-transform: uppercase; }
-  #dash .stat .s { margin-top: 4px; color: var(--dim); font-size: 13px; font-variant-numeric: tabular-nums; }
+  #dash .stat { min-width: 0; }
+  #dash .stat .s { margin-top: 6px; color: var(--dim); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #dash .strip.five .stat .v { font-size: 28px; white-space: nowrap; letter-spacing: -.01em; }
   #dash .stat .v { font-size: 34px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; }
   #dash .go { background: var(--amber); color: var(--on-amber); border: 0; border-radius: 10px; padding: 14px 26px;
               font: 700 17px var(--font-ui); cursor: pointer; min-width: 220px; }
@@ -160,7 +162,7 @@
   }
   /* contents (on Smart Scan): every row by kind, .jsonl kind and place; the legend lists the focused ring */
   /* Smart Scan opens on what the index holds: the donut and its legend, then the file counts */
-  #dash .hero { display: grid; grid-template-columns: 260px minmax(0, 340px); gap: var(--sp-7); align-items: center; margin: 0 0 var(--sp-6); }
+  #dash .hero { display: grid; grid-template-columns: 260px minmax(0, 340px); gap: var(--sp-7); align-items: center; justify-content: center; margin: 0 0 var(--sp-6); }
   #dash .kl .row { display: grid; grid-template-columns: 10px minmax(0, 1fr) 84px 48px; gap: var(--sp-3); align-items: center; width: 100%; padding: 7px var(--sp-2);
                    border: 0; border-radius: 8px; background: none; color: var(--ink); font: 15px var(--font-ui); font-variant-numeric: tabular-nums; text-align: left; cursor: pointer; }
   #dash .kl .row:hover, #dash .kl .row:focus-visible { background: var(--hover); outline: none; }
@@ -207,6 +209,8 @@
   #cpop .mc { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px; }
   #cpop .mc .b { flex: 1; width: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
   #cpop .mc i { display: block; width: 100%; max-width: 44px; border-radius: 4px 4px 0 0; min-height: 2px; }
+  #cpop .mc .stack { display: flex; flex-direction: column-reverse; width: 100%; max-width: 44px; min-height: 2px; border-radius: 4px 4px 0 0; overflow: hidden; gap: 1px; }
+  #cpop .mc .stack i { max-width: none; border-radius: 0; min-height: 0; }
   #cpop .mv { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
   #cpop .ml { font-size: 12px; color: var(--dim); height: 30px; text-align: center; line-height: 1.2; } #cpop .ml b { display: block; font-weight: 600; color: var(--ink); font-size: 11px; }
   #cpop .foot { grid-column: 1 / -1; margin: 0; color: var(--dim); font-size: 13px; }
@@ -952,9 +956,9 @@ function dashScan() {
       let lo = Infinity, hi = -Infinity; for (let k = 0; k < N; k++) if (S.t0[k] != null) { lo = Math.min(lo, S.t0[k]); hi = Math.max(hi, S.t1[k] ?? S.t0[k]); }
       const months = lo < Infinity ? monthIdx(hi) - monthIdx(lo) + 1 : 0, mon = t => new Date((t + BKK) * 1000).toLocaleString("en", { month: "short", year: "numeric", timeZone: "UTC" });
       return stat("Rows", fmt(T.rows), "var(--ink)", `≈${Math.round(T.rows / Math.max(1, SC.indexed)).toLocaleString()} per file`)
-        + stat("Sessions", fmt(N), "var(--ink)", `${fmt(T.t[0])} main · ${fmt(T.t[1])} sub · ${fmt(T.t[2])} workflow`)
-        + stat("Files indexed", fmt(SC.indexed), "var(--ink)", `${gbs(SC.bytes)} · ${(100 * cov).toFixed(2)}% of transcripts`)
-        + stat("Newest row", hi > -Infinity ? agoText(Date.now() / 1000 - hi) : "—", "var(--ink)", hi > -Infinity ? bkk(hi) + " Bangkok" : "")
+        + stat("Sessions", fmt(N), "var(--ink)", `${short(T.t[0])} main · ${short(T.t[1])} sub · ${short(T.t[2])} wf`)
+        + stat("Files indexed", fmt(SC.indexed), "var(--ink)", `${gbs(SC.bytes)} · ${(100 * cov).toFixed(2)}% covered`)
+        + stat("Newest row", hi > -Infinity ? agoText(Date.now() / 1000 - hi) : "—", "var(--ink)", hi > -Infinity ? bkk(hi) : "")
         + stat("Span", months ? `${months} months` : "—", "var(--ink)", lo < Infinity ? `${mon(lo)} → ${mon(hi)}` : "");
     })()}</div>
     <div class="card"><h3>Index controls</h3>
@@ -1150,14 +1154,18 @@ function contentsFull() {
         <span class="v">${p.v.toLocaleString()}</span><span class="p">${(100 * p.v / tot).toFixed(1)}%</span></div>`).join("")}</section>`;
   };
   const months = group("month").sort((a, b) => a.key < b.key ? -1 : 1), top = Math.max(1, ...months.map(m => m.v));
+  // every row: each month's column is stacked by kind (tool calls at the bottom, as in the chips' order reversed)
+  const byMonthKind = new Map(); if (!sel) for (const r of sunAgg()) { const id = r.month + "|" + r.type; byMonthKind.set(id, (byMonthKind.get(id) || 0) + r.v); }
   const mname = k => k === "undated" ? "undated" : new Date(k + "-01T00:00:00Z").toLocaleString("en", { month: "short", timeZone: "UTC" });
   const colour = sel ? kcolor(sel) : "var(--accent)";
   $("cpd").innerHTML = `${bar("Kind of .jsonl", group("tier"), "var(--accent)", t => FILES[t][0])}
     ${bar("Where the file lives", group("place"), "var(--green)", p => p)}
     ${bar("Agent", group("agent"), "var(--amber)", a => a)}
-    <section class="months"><h4>By month <span class="muted">· the month each session started (Bangkok)</span></h4>
+    <section class="months"><h4>By month <span class="muted">· the month each session started (Bangkok)${sel ? "" : " · stacked by kind"}</span></h4>
       <div class="mchart">${months.map(m => `<div class="mc" title="${m.key}: ${m.v.toLocaleString()} rows">
-        <div class="b"><span class="mv">${short(m.v)}</span><i style="height:${(82 * m.v / top).toFixed(1)}%;background:${colour}"></i></div>
+        <div class="b"><span class="mv">${short(m.v)}</span>${sel ? `<i style="height:${(82 * m.v / top).toFixed(1)}%;background:${colour}"></i>`
+          : `<div class="stack" style="height:${(82 * m.v / top).toFixed(1)}%">${KINDS.map(([key, l]) => { const v = byMonthKind.get(m.key + "|" + key) || 0;
+              return v ? `<i style="flex:${v};background:${kcolor(key)}" title="${m.key} · ${esc(l)}: ${v.toLocaleString()}"></i>` : ""; }).join("")}</div>`}</div>
         <span class="ml">${mname(m.key)}${m.key.endsWith("-01") || m === months[0] ? `<b>${m.key.slice(0, 4)}</b>` : ""}</span></div>`).join("")}</div></section>
     <p class="foot">A line copied into several homes is one row, under the first home that holds it.</p>`;
 }
