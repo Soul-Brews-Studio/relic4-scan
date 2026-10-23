@@ -12,6 +12,9 @@ fn tiers() {
     assert_eq!(tier_of(&format!("/Users/x/.codex/sessions/2026/07/01/rollout-2026-07-01T00-00-00-{U}.jsonl")), "main");
     assert_eq!(tier_of("/Users/x/.codex/sessions/rollout-x.jsonl"), "other");
     assert_eq!(tier_of("/Users/x/.omp/agent/sessions/p/2026_ab12-cd.jsonl"), "main");
+    // an omp subagent: a task's transcript inside its parent session's folder
+    assert_eq!(tier_of(&format!("/Users/x/.omp/agent/sessions/p/2026-10-13T02-07-20-692Z_{U}/GqlShapes.jsonl")), "subagent");
+    assert_eq!(tier_of(&format!("/Users/x/.omp/agent/sessions/p/2026-10-13T02-07-20-692Z_{U}.jsonl")), "main");
     assert_eq!(tier_of("/Users/x/.omx/logs/run.jsonl"), "main");
     assert_eq!(tier_of("/Users/x/.omx/history.jsonl"), "other");
     assert_eq!(tier_of("/Users/x/.claude/history.jsonl"), "other");
@@ -31,6 +34,11 @@ fn repos_and_projects() {
     assert_eq!(cat_of("claude", None), "(no project dir)");
     assert_eq!(cat_of("codex", None), "codex (no cwd in path)");
     assert_eq!(parent_of(&format!("/h/p/{U}/subagents/agent-1.jsonl")).as_deref(), Some(U));
+    assert_eq!(parent_of(&format!("/Users/x/.omp/agent/sessions/p/2026-10-13T02-07-20-692Z_{U}/GqlShapes.jsonl")).as_deref(), Some(U));
+    // a Claude session's id is its file name; a codex rollout and a task-named omp subagent take the id inside the file
+    assert_eq!(extract(&rx().uuid_file, &format!("{U}.jsonl"), 1), U);
+    assert_eq!(extract(&rx().uuid_file, &format!("rollout-2026-07-01T00-00-00-{U}.jsonl"), 1), "");
+    assert_eq!(extract(&rx().uuid_file, "GqlShapes.jsonl", 1), "");
     assert_eq!(home_of(&p), "/h/.claude");
 }
 

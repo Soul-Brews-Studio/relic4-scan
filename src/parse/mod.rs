@@ -179,14 +179,16 @@ fn parse_file_chunked(path: &str, ctx: &Ctx, jt_compat: bool, st: &Stats, emit: 
             }
             let trs: Vec<Tool> = engine::extract_tools(line, &r);
             let think = engine::thinking_of(line, &r);
-            if x.text.is_empty() && think.is_empty() && trs.is_empty() {
+            if x.text.is_empty() && think.is_none() && trs.is_empty() {
                 continue;
             }
             let stp = engine::stamp(ts);
             let sid = if x.sess.is_empty() { session.clone() } else { x.sess.clone() };
             let h = engine::key(line);
-            for (s, body) in [("text", &x.text), ("thinking", &think)] {
-                if body.is_empty() {
+            // a thinking row is kept even with empty text: the model thought, only the text was not saved
+            let think_text = think.clone().unwrap_or_default();
+            for (s, body) in [("text", &x.text), ("thinking", &think_text)] {
+                if body.is_empty() && !(s == "thinking" && think.is_some()) {
                     continue;
                 }
                 let (clean, kinds) = engine::redact(body);

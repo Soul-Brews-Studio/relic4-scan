@@ -71,7 +71,7 @@ const md = [
   "## Instructions for AI agents", "",
   `- [agents.md](${root}/scan/agents.md): install, run, query (DuckDB over ~/.relic-scan), build and change the code; the repository's AGENTS.md`,
   `- Install: \`${GET.cli}\``, "- Index: `relic-scan run` (ask the human first: it reads every transcript on the machine, read only)",
-  "- Query: month files `~/.relic-scan/YYYY-MM.parquet` (sid, engine, ts, role, kind, name, text), `meta/sessions.parquet`, `meta/vaults.json`. Start by counting every row by `coalesce(kind, role)`: messages and thinking carry a `role`, tool calls and results a `kind`; omp marks tool results `role = 'toolResult'`.", "",
+  "- Query: month files `~/.relic-scan/YYYY-MM.parquet` (sid, engine, ts, role, kind, name, text), `meta/sessions.parquet`, `meta/vaults.json`. Start by counting every row by `coalesce(kind, role)`: messages and thinking carry a `role`, tool calls and results a `kind`; a thinking row with empty text is a block whose text was not saved; copies of a transcript in several homes are one row.", "",
   `A prompt a person can give their agent: "${AGENT.prompt}"`, "",
   "## Docs", "", `- [Full page text](${root}/llms-full.txt): features, measured speed, privacy, FAQ and downloads`, `- [Source](${SITE.repo}) (${SITE.license})`, "",
   "## Questions", "", ...FAQ.map(([q, a]) => `- **${q}** ${a}`), "",
