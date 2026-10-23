@@ -6,10 +6,10 @@ const LIGHT = THEME_PICK === "light" || (THEME_PICK === "auto" && matchMedia("(p
 document.documentElement.dataset.theme = LIGHT ? "light" : "dark";
 // one page, three views: /map, /tree and /paths when served, ?view=tree|paths when opened as a file
 // served: / is Smart Scan; opened as a file (no server, no index button): the map
-const VIEWS = ["scans", "scan", "disk", "banks", "health", "map", "tree", "paths"];
+const VIEWS = ["scans", "scan", "disk", "settings", "banks", "health", "map", "tree", "paths"];
 let VIEW = VIEWS.find(v => location.pathname.endsWith("/" + v) || new URLSearchParams(location.search).get("view") === v)
   || (location.protocol.startsWith("http") && /\/$/.test(location.pathname) ? "scan" : "map");
-const DASH = ["scan", "scans", "disk", "banks", "health"].includes(VIEW);
+const DASH = ["scan", "scans", "disk", "settings", "banks", "health"].includes(VIEW);
 const S = D.s, N = S.sid.length, BKK = 7 * 3600;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -90,6 +90,9 @@ for (let pass = 0; pass < 2; pass++) for (let k = 0; k < N; k++) {
 // ---------- shared helpers (used by several views) ----------
 // bytes for people: "75.7 GB", "239.0 MB", "952 KB"
 const human = b => b >= 1e9 ? (b / 1e9).toFixed(1) + " GB" : b >= 1e6 ? (b / 1e6).toFixed(1) + " MB" : Math.round(b / 1e3) + " KB";
+// a link to a view (a page served by relic-scan, or ?view= when opened as a file), with an optional query
+const KFILE = location.protocol === "file:";
+const kHref = (v, hash) => (KFILE ? `?view=${v}` : `/${v}`) + (hash ? "#" + encodeURIComponent(hash) : "");
 // every write the page asks of the server is a POST with the X-Relic header (a page on another site cannot send it)
 const relicPost = path => fetch(path, { method: "POST", headers: { "X-Relic": "1" } });
 // a popup over the page, made once: a scrim that closes it on click, one dialog box, Esc to close

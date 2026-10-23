@@ -1,7 +1,5 @@
 // ---------- ⌘K: search what the page holds (views, actions, sessions, repos, homes, files, scans, filters) ----------
 // every result opens something; some also carry actions (copy the resume command, export, check or index just that path)
-const KFILE = location.protocol === "file:";
-const kHref = (v, hash) => (KFILE ? `?view=${v}` : `/${v}`) + (hash ? "#" + encodeURIComponent(hash) : "");
 let KP = null, KSEL = 0, KITEMS = [], KMORE = new Set(), KPATHS = null;
 // a rank for how well `q` matches `s`: 0 starts it, 1 starts a word in it, 2 is inside it, 3 is a scattered match
 function kScore(s, q) {
@@ -34,7 +32,7 @@ const kRun = async (path, dry) => {
 function kGroups(qRaw) {
   const q = qRaw.trim().toLowerCase(), G = [];
   const add = (name, items, cap = 6) => { if (items.length) G.push({ name, items, cap }); };
-  const views = [["scan", "Smart Scan"], ["banks", "Banks & Repos"], ["health", "Health"], ["scans", "Scan log"], ["map", "Session map"], ["tree", "Tree"], ["paths", "Paths"]];
+  const views = [["scan", "Smart Scan"], ["banks", "Banks & Repos"], ["health", "Health"], ["scans", "Scan log"], ["map", "Session map"], ["tree", "Tree"], ["paths", "Paths"], ["disk", "Disk"], ["settings", "Settings"]];
   const rank = (arr, text) => arr.map(x => [x, q ? kScore(text(x), q) : 0]).filter(([, r]) => r != null).sort((a, b) => a[1] - b[1]).map(([x]) => x);
   add("Go to", rank(views, v => v[1]).map(([v, l]) => ({ t: l, d: VIEW === v ? "you are here" : "", go: () => { location.href = kHref(v); } })));
   const acts = [
@@ -158,7 +156,7 @@ if (VIEW === "scan" && location.hash === "#contents") setTimeout(() => openConte
 
 // the dashboard views (Smart Scan, Banks & Repos, Health, Scan log) share one page: switching among them redraws in
 // place, with no reload; history keeps back and forward working. The map, tree and paths still load as pages.
-const SOFT = ["scan", "scans", "disk", "banks", "health"];
+const SOFT = ["scan", "scans", "disk", "settings", "banks", "health"];
 function softGo(v, push = true) {
   if (!DASH || !SOFT.includes(v) || location.protocol === "file:") return false;
   VIEW = v;

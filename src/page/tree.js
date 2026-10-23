@@ -34,8 +34,13 @@ function sessRow(k, depth) {
   return h;
 }
 function renderTree() {
+  // a home: filter (a bank opened from Banks & Repos) shows that home only, not every home holding a copy
+  const terms = parseQuery($("q").value), homeWant = terms.filter(t => t.key === "home" && !t.neg).map(t => t.val.toLowerCase());
+  const repoWant = terms.filter(t => (t.key === "repo" || t.key === "cat") && !t.neg).map(t => t.val);
+  const homeOk = h => homeWant.every(v => (D.homes[h].path + " " + D.homes[h].origin).toLowerCase().includes(v));
   const H = new Map(), HR = new Map();
   for (let k = 0; k < N; k++) if (match[k]) for (const h of S.homes[k]) {
+    if (!homeOk(h)) continue;
     addAgg(H.get(h) || H.set(h, newAgg()).get(h), k);
     const key = h + "|" + S.cat[k];
     addAgg(HR.get(key) || HR.set(key, newAgg()).get(key), k);
@@ -43,7 +48,15 @@ function renderTree() {
   // a small result opens itself down to the repos
   if (active && countMatched <= 400 && !treeAuto) { for (const key of HR.keys()) { open.add("h:" + key.split("|")[0]); open.add("r:" + key); } treeAuto = true; }
   if (!active) treeAuto = false;
-  let html = `<div class="tn th"><span>jsonl home → repo → session → satellites</span><span class="c">sessions</span><span class="c">rows</span><span>by type</span><span class="c">last (BKK)</span></div>`;
+  // one bank: open it down to its repos
+  if (homeWant.length && H.size <= 3) for (const h of H.keys()) open.add("h:" + h);
+  // where you are: the bank or repo the query came from, and the way back
+  const home1 = homeWant.length && H.size === 1 ? D.homes[[...H.keys()][0]] : null, tot = [...H.values()].reduce((t, a) => t + a.n, 0);
+  let html = home1 ? `<div class="where"><a href="${kHref("banks")}">Banks &amp; Repos</a><span>›</span><b>${esc(home1.path.replace(D.home || "\u0000", "~"))}</b>
+      <span class="muted">${home1.origin} · ${fmt(tot)} sessions · ${human(home1.bytes)}</span><a class="x" href="${kHref("tree")}" title="every home">clear ×</a></div>`
+    : repoWant.length ? `<div class="where"><a href="${kHref("banks")}">Repositories</a><span>›</span><b>${esc(repoWant.join(" · "))}</b>
+      <span class="muted">${fmt(tot)} sessions</span><a class="x" href="${kHref("tree")}" title="every repo">clear ×</a></div>` : "";
+  html += `<div class="tn th"><span>jsonl home → repo → session → satellites</span><span class="c">sessions</span><span class="c">rows</span><span>by type</span><span class="c">last (BKK)</span></div>`;
   for (const [h, a] of [...H].sort((x, y) => y[1].rows - x[1].rows)) {
     const home = D.homes[h];
     html += tnode("h:" + h, 0, `${esc(home.path.replace(/^\/Users\/[^/]+/, "~"))} <span class="tw">${home.origin} · ${fmt(home.files)} files · ${(home.bytes / 1e9).toFixed(2)} GB</span>`, a);

@@ -14,6 +14,8 @@
 //!   POST /api/run?only=…, /api/check?only=…  the same, over the files whose path holds that text
 //!   POST /api/reveal?path=…|sid=…  show a .jsonl the scan saw (or a folder holding one) in Finder; other paths are refused
 //!   POST /api/stop     stop the run or check going on: it stops with nothing written, unless its merge has started
+//!   GET  /api/config   the Settings (OUT/_config.json), the defaults, OUT and the version; POST saves (X-Relic)
+//!   POST /api/pick     the desktop's folder picker (macOS choose folder); the chosen path, or 204 when cancelled
 //!   GET  /api/scans    the scan log (OUT/_scans.jsonl), newest first, without file lists
 //!   GET  /api/scans/N  one entry with its file list (the files the run read, or a check would read, and gone ones)
 //!                      Both POSTs need an `X-Relic: 1` header: a page on another site cannot send one without a CORS
@@ -92,6 +94,18 @@ fn seen_paths(out: &Path) -> Vec<String> {
         }
     }
     v
+}
+
+/// The desktop's own folder picker, shown by the server (it runs on this machine): `choose folder` on macOS, zenity
+/// elsewhere. None when the user cancels or there is no picker. The page cannot get a real path from a browser picker.
+fn pick_folder() -> Option<String> {
+    let out = if cfg!(target_os = "macos") {
+        std::process::Command::new("osascript").args(["-e", r#"POSIX path of (choose folder with prompt "A folder for relic-scan to walk")"#]).output()
+    } else {
+        std::process::Command::new("zenity").args(["--file-selection", "--directory"]).output()
+    }.ok()?;
+    let p = String::from_utf8_lossy(&out.stdout).trim().trim_end_matches('/').to_string();
+    (out.status.success() && !p.is_empty()).then_some(p)
 }
 
 /// What `/api/reveal` may show: a .jsonl the scan saw (by path, or a session by id), or a folder holding one.
@@ -219,10 +233,20 @@ fn handle(s: TcpStream, c: &Arc<Ctx>) {
         return;
     }
     let mut relic_header = false;
+    let mut length = 0usize;
     let mut h = String::new();
     while rd.read_line(&mut h).is_ok_and(|n| n > 2) {
-        relic_header |= h.to_ascii_lowercase().starts_with("x-relic:");
+        let low = h.to_ascii_lowercase();
+        relic_header |= low.starts_with("x-relic:");
+        if let Some(v) = low.strip_prefix("content-length:") {
+            length = v.trim().parse().unwrap_or(0);
+        }
         h.clear();
+    }
+    // a POST body (only /api/config sends one), at most 64 KB
+    let mut body = vec![0u8; length.min(64 << 10)];
+    if !body.is_empty() && std::io::Read::read_exact(&mut rd, &mut body).is_err() {
+        return;
     }
     let mut parts = line.split_whitespace();
     let method = parts.next().unwrap_or("GET");
@@ -283,6 +307,21 @@ fn handle(s: TcpStream, c: &Arc<Ctx>) {
                 None => json(s, "404 Not Found", serde_json::json!({"error": "no such scan"})),
             }
         }
+        ("GET", "/api/config") => json(s, "200 OK", serde_json::json!({
+            "config": crate::config::load(&c.out), "defaults": crate::config::Config::default(),
+            "out": c.out.display().to_string(), "kind": c.kind, "version": env!("CARGO_PKG_VERSION"),
+        })),
+        ("POST", "/api/config") if !relic_header => json(s, "403 Forbidden", serde_json::json!({"error": "needs the X-Relic header"})),
+        ("POST", "/api/config") => match serde_json::from_slice::<crate::config::Config>(&body).map_err(|e| e.to_string())
+            .and_then(|cfg| crate::config::save(&c.out, cfg)) {
+            Ok(cfg) => json(s, "200 OK", serde_json::json!({"config": cfg})),
+            Err(e) => json(s, "400 Bad Request", serde_json::json!({"error": e})),
+        },
+        ("POST", "/api/pick") if !relic_header => json(s, "403 Forbidden", serde_json::json!({"error": "needs the X-Relic header"})),
+        ("POST", "/api/pick") => match pick_folder() {
+            Some(p) => json(s, "200 OK", serde_json::json!({"path": p})),
+            None => json(s, "204 No Content", serde_json::json!({})),
+        },
         ("POST", "/api/stop") if !relic_header => json(s, "403 Forbidden", serde_json::json!({"error": "needs the X-Relic header"})),
         ("POST", "/api/stop") => {
             // Stop: honoured during the walk and the parse; once the merge has started the run finishes
@@ -322,6 +361,21 @@ pub fn bind(port: u16) -> TcpListener {
 /// Serve OUT on an already bound listener until the process ends. `kind` is what the index button runs with.
 pub fn serve_on(l: TcpListener, out: &Path, kind: Vec<String>) {
     let c = Arc::new(Ctx { out: out.to_path_buf(), kind, job: Mutex::default() });
+    // Settings > auto check: once a minute, start a check when none has started for that long and nothing is running
+    {
+        let c = c.clone();
+        std::thread::spawn(move || {
+            let mut last = Instant::now();
+            loop {
+                std::thread::sleep(std::time::Duration::from_secs(60));
+                let every = crate::config::load(&c.out).auto_check_min as u64;
+                let busy = { let j = c.job.lock().unwrap(); if let Some(t) = j.started { last = last.max(t); } j.running };
+                if every > 0 && !busy && last.elapsed().as_secs() >= every * 60 && start(&c, true, None).is_ok() {
+                    last = Instant::now();
+                }
+            }
+        });
+    }
     for s in l.incoming().flatten() {
         let c = c.clone();
         std::thread::spawn(move || handle(s, &c));
