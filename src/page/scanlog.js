@@ -2,7 +2,8 @@
 const when = at => { const d = new Date(at * 1000), p = x => String(x).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
 const zn = x => x ? x.toLocaleString() : `<span class="z">0</span>`;
-const scanWhat = e => e.files ? `${e.files.toLocaleString()} files · ${human(e.bytes)}` : e.gone ? `${e.gone.toLocaleString()} gone` : "nothing changed";
+const files = n => `${n.toLocaleString()} file${n === 1 ? "" : "s"}`;
+const scanWhat = e => e.files ? `${files(e.files)} · ${human(e.bytes)}` : e.gone ? `${e.gone.toLocaleString()} gone` : "nothing changed";
 function dashScans() {
   return `<div class="eyebrow">History</div><h1>Scan log${rangeChip()}</h1>
     <p class="sub">Every index and every check, newest first. Open one to see the files it read, or would read, and the files gone from disk.</p>${scopeLine()}
@@ -22,7 +23,7 @@ async function loadScans() {
         <span><span class="chip ${e.job}">${e.job}</span></span>
         <span class="r">${zn(e.new)}</span><span class="r">${zn(e.grown)}</span><span class="r">${zn(e.rewritten)}</span><span class="r">${zn(e.gone)}</span>
         <span class="r">${e.bytes ? human(e.bytes) : `<span class="z">—</span>`}</span><span class="r">${e.secs.toFixed(1)}s</span>
-        <span class="x muted">${e.job === "index" ? (d != null ? `${d >= 0 ? "+" : ""}${d.toLocaleString()} rows` : `${(e.rows || 0).toLocaleString()} rows`) : (e.files ? "would read " : "") + scanWhat(e)}</span></div>`; }).join("");
+        <span class="x muted">${e.job === "index" ? (d != null ? `${d >= 0 ? "+" : ""}${d.toLocaleString()} rows` : `${(e.rows || 0).toLocaleString()} rows`) : (e.files ? "would read " + files(e.files) : e.gone ? `${e.gone.toLocaleString()} gone` : "nothing changed")}</span></div>`; }).join("");
   for (const r of $("slog").querySelectorAll(".lrow[data-i]")) {
     r.onclick = () => openScan(r);
     r.onkeydown = ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); openScan(r); } };
