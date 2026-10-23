@@ -54,7 +54,9 @@ pub fn load(out: &Path) -> HashMap<String, FileState> {
                        model: c.get(13).map(|x| x.to_string()).unwrap_or_default(),
                        meta: crate::engine::SessMeta {
                            cwd: c.get(14).map(|x| x.to_string()).unwrap_or_default(), title: c.get(15).map(|x| x.to_string()).unwrap_or_default(),
-                           branch: c.get(16).map(|x| x.to_string()).unwrap_or_default(), version: c.get(17).map(|x| x.to_string()).unwrap_or_default() } },
+                           branch: c.get(16).map(|x| x.to_string()).unwrap_or_default(), version: c.get(17).map(|x| x.to_string()).unwrap_or_default(),
+                           via: c.get(18).map(|x| x.to_string()).unwrap_or_default(), chat: c.get(19).map(|x| x.to_string()).unwrap_or_default(),
+                           from_user: c.get(20).map(|x| x.to_string()).unwrap_or_default() } },
             prefix_len: num(8) as u64, prefix_hash: num(9),
             copy_of: c.get(12).filter(|x| !x.is_empty()).map(|x| x.to_string()),
         });
@@ -65,15 +67,16 @@ pub fn load(out: &Path) -> HashMap<String, FileState> {
 pub fn save(out: &Path, m: &HashMap<String, FileState>) {
     let tmp = out.join("_state.tsv.part");
     let mut w = std::io::BufWriter::new(fs::File::create(&tmp).unwrap());
-    writeln!(w, "path\tdev\tino\tsize\toffset\tlines\tsession\tlast_ms\tprefix_len\tprefix_hash\tfirst\tchain\tcopy_of\tmodel\tcwd\ttitle\tbranch\tversion").unwrap();
+    writeln!(w, "path\tdev\tino\tsize\toffset\tlines\tsession\tlast_ms\tprefix_len\tprefix_hash\tfirst\tchain\tcopy_of\tmodel\tcwd\ttitle\tbranch\tversion\tvia\tchat\tfrom_user").unwrap();
     let mut keys: Vec<&String> = m.keys().collect();
     keys.sort();
     for k in keys {
         let s = &m[k];
-        writeln!(w, "{k}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", s.dev, s.ino, s.size, s.ctx.offset, s.ctx.lines,
+        writeln!(w, "{k}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", s.dev, s.ino, s.size, s.ctx.offset, s.ctx.lines,
                  s.ctx.session, s.ctx.last_ms.map(|x| x.to_string()).unwrap_or_default(), s.prefix_len, s.prefix_hash, s.ctx.first,
                  crate::ledger::hex(&s.ctx.chain), s.copy_of.as_deref().unwrap_or(""), s.ctx.model,
-                 tsv(&s.ctx.meta.cwd), tsv(&s.ctx.meta.title), tsv(&s.ctx.meta.branch), tsv(&s.ctx.meta.version)).unwrap();
+                 tsv(&s.ctx.meta.cwd), tsv(&s.ctx.meta.title), tsv(&s.ctx.meta.branch), tsv(&s.ctx.meta.version),
+                 tsv(&s.ctx.meta.via), tsv(&s.ctx.meta.chat), tsv(&s.ctx.meta.from_user)).unwrap();
     }
     // on disk before the rename, so a power cut can never leave a state that points past what was written
     w.into_inner().unwrap().sync_all().unwrap();

@@ -222,9 +222,12 @@ pub fn build(out: &Path, agent: &str, st: &HashMap<String, FileState>, threads: 
         // the copy that was written to last says what the session is called now; the first cwd of any copy is kept
         let newer = f.last_ms > e.meta_ms;
         let cwd = if e.meta.cwd.is_empty() { f.meta.cwd.clone() } else { e.meta.cwd.clone() };
+        let chan = if e.meta.via.is_empty() { (f.meta.via.clone(), f.meta.chat.clone(), f.meta.from_user.clone()) }
+                   else { (e.meta.via.clone(), e.meta.chat.clone(), e.meta.from_user.clone()) };
         if newer {
             let mut m = f.meta.clone();
             m.cwd = cwd;
+            (m.via, m.chat, m.from_user) = chan;
             for (a, b) in [(&mut m.title, &e.meta.title), (&mut m.branch, &e.meta.branch), (&mut m.version, &e.meta.version)] {
                 if a.is_empty() {
                     *a = b.clone();
@@ -233,7 +236,7 @@ pub fn build(out: &Path, agent: &str, st: &HashMap<String, FileState>, threads: 
             e.meta = m;
             e.meta_ms = f.last_ms;
         } else {
-            e.meta.take(crate::engine::SessMeta { cwd, ..Default::default() });
+            e.meta.take(crate::engine::SessMeta { cwd, via: chan.0, chat: chan.1, from_user: chan.2, ..Default::default() });
             for (a, b) in [(&mut e.meta.title, &f.meta.title), (&mut e.meta.branch, &f.meta.branch), (&mut e.meta.version, &f.meta.version)] {
                 if a.is_empty() {
                     *a = b.clone();
@@ -292,6 +295,9 @@ pub fn build(out: &Path, agent: &str, st: &HashMap<String, FileState>, threads: 
         ("title", utf8(rows.iter().map(|r| Some(r.2.meta.title.clone()).filter(|x| !x.is_empty())))),
         ("branch", utf8(rows.iter().map(|r| Some(r.2.meta.branch.clone()).filter(|x| !x.is_empty())))),
         ("version", utf8(rows.iter().map(|r| Some(r.2.meta.version.clone()).filter(|x| !x.is_empty())))),
+        ("via", utf8(rows.iter().map(|r| Some(r.2.meta.via.clone()).filter(|x| !x.is_empty())))),
+        ("chat", utf8(rows.iter().map(|r| Some(r.2.meta.chat.clone()).filter(|x| !x.is_empty())))),
+        ("from_user", utf8(rows.iter().map(|r| Some(r.2.meta.from_user.clone()).filter(|x| !x.is_empty())))),
     ];
     for (j, n) in TYPES.iter().enumerate() {
         scols.push((n, i64s(rows.iter().map(|r| Some(r.2.agg.by[j])))));
