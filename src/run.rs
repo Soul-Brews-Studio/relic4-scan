@@ -141,6 +141,9 @@ pub fn run_inner(a: RunArgs, lock: Option<std::fs::File>, serving: bool) -> Repo
     let mut seen = std::collections::HashSet::new();
     let mut odd = 0u64;
     let mut early = 0u64;
+    // listed by the walk but refused on open (macOS privacy, or another user's private folder): they could never be
+    // read, so they are counted here, not as "new" on every run
+    let mut unopenable: Vec<String> = vec![];
     let mut changes: Vec<scanlog::Change> = vec![];
     for f in &r.files {
         if !only.is_empty() && !only.iter().any(|o| f.path.contains(o.as_str())) {
@@ -163,6 +166,10 @@ pub fn run_inner(a: RunArgs, lock: Option<std::fs::File>, serving: bool) -> Repo
         let start = match st.get(&f.path) {
             None => {
                 if full && sniff::sniff(&f.path).verdict == "not-transcript" {
+                    continue;
+                }
+                if std::fs::File::open(&f.path).is_err() {
+                    unopenable.push(f.path.clone());
                     continue;
                 }
                 new += 1;
@@ -204,6 +211,9 @@ pub fn run_inner(a: RunArgs, lock: Option<std::fs::File>, serving: bool) -> Repo
     }
     if odd > 0 {
         eprintln!("run: skipped {} files whose path holds a tab or a newline", num(odd));
+    }
+    if !unopenable.is_empty() {
+        eprintln!("run: {} files could not be opened (no permission); they are listed in meta/unreadable.json", num(unopenable.len() as u64));
     }
     // the ledger: what each new or rewritten path is, wherever its lines were read before (ledger.rs)
     let mut ledg = ledger::load(outp);
@@ -339,7 +349,8 @@ pub fn run_inner(a: RunArgs, lock: Option<std::fs::File>, serving: bool) -> Repo
     // the folders the walk was refused, for Health (the list may be long: the page shows the first ones)
     let _ = std::fs::create_dir_all(outp.join("meta"));
     let _ = std::fs::write(outp.join("meta").join("unreadable.json"),
-                           serde_json::json!({"count": unreadable.len(), "folders": unreadable.iter().take(500).collect::<Vec<_>>()}).to_string());
+                           serde_json::json!({"count": unreadable.len(), "folders": unreadable.iter().take(500).collect::<Vec<_>>(),
+                                              "files": unopenable.len(), "file_list": unopenable.iter().take(500).collect::<Vec<_>>()}).to_string());
     meta::jsonl(outp, &r, &st);
     // every ψ vault and its notes, as plain JSON (meta/vaults.json)
     let tv = std::time::Instant::now();
