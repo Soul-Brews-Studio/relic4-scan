@@ -75,7 +75,7 @@ fn start(c: &Arc<Ctx>) -> Result<(), String> {
     std::thread::spawn(move || {
         let args = crate::RunArgs {
             out: c.out.display().to_string(), roots: vec![], depth: 8, threads: 0, exclude: vec![], full: false, agent: None,
-            jt_compat: false, only: vec![], kind: c.kind.clone(),
+            jt_compat: false, only: vec![], kind: c.kind.clone(), month: None, day: None, from: None, to: None,
         };
         let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| crate::run_with(args, Some(lock))));
         crate::PHASE.store(0, Relaxed);

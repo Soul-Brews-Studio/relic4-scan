@@ -127,7 +127,10 @@ fn main() {
         Cmd::Tui { out, kind } => tui::tui(std::path::Path::new(&out_dir(&out, &kind))),
         Cmd::Run(a) => run_cmd(a),
         Cmd::Up { run, port } => {
-            let out = out_dir(&run.out, &run.kind);
+            let out = run.out_dir().unwrap_or_else(|e| {
+                eprintln!("relic-scan: {e}");
+                std::process::exit(1);
+            });
             let kind = run.kind.clone();
             run_cmd(run);
             serve::serve(std::path::Path::new(&out), port, kind);
@@ -163,7 +166,7 @@ fn main() {
                 }
             }
             eprintln!("parse: {} files from {index} · agent {agent}", jobs.len());
-            let _ = parse::run(jobs, std::path::Path::new(&out), &agent, threads, jt_compat, keep_parts);
+            let _ = parse::run(jobs, std::path::Path::new(&out), &agent, threads, jt_compat, keep_parts, None);
         }
         Cmd::Scan { roots, depth, threads, json, index, exclude, full } => {
             let roots = if roots.is_empty() { vec!["~".to_string(), "/opt/Code".to_string()] } else { roots };

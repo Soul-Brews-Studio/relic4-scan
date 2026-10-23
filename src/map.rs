@@ -150,6 +150,7 @@ pub fn build(out: &Path, agent: &str) {
     let data = json!({
         "agent": agent,
         "scan": scan_sum, "last_run": last_run, "out": out.display().to_string(),
+        "range": crate::range::Range::read(out).map(|g| json!({"from": g.from, "to": g.to, "label": g.label, "human": g.human()})),
         "built": chrono::Local::now().format("%Y-%m-%d %H:%M").to_string(),
         "cats": cats.words, "projs": projs.words,
         "homes": homes.iter().map(|(p, f, b, r)| json!({"path": p, "origin": crate::scan::origin(p), "files": f, "bytes": b, "rows": r}))
@@ -175,7 +176,9 @@ fn paths(dir: &Path, rows_of: &HashMap<String, i64>) -> (usize, Value) {
         return (0, Value::Null);
     }
     // indexed · skipped · vault · loose · loose that look like transcripts · unknown shape · indexed with no rows
-    let mut c = [0i64; 7];
+    // · (a ranged folder) in a home, not read because it was last written before the range
+    let mut c = [0i64; 8];
+    let range = crate::range::Range::read(dir.parent().unwrap_or(dir));
     let (mut bytes, mut newest) = (0i64, 0i64);
     let (mut dirs, mut verdicts) = (Dict::default(), Dict::default());
     let mut cols: HashMap<&str, Vec<Value>> = HashMap::new();
@@ -204,6 +207,7 @@ fn paths(dir: &Path, rows_of: &HashMap<String, i64>) -> (usize, Value) {
                     newest = newest.max(mtime.value(k) / 1000);
                     c[6] += (rows_of.get(p).copied().unwrap_or(0) == 0) as i64;
                 }
+                ("home", false) if range.as_ref().is_some_and(|g| !g.may_hold(mtime.value(k))) => c[7] += 1,
                 ("home", false) => c[1] += 1,
                 ("vault", _) => c[2] += 1,
                 _ => c[3] += 1,
@@ -222,6 +226,6 @@ fn paths(dir: &Path, rows_of: &HashMap<String, i64>) -> (usize, Value) {
     fs::write(&tmp, serde_json::to_vec(&data).unwrap()).unwrap();
     fs::rename(tmp, p).unwrap();
     let sum = json!({"discovered": n, "indexed": c[0], "skipped": c[1], "vault": c[2], "loose": c[3], "loose_transcripts": c[4],
-                     "unknown": c[5], "empty": c[6], "bytes": bytes, "newest": newest});
+                     "unknown": c[5], "empty": c[6], "before_range": c[7], "bytes": bytes, "newest": newest});
     (n, sum)
 }

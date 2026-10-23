@@ -68,6 +68,7 @@ pub struct Stats {
     pub bad_json: AtomicU64,
     pub rows: AtomicU64,
     pub stuck: AtomicU64,
+    pub out_of_range: AtomicU64,
 }
 
 /// The bytes jt would send for a whole file: cut after the last "\n"; a final line without "\n" counts only
@@ -451,8 +452,9 @@ pub fn read_index(p: &str) -> Vec<Job> {
 }
 
 /// Parse the jobs (each from its own ctx) and merge every touched month into out/<month>.parquet.
-/// Returns each job's new ctx (by path) for the state file.
-pub fn run(mut jobs: Vec<Job>, out: &Path, agent: &str, threads: usize, jt_compat: bool, keep_parts: bool) -> HashMap<String, Ctx> {
+/// Returns each job's new ctx (by path) for the state file. With a range, rows outside it are read and dropped.
+pub fn run(mut jobs: Vec<Job>, out: &Path, agent: &str, threads: usize, jt_compat: bool, keep_parts: bool,
+           range: Option<&crate::range::Range>) -> HashMap<String, Ctx> {
     let t0 = Instant::now();
     // LPT on the bytes still to read: the biggest pieces first, so none is left for last
     jobs.sort_by(|a, b| (b.size.saturating_sub(b.ctx.offset)).cmp(&(a.size.saturating_sub(a.ctx.offset))));
@@ -476,6 +478,10 @@ pub fn run(mut jobs: Vec<Job>, out: &Path, agent: &str, threads: usize, jt_compa
                     let i = next.fetch_add(1, Ordering::Relaxed);
                     let Some(j) = jobs.get(i) else { break };
                     if let Some(c) = parse_file(&j.path, &j.ctx, jt_compat, st, &mut |r| {
+                        if range.is_some_and(|g| !g.keeps(&r.ts_th)) {
+                            st.out_of_range.fetch_add(1, Ordering::Relaxed);
+                            return;
+                        }
                         st.rows.fetch_add(1, Ordering::Relaxed);
                         sp.push(r)
                     }) {
@@ -506,6 +512,9 @@ pub fn run(mut jobs: Vec<Job>, out: &Path, agent: &str, threads: usize, jt_compa
               st.files.load(Ordering::Relaxed), st.bytes.load(Ordering::Relaxed) as f64 / 1e9, st.lines.load(Ordering::Relaxed),
               st.bad_json.load(Ordering::Relaxed), st.rows.load(Ordering::Relaxed), st.stuck.load(Ordering::Relaxed), t_parse,
               st.bytes.load(Ordering::Relaxed) as f64 / 1e6 / t_parse, n);
+    if let Some(g) = range {
+        eprintln!("parse: {} rows outside {} left out", st.out_of_range.load(Ordering::Relaxed), g.human());
+    }
     DONE.store(total, Ordering::Relaxed);
     crate::PHASE.store(3, Ordering::Relaxed);
     // merge: months in parallel (each holds only its own rows)
@@ -635,15 +644,15 @@ mod tests {
         let cut = full.len() / 2;
         fs::write(&src, &full[..cut]).unwrap();
         let inc = d.join("inc");
-        let c1 = run(vec![job(Ctx::default())], &inc, "t@x", 2, false, false)[&sp].clone();
+        let c1 = run(vec![job(Ctx::default())], &inc, "t@x", 2, false, false, None)[&sp].clone();
         assert!(c1.offset <= cut as u64 && c1.offset > 0);
         fs::write(&src, &full[..cut + 1000]).unwrap();
-        let c2 = run(vec![job(c1)], &inc, "t@x", 2, false, false)[&sp].clone();
+        let c2 = run(vec![job(c1)], &inc, "t@x", 2, false, false, None)[&sp].clone();
         fs::write(&src, &full).unwrap();
-        let c3 = run(vec![job(c2)], &inc, "t@x", 2, false, false)[&sp].clone();
+        let c3 = run(vec![job(c2)], &inc, "t@x", 2, false, false, None)[&sp].clone();
         // cold: the whole file at once
         let cold = d.join("cold");
-        let c = run(vec![job(Ctx::default())], &cold, "t@x", 2, false, false)[&sp].clone();
+        let c = run(vec![job(Ctx::default())], &cold, "t@x", 2, false, false, None)[&sp].clone();
         assert_eq!((c3.offset, c3.lines, c3.last_ms), (c.offset, c.lines, c.last_ms));
         let mut months: Vec<String> = fs::read_dir(&cold).unwrap().flatten().map(|e| e.file_name().to_string_lossy().to_string())
             .filter(|n| n.ends_with(".parquet")).collect();
@@ -654,6 +663,26 @@ mod tests {
             assert!(!b.is_empty());
             assert_eq!(a, b, "{m}");
         }
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn a_range_keeps_exactly_its_days() {
+        let d = tmp("range-rows");
+        let src = d.join("s.jsonl");
+        // each day's lines unique: two identical lines are one row (the first copy), so a day would lose its own
+        let day_lines = |d: u32| lines(d, 30).replace("no time ", &format!("no time {d}-"));
+        fs::write(&src, day_lines(2) + &day_lines(3) + &day_lines(4)).unwrap();
+        let sp = src.to_str().unwrap().to_string();
+        let job = || Job { path: sp.clone(), size: fs::metadata(&src).unwrap().len(), verdict: String::new(), ctx: Ctx::default() };
+        let (all, day) = (d.join("all"), d.join("day"));
+        let c_all = run(vec![job()], &all, "t@x", 2, false, false, None)[&sp].clone();
+        let g = crate::range::Range::from_args(None, Some("2026-07-03"), None, None).unwrap().unwrap();
+        let c_day = run(vec![job()], &day, "t@x", 2, false, false, Some(&g))[&sp].clone();
+        assert_eq!(c_day.offset, c_all.offset, "a range still reads the whole file, so the next run starts at its end");
+        let want: Vec<String> = month_rows(&all.join("2026-07.parquet")).into_iter().filter(|r| r.contains("2026-07-03T")).collect();
+        assert!(!want.is_empty());
+        assert_eq!(month_rows(&day.join("2026-07.parquet")), want);
         let _ = fs::remove_dir_all(&d);
     }
 }
