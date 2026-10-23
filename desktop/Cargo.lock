@@ -3367,13 +3367,14 @@ checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
 name = "relic-scan"
-version = "0.1.0"
+version = "26.10.23"
 dependencies = [
  "arrow",
  "blake2b_simd",
  "chrono",
  "clap",
  "ignore",
+ "libc",
  "memchr",
  "parquet",
  "ratatui",
@@ -3384,7 +3385,7 @@ dependencies = [
 
 [[package]]
 name = "relic-scan-desktop"
-version = "0.1.0"
+version = "26.10.23"
 dependencies = [
  "relic-scan",
  "tauri",

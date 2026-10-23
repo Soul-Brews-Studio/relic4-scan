@@ -149,11 +149,11 @@ pub fn build(out: &Path, agent: &str) {
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_secs());
     let data = json!({
         "agent": agent,
-        "scan": scan_sum, "last_run": last_run, "out": out.display().to_string(),
+        "scan": scan_sum, "last_run": last_run, "out": out.display().to_string(), "home": std::env::var("HOME").unwrap_or_default(),
         "range": crate::range::Range::read(out).map(|g| json!({"from": g.from, "to": g.to, "label": g.label, "human": g.human()})),
         "built": chrono::Local::now().format("%Y-%m-%d %H:%M").to_string(),
         "cats": cats.words, "projs": projs.words,
-        "homes": homes.iter().map(|(p, f, b, r)| json!({"path": p, "origin": crate::scan::origin(p), "files": f, "bytes": b, "rows": r}))
+        "homes": homes.iter().map(|(p, f, b, r)| json!({"path": p, "origin": crate::scan::origin(p), "agent": agent_of(p), "files": f, "bytes": b, "rows": r}))
             .collect::<Vec<_>>(),
         "s": cols,
     });
@@ -169,6 +169,11 @@ pub fn build(out: &Path, agent: &str) {
 /// OUT/meta/paths.json for the /paths view: every .jsonl the scan saw (meta/jsonl.parquet), grouped by folder, with
 /// whether it was indexed into the months and, if so, how many rows it holds. Fetched by the page only on /paths,
 /// so the map and the tree do not load it. Returns the number of paths and their totals for the Smart Scan and
+/// The agent a home belongs to: the last folder of its path named like one (.claude, .codex, .omp …), else "".
+fn agent_of(home: &str) -> &'static str {
+    home.split('/').rev().find_map(crate::scan::agent_kind).unwrap_or("")
+}
+
 /// Health views (inlined in map.html).
 fn paths(dir: &Path, rows_of: &HashMap<String, i64>) -> (usize, Value) {
     let src = dir.join("jsonl.parquet");

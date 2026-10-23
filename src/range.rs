@@ -85,7 +85,8 @@ impl Range {
 
     /// The range a run over `out` uses: the one asked for, checked against the folder's own; or, when none was
     /// asked for, the folder's own (so the index button and a plain `run --out` keep a ranged folder ranged).
-    pub fn settle(out: &Path, asked: Option<Range>) -> Result<Option<Range>, String> {
+    /// A new range is saved in the folder only when `write` is set (a dry run checks and writes nothing).
+    pub fn settle(out: &Path, asked: Option<Range>, write: bool) -> Result<Option<Range>, String> {
         let saved = Self::read(out);
         match (asked, saved) {
             (None, saved) => Ok(saved),
@@ -93,6 +94,7 @@ impl Range {
             (Some(a), Some(s)) => Err(format!("{} holds only {}; this run asks for {} (use another --out)", out.display(), s.human(), a.human())),
             (Some(_), None) if out.join("_state.tsv").exists() => Err(format!(
                 "{} was indexed without a date range; a range would leave rows behind in it for good (use another --out)", out.display())),
+            (Some(a), None) if !write => Ok(Some(a)),
             (Some(a), None) => {
                 fs::create_dir_all(out).map_err(|e| format!("cannot create {}: {e}", out.display()))?;
                 fs::write(out.join("_range"), format!("{}\t{}\t{}\n", a.from, a.to, a.label))
@@ -149,15 +151,17 @@ mod tests {
         let d = std::env::temp_dir().join(format!("relic-scan-test-{}-range-folder", std::process::id()));
         let _ = fs::remove_dir_all(&d);
         let oct = r(Some("2026-10"), None, None, None);
-        assert_eq!(Range::settle(&d, Some(oct.clone())).unwrap(), Some(oct.clone()));
-        assert_eq!(Range::settle(&d, None).unwrap(), Some(oct.clone()), "no flag: the folder's own range");
-        assert_eq!(Range::settle(&d, Some(oct.clone())).unwrap(), Some(oct.clone()));
-        assert!(Range::settle(&d, Some(r(Some("2026-09"), None, None, None))).is_err(), "another range: refused");
+        assert_eq!(Range::settle(&d, Some(oct.clone()), false).unwrap(), Some(oct.clone()));
+        assert!(!d.join("_range").exists(), "a dry run writes nothing");
+        assert_eq!(Range::settle(&d, Some(oct.clone()), true).unwrap(), Some(oct.clone()));
+        assert_eq!(Range::settle(&d, None, true).unwrap(), Some(oct.clone()), "no flag: the folder's own range");
+        assert_eq!(Range::settle(&d, Some(oct.clone()), true).unwrap(), Some(oct.clone()));
+        assert!(Range::settle(&d, Some(r(Some("2026-09"), None, None, None)), true).is_err(), "another range: refused");
         let full = d.join("full");
         fs::create_dir_all(&full).unwrap();
         fs::write(full.join("_state.tsv"), "path\n").unwrap();
-        assert_eq!(Range::settle(&full, None).unwrap(), None);
-        assert!(Range::settle(&full, Some(oct)).is_err(), "a full index never takes a range");
+        assert_eq!(Range::settle(&full, None, true).unwrap(), None);
+        assert!(Range::settle(&full, Some(oct), true).is_err(), "a full index never takes a range");
         let _ = fs::remove_dir_all(&d);
     }
 }

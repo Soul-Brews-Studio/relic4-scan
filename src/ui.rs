@@ -26,6 +26,24 @@ pub fn bold(s: &str) -> String {
     paint("1", s)
 }
 
+/// The terminal's width in columns (100 when stderr is not a terminal).
+pub fn width() -> usize {
+    if !std::io::stderr().is_terminal() {
+        return 100;
+    }
+    ratatui::crossterm::terminal::size().map(|(w, _)| w as usize).unwrap_or(100).max(20)
+}
+
+/// One live status line, redrawn in place with `\r`: `head` (may be coloured, `head_cols` wide) then `rest`, cut to the
+/// terminal's width. A line wider than the terminal wraps, and `\r` then returns only to the start of its last row, so
+/// every redraw would leave a copy behind; on a terminal the row is also cleared first.
+pub fn live(head: &str, head_cols: usize, rest: &str) {
+    let room = width().saturating_sub(head_cols + 1);
+    let cut: String = rest.chars().take(room).collect();
+    let clear = if std::io::stderr().is_terminal() { "\x1b[2K" } else { "" };
+    eprint!("\r{clear}{head}{cut}");
+}
+
 /// ━━━━━━━━╸──────── for `frac` of `w` cells
 pub fn bar(frac: f64, w: usize) -> String {
     let done = (frac.clamp(0.0, 1.0) * w as f64) as usize;

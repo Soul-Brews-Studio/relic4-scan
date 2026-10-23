@@ -181,6 +181,9 @@ pub fn find_homes(roots: &[String], depth: usize, threads: usize, exclude: &[Str
             .run(|| {
                 let (f, sh, lo) = (f.clone(), sh.clone(), lo.clone());
                 Box::new(move |res| {
+                    if crate::CANCEL.load(std::sync::atomic::Ordering::Relaxed) {
+                        return WalkState::Quit; // Stop on the page: the walk ends, the run then stops before writing
+                    }
                     let Ok(e) = res else { return WalkState::Continue };
                     if e.depth() == 0 {
                         return WalkState::Continue;
@@ -246,7 +249,10 @@ fn list_home(home: &Path, kind: &'static str, threads: usize, by_shape: bool) ->
             let o = o.clone();
             let label = label.clone();
             Box::new(move |res| {
-                let Ok(e) = res else { return WalkState::Continue };
+                if crate::CANCEL.load(std::sync::atomic::Ordering::Relaxed) {
+                        return WalkState::Quit; // Stop on the page: the walk ends, the run then stops before writing
+                    }
+                    let Ok(e) = res else { return WalkState::Continue };
                 if !e.path().extension().is_some_and(|x| x == "jsonl") {
                     return WalkState::Continue;
                 }
