@@ -45,7 +45,7 @@ Paths are relative to `~/.relic-scan`. Month files hold the rows; `meta/` holds 
 | file | one row per | useful columns |
 |---|---|---|
 | `YYYY-MM.parquet` | message, thinking block, tool call or result | `sid`, `engine`, `ts`, `ts_th` (Bangkok), `role` (user, assistant, thinking), `kind` (call, result), `name` (tool), `text`, `body`, `err`, `sources`, `model`, `msg_id`, `out_tokens` |
-| `meta/sessions.parquet` | session | `sid`, `parent_sid`, `tier` (main, subagent, workflow-agent), `cat` (repo), `proj`, `first_ts`, `last_ts`, `last_ms`, `n_rows`, `user_text`, `assistant_text`, `thinking`, `tool_calls`, `tool_results`, `tool_errors`, `cwd` (where the session began), `title` (its newest `custom-title`), `branch`, `version` |
+| `meta/sessions.parquet` | session | `sid`, `parent_sid`, `tier` (main, subagent, workflow-agent), `cat` (repo), `proj`, `first_ts`, `last_ts`, `last_ms`, `n_rows`, `user_text`, `assistant_text`, `thinking`, `tool_calls`, `tool_results`, `tool_errors`, `cwd` (where the session began), `title` (its newest `custom-title`), `branch`, `version`, `via`, `chat`, `from_user` (the channel plugin, room and sender of the session's first channel message, e.g. `plugin:discord:discord`) |
 | `meta/files.parquet`, `meta/jsonl.parquet` | transcript file | path, home, size, verdict |
 | `meta/months.json` | month file | `month`, `rows`, `first_ts`, `max_ts`, `keys` (hash of the row keys: equal manifests, equal rows), `late_rows` (rows this run added at or before the month's previous newest time; normally 0), `sealed` (before the current Bangkok month) |
 | `meta/vaults.json`, `meta/vaults/<id>.json` | ψ vault, and its notes | plain JSON: name, path, kind, notes, sections; notes as `[path, section, title, bytes, mtime_ms]` |
