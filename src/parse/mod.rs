@@ -132,8 +132,18 @@ pub struct Ctx {
 /// of the lines it was given, or None when the file cannot be read.
 pub(crate) fn each_line(path: &str, from: u64, want: usize, bytes_read: &AtomicU64, f: &mut dyn FnMut(&[u8]) -> bool) -> Option<u64> {
     use std::io::{Seek, SeekFrom};
-    let mut file = fs::File::open(path).ok()?;
-    file.seek(SeekFrom::Start(from)).ok()?;
+    // a Codex rollout archived as .jsonl.zst is a closed file: it is decoded as it is read, and `from` > 0 means it was
+    // read to its end before (its offset is the compressed size, which is what the state compares with the file)
+    let mut file: Box<dyn Read> = if path.ends_with(".zst") {
+        if from > 0 {
+            return Some(0);
+        }
+        Box::new(zstd::stream::read::Decoder::new(fs::File::open(path).ok()?).ok()?)
+    } else {
+        let mut f = fs::File::open(path).ok()?;
+        f.seek(SeekFrom::Start(from)).ok()?;
+        Box::new(f)
+    };
     let mut used: u64 = 0;
     let (mut buf, mut eof, mut stop) = (Vec::new(), false, false);
     while !eof && !stop {
@@ -258,7 +268,9 @@ fn parse_file_chunked(path: &str, ctx: &Ctx, jt_compat: bool, st: &Stats, emit: 
     })?;
     st.lines.fetch_add((nline - ctx.lines) as u64, Ordering::Relaxed);
     st.files.fetch_add(1, Ordering::Relaxed);
-    Some(Ctx { offset: ctx.offset + used, lines: nline, session, last_ms: last, first, chain, model: turn, meta: smeta })
+    // an archived (.zst) rollout was read whole: its offset is its size on disk, so an unchanged file is "unchanged"
+    let offset = if path.ends_with(".zst") { fs::metadata(path).map(|m| m.len()).unwrap_or(0) } else { ctx.offset + used };
+    Some(Ctx { offset, lines: nline, session, last_ms: last, first, chain, model: turn, meta: smeta })
 }
 
 pub(crate) mod merge;

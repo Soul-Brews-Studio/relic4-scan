@@ -255,3 +255,35 @@ fn a_session_says_where_it_ran_what_it_is_called_and_on_which_branch() {
     assert_eq!(again.meta, half.meta);
     let _ = fs::remove_dir_all(&d);
 }
+
+#[test]
+fn a_zst_rollout_gives_the_rows_of_the_plain_one_and_is_read_once() {
+    let d = tmp("zst");
+    let body = [
+        r#"{"type":"session_meta","timestamp":"2026-07-06T02:00:00.000Z","payload":{"id":"01a0f546-a949-74f3-bf81-5a2f61763cc7","cwd":"/home/nat/proj"}}"#,
+        r#"{"type":"turn_context","timestamp":"2026-07-06T02:00:01.000Z","payload":{"model":"gpt-6-astra"}}"#,
+        r#"{"type":"response_item","timestamp":"2026-07-06T02:00:02.000Z","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"ask"}]}}"#,
+        r#"{"type":"response_item","timestamp":"2026-07-06T02:00:03.000Z","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"answer"}]}}"#,
+    ].join("\n") + "\n";
+    let name = "rollout-2026-07-06T09-00-00-01a0f546-a949-74f3-bf81-5a2f61763cc7.jsonl";
+    let (plain, packed) = (d.join(name), d.join(format!("{name}.zst")));
+    fs::write(&plain, &body).unwrap();
+    fs::write(&packed, zstd::stream::encode_all(body.as_bytes(), 3).unwrap()).unwrap();
+    assert!(crate::scan::is_jsonl(&plain) && crate::scan::is_jsonl(&packed) && !crate::scan::is_jsonl(&d.join("a.json")));
+    let rows = |p: &PathBuf, ctx: &Ctx| {
+        let mut v = vec![];
+        let c = parse_file(p.to_str().unwrap(), ctx, false, &Stats::default(), &mut |r| v.push(format!("{}|{:?}|{:?}|{:?}|{:?}", r.s, r.role, r.text, r.model, r.sid))).unwrap();
+        (v, c)
+    };
+    let (a, ca) = rows(&plain, &Ctx::default());
+    let (b, cb) = rows(&packed, &Ctx::default());
+    assert!(a.len() >= 2, "{a:?}");
+    assert_eq!(a, b, "the packed file says what the plain one says");
+    assert_eq!((ca.lines, &ca.session, &ca.meta.cwd), (cb.lines, &cb.session, &cb.meta.cwd));
+    assert_eq!(cb.offset, fs::metadata(&packed).unwrap().len(), "a read archive's offset is its size on disk, so it counts as unchanged");
+    assert_eq!(ca.chain, cb.chain, "the ledger sees the same lines");
+    let (again, _) = rows(&packed, &cb);
+    assert!(again.is_empty(), "a closed archive is not read twice");
+    assert_eq!(crate::sniff::sniff(packed.to_str().unwrap()).verdict, "transcript");
+    let _ = fs::remove_dir_all(&d);
+}

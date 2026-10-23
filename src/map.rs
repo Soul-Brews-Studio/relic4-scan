@@ -133,7 +133,7 @@ pub fn build(out: &Path, agent: &str) {
             // a subagent's parent_sid is the folder its file sits in, <main-uuid>/subagents/: the main FILE's name,
             // not the sessionId inside it (a resumed session's first line carries the earlier session's id)
             if t == "main" {
-                sid_main.insert(base.value(k).trim_end_matches(".jsonl").to_string(), n);
+                sid_main.insert(base.value(k).trim_end_matches(".zst").trim_end_matches(".jsonl").to_string(), n);
             }
             parents.push(get(parent, k).map(str::to_string));
             let mut push = |c: &'static str, v: Value| cols.entry(c).or_default().push(v);

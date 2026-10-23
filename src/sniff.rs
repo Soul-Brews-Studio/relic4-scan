@@ -78,7 +78,11 @@ pub fn by_path(path: &str) -> Sniff {
 
 /// Read until `lines` complete lines (however long a line is) or `cap` bytes.
 fn head_lines(path: &str, lines: usize, cap: usize) -> std::io::Result<Vec<u8>> {
-    let mut f = File::open(path)?;
+    let mut f: Box<dyn Read> = if path.ends_with(".zst") {
+        Box::new(zstd::stream::read::Decoder::new(File::open(path)?)?)
+    } else {
+        Box::new(File::open(path)?)
+    };
     let mut buf = Vec::with_capacity(64 * 1024);
     let mut chunk = vec![0u8; 64 * 1024];
     loop {
