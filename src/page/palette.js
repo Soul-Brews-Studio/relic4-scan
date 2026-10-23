@@ -1,7 +1,5 @@
 // ---------- ⌘K: search what the page holds (views, actions, sessions, repos, homes, files, scans, filters) ----------
 // every result opens something; some also carry actions (copy the resume command, export, check or index just that path)
-const KFILE = location.protocol === "file:";
-const kHref = (v, hash) => (KFILE ? `?view=${v}` : `/${v}`) + (hash ? "#" + encodeURIComponent(hash) : "");
 let KP = null, KSEL = 0, KITEMS = [], KMORE = new Set(), KPATHS = null;
 // a rank for how well `q` matches `s`: 0 starts it, 1 starts a word in it, 2 is inside it, 3 is a scattered match
 function kScore(s, q) {
