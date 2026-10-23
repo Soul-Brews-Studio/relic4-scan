@@ -54,6 +54,12 @@ export const STEPS = [
     li: ["open a bank and see only that bank, with the way back", "export what you see as CSV or JSON, with the time and the query"] },
   { id: "disk", dot: "Disk", shot: "disk", h: "Where the gigabytes are", p: "Every `.jsonl` by folder and size, as rings, one colour per branch. Click to go in; open any folder in Finder.",
     li: ["indexed and not-indexed bytes for every folder", "folders the scan could not read, listed in Health"] },
+  { id: "vaults", dot: "ψ Vaults", shot: "vaults", h: "Every oracle's memory, too", p: "The same walk finds every `ψ` vault: an oracle's learnings, retrospectives, inbox and writing. Open one and its notes are grouped by folder, newest first.",
+    li: ["each vault once, however many repos link to it", "git worktree copies kept apart, cloned repos inside skipped", "written as plain JSON: `meta/vaults.json`"] },
+  { id: "read", dot: "Reader", shot: "reader", h: "Read a note where it lives", p: "Click a note and it opens rendered: front matter, headings, lists, code and tables. Nothing is copied, nothing leaves the machine.",
+    li: ["filter a vault's notes by words in the title or path", "Show in Finder from the reader", "export a vault's notes as CSV"] },
+  { id: "export", dot: "Export", shot: "export", h: "Take the metadata with you", p: "Every table the index holds, as CSV or JSON, in one place. The rows stay in one Parquet file per month, each one click from Finder.",
+    li: ["sessions, files, homes, scans and vaults", "saved to ~/Downloads with the time it was exported", "click a month to show its file in Finder"] },
 ];
 
 export const SHOTS = {
@@ -63,6 +69,9 @@ export const SHOTS = {
   map: "The session map: hundreds of dots on rings by month and sectors by repository, with a panel of totals and rows by type.",
   tree: "The tree: a home folder opened to its repositories, each with session and row counts and a bar of rows by kind.",
   disk: "The disk view: rings of folders sized by bytes, one colour per branch, with a legend of the folder's children and their sizes.",
+  vaults: "The ψ Vaults view: two oracle vaults with their notes counted by section; one is open, its notes grouped by folder (memory, inbox, writing) beside a list of learnings and retrospectives.",
+  reader: "A learning open in the reader: its front matter, heading, paragraphs, a list and a shell command, rendered from the note's markdown.",
+  export: "The Export view: sessions, files, homes, scans and vaults with their line counts and CSV and JSON buttons, then the month files with their sizes.",
 };
 export const TUI_ALT = "A recording of relic-scan tui: the overview, then repositories, one opened to its sessions, sessions filtered by billing, and back.";
 

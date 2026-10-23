@@ -63,7 +63,7 @@
   #side .brand { display: flex; gap: 12px; align-items: center; padding: 0 6px 28px; }
   #side .logo { width: 40px; height: 40px; border-radius: 10px; flex: none; display: grid; place-items: center;
                 background: var(--raised); border: 1px solid var(--line); color: var(--accent); }
-  #side .logo svg { width: 24px; height: 24px; }
+  #side .logo svg { width: 28px; height: 28px; }
   #side .t b { display: block; font-size: 18px; font-weight: 700; letter-spacing: .1em; color: var(--ink); line-height: 1.1; }
   #side .t i { display: block; font: 400 11px/1.4 var(--font-mono); letter-spacing: .28em; color: var(--dim); font-style: normal; }
   /* one icon voice: 24-unit grid, 1.6 stroke, round caps, currentColor */

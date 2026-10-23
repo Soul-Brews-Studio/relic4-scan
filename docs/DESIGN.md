@@ -3,6 +3,13 @@
 Two surfaces share one look: the app (the page `relic-scan` serves on 127.0.0.1, also inside the desktop app) and the
 landing page in `site/`. Both are dark first, with one warm accent.
 
+## The mark
+
+A serif **Ψ** on a filled circle, after the ARRA Oracle Unconference #1 logo (there a cream Ψ in Instrument Serif on a red
+circle). Here the circle is the amber accent and the Ψ is the ink on it (`--on-amber` in the app, `--color-accent-ink` on the
+site). It is drawn as SVG text with a serif stack (`'Instrument Serif', Georgia, 'Times New Roman', serif`), so it needs no
+font file; the site's favicon is the same SVG.
+
 ## The app (`src/page/`)
 
 - **Mode: operate.** People come to find a session, see what changed, or read where the bytes are. Data comes before

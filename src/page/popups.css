@@ -157,7 +157,10 @@
   #mdpop .md h4, #mdpop .md h5, #mdpop .md h6 { font-size: 15px; color: var(--dim); }
   #mdpop .md p, #mdpop .md ul, #mdpop .md ol, #mdpop .md blockquote, #mdpop .md pre, #mdpop .md .mtab { margin: 0 0 1em; max-width: 72ch; }
   #mdpop .md ul, #mdpop .md ol { padding-left: 1.4em; } #mdpop .md li { margin: .2em 0; }
-  #mdpop .md li.task { list-style: none; margin-left: -1.3em; } #mdpop .md .box { display: inline-block; width: 1em; margin-right: .5em; color: var(--green); }
+  #mdpop .md li.task { list-style: none; margin-left: -1.4em; }
+  #mdpop .md .mbox { display: inline-grid; place-items: center; width: 15px; height: 15px; margin-right: 8px; vertical-align: -2px; border: 1.5px solid var(--dim);
+    border-radius: 4px; font-size: 11px; line-height: 1; color: var(--on-amber); }
+  #mdpop .md li.done .mbox { background: var(--green); border-color: var(--green); } #mdpop .md li.done { color: var(--dim); }
   #mdpop .md code { font: 13px var(--font-mono); color: var(--code); background: var(--hover); padding: 1px 5px; border-radius: 4px; }
   #mdpop .md pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: var(--sp-3) var(--sp-4); white-space: pre-wrap; overflow-wrap: anywhere; max-width: none; }
   #mdpop .md pre code { background: none; padding: 0; color: var(--ink); }
