@@ -60,7 +60,7 @@ function md2html(src) {
         if (stack.length === it.d + 1) html += "</li>";
         while (stack.length < it.d + 1) { const tag = it.ol ? "ol" : "ul"; html += `<${tag}>`; stack.push(tag); }
         const task = it.t.match(/^\[([ xX])\]\s+(.*)$/);
-        html += `<li${task ? ' class="task"' : ""}>${task ? `<span class="box">${task[1].trim() ? "✓" : ""}</span>${mdInline(task[2])}` : mdInline(it.t)}`;
+        html += `<li${task ? ` class="task${task[1].trim() ? " done" : ""}"` : ""}>${task ? `<span class="mbox" aria-label="${task[1].trim() ? "done" : "to do"}">${task[1].trim() ? "✓" : ""}</span>${mdInline(task[2])}` : mdInline(it.t)}`;
       }
       while (stack.length) html += `</li></${stack.pop()}>`;
       out.push(html); continue;

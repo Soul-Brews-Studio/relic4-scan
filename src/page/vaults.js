@@ -12,8 +12,16 @@ function dashVaults() {
 function vaultsLoad() {
   if (VAULTS) return vaultsRender();
   if (!SERVED) return;
-  fetch("/vaults.json").then(r => r.ok ? r.json() : Promise.reject(r.status)).then(j => { VAULTS = j.vaults || []; vaultsRender(); })
+  fetch("/vaults.json").then(r => r.ok ? r.json() : Promise.reject(r.status)).then(j => { VAULTS = j.vaults || []; vdeep(); vaultsRender(); })
     .catch(() => { $("vbody").innerHTML = `<div class="card"><div class="note" style="margin:0">No vault list yet. Press Index now: every index writes it.</div></div>`; });
+}
+// a link straight into a vault: /vaults#<name>, #<name>:<group> (ψ/<group>/), #<name>:<group>:read (its newest note in the reader)
+let VREAD = false;
+function vdeep() {
+  const [name, group, read] = decodeURIComponent(location.hash.slice(1)).split(":");
+  const v = name && VAULTS.find(x => x.name === name && x.kind !== "worktree");
+  if (!v) return;
+  VOPEN = v.id; VGRP = group || ""; VREAD = read === "read";
 }
 const vtilde = p => p.replace(D.home || "\u0000", "~");
 const vday = ms => ms ? bkk(ms / 1000).slice(0, 10) : "—";
@@ -39,7 +47,7 @@ function vaultsRender() {
   };
   $("vbody").innerHTML = `<div class="strip">${stat("Vaults", fmt(own.length), "var(--amber)")}${stat("Notes", fmt(notes), "var(--cyan)")}${stat("Size", human(bytes), "var(--green)")}${stat("Newest note", vday(newest), "var(--ink)")}</div>
     <div class="card vaults"><h3>Vaults · ${fmt(V.length)}<span class="muted" style="font-weight:400;font-size:13px">by notes · open one for its notes</span></h3>
-      ${wt ? `<div class="note" style="margin:0 0 10px">${fmt(wt)} more are git worktree copies of these vaults. <a href="#" id="vwt" style="color:var(--cyan)">${VWT ? "hide them" : "show them"}</a></div>` : ""}
+      ${wt ? `<div class="note" style="margin:0 0 10px">${fmt(wt)} more ${wt === 1 ? "is a git worktree copy" : "are git worktree copies"} of these vaults. <a href="#" id="vwt" style="color:var(--cyan)">${VWT ? "hide them" : "show them"}</a></div>` : ""}
       ${V.map(row).join("")}</div>`;
   for (const b of $("vbody").querySelectorAll(".vhead")) b.onclick = () => { VOPEN = +b.dataset.id === VOPEN ? -1 : +b.dataset.id; VQ = ""; VCAP = 200; VGRP = ""; vaultsRender(); };
   if ($("vwt")) $("vwt").onclick = e => { e.preventDefault(); VWT = !VWT; vaultsRender(); };
@@ -81,5 +89,6 @@ async function vnotes(v) {
     : `<div class="note">No note matches.</div>`)
     + (hit.length > VCAP ? `<button class="ghost vmore" id="vmore">show ${fmt(Math.min(500, hit.length - VCAP))} more of ${fmt(hit.length - VCAP)}</button>` : "");
   for (const b of $("vnotes").querySelectorAll(".vnote")) b.onclick = () => openNote(b.dataset.p, b.dataset.t, `${v.name} · ψ/${b.dataset.r}`);
+  if (VREAD) { VREAD = false; $("vnotes").querySelector(".vnote")?.click(); }
   if ($("vmore")) $("vmore").onclick = () => { VCAP += 500; vnotes(v); };
 }

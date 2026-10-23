@@ -18,7 +18,7 @@ const ld = [
   { "@context": "https://schema.org", "@type": "SoftwareApplication", name: SITE.name, url: SITE.url, description: SITE.summary,
     applicationCategory: "DeveloperApplication", operatingSystem: "macOS (Apple silicon, Intel), Linux (x86_64)", softwareVersion: SITE.version,
     downloadUrl: [DL.mac, DL.intel, DL.deb, DL.appimage], releaseNotes: DL.notes, image: `${SITE.url}img/og.jpg`,
-    screenshot: ["scan", "scans", "scan-contents", "map", "tree", "disk"].map(n => `${SITE.url}img/${n}.webp`),
+    screenshot: ["scan", "scans", "scan-contents", "map", "tree", "disk", "vaults", "reader", "export"].map(n => `${SITE.url}img/${n}.webp`),
     featureList: STEPS.map(s => `${s.h}: ${plain(s.p)}`),
     publisher: { "@type": "Organization", name: SITE.org, url: "https://buildwithoracle.com/" } },
   { "@context": "https://schema.org", "@type": "FAQPage",

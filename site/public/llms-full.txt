@@ -67,6 +67,30 @@ Every `.jsonl` by folder and size, as rings, one colour per branch. Click to go 
 - indexed and not-indexed bytes for every folder
 - folders the scan could not read, listed in Health
 
+## Every oracle's memory, too
+
+The same walk finds every `ψ` vault: an oracle's learnings, retrospectives, inbox and writing. Open one and its notes are grouped by folder, newest first.
+
+- each vault once, however many repos link to it
+- git worktree copies kept apart, cloned repos inside skipped
+- written as plain JSON: `meta/vaults.json`
+
+## Read a note where it lives
+
+Click a note and it opens rendered: front matter, headings, lists, code and tables. Nothing is copied, nothing leaves the machine.
+
+- filter a vault's notes by words in the title or path
+- Show in Finder from the reader
+- export a vault's notes as CSV
+
+## Take the metadata with you
+
+Every table the index holds, as CSV or JSON, in one place. The rows stay in one Parquet file per month, each one click from Finder.
+
+- sessions, files, homes, scans and vaults
+- saved to ~/Downloads with the time it was exported
+- click a month to show its file in Finder
+
 ## It stays on your machine.
 
 - **127.0.0.1**: The page is served on this machine only, and makes no network calls.

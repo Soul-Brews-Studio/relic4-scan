@@ -131,7 +131,7 @@ function Nav({ y }) {
   return html`<header class=${`fixed z-20 top-3 left-1/2 -translate-x-1/2 w-[min(1180px,100%-32px)] flex items-center justify-between gap-4 py-2 pr-2 pl-4 rounded-full border transition-colors duration-300
       ${y > 8 ? "bg-glass border-line backdrop-blur-md backdrop-saturate-150" : "border-transparent"}`}>
     <a href="#top" class="inline-flex items-center gap-3 min-h-11 font-semibold tracking-tight whitespace-nowrap no-underline text-ink">
-      <svg viewBox="0 0 24 24" class="size-7 text-accent" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/><circle cx="18" cy="6" r="1.6" fill="currentColor" stroke="none"/></svg>
+      <svg viewBox="0 0 24 24" class="size-7 text-accent" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="currentColor"/><text x="12" y="17.6" text-anchor="middle" font-family="'Instrument Serif', Georgia, 'Times New Roman', serif" font-size="17" font-weight="600" fill="var(--color-accent-ink)">Ψ</text></svg>
       <span><span class="max-[400px]:hidden">ARRA </span>Relic Scan</span></a>
     <nav aria-label="Page"><ul class="flex items-center gap-6 list-none m-0 p-0">
       <li class="max-[900px]:hidden"><a href="#check" class="inline-flex items-center min-h-11 text-sm text-ink-2 hover:text-ink no-underline transition-colors">Tour</a></li>

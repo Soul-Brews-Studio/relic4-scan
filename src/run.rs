@@ -274,8 +274,9 @@ pub fn run_inner(a: RunArgs, lock: Option<std::fs::File>, serving: bool) -> Repo
     // every ψ vault and its notes, as plain JSON (meta/vaults.json)
     let tv = std::time::Instant::now();
     let vs = crate::vault::index(vaults, outp, threads);
-    eprintln!("vaults: {} ψ vaults · {} notes · {:.1} GB (+ {} worktree copies) in {:.1}s -> {}/meta/vaults.json", num(vs.vaults as u64),
-              num(vs.notes), vs.bytes as f64 / 1e9, num(vs.worktrees as u64), tv.elapsed().as_secs_f64(), out);
+    eprintln!("vaults: {} ψ vaults · {} notes · {:.1} GB (+ {} worktree {}) in {:.1}s -> {}/meta/vaults.json", num(vs.vaults as u64),
+              num(vs.notes), vs.bytes as f64 / 1e9, num(vs.worktrees as u64), if vs.worktrees == 1 { "copy" } else { "copies" },
+              tv.elapsed().as_secs_f64(), out);
     let m = meta::build(outp, &agent, &st, threads);
     let t_meta = t1.elapsed().as_secs_f64();
     let t2 = std::time::Instant::now();

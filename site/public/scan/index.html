@@ -39,7 +39,10 @@
   "https://relic.buildwithoracle.com/scan/img/scan-contents.webp",
   "https://relic.buildwithoracle.com/scan/img/map.webp",
   "https://relic.buildwithoracle.com/scan/img/tree.webp",
-  "https://relic.buildwithoracle.com/scan/img/disk.webp"
+  "https://relic.buildwithoracle.com/scan/img/disk.webp",
+  "https://relic.buildwithoracle.com/scan/img/vaults.webp",
+  "https://relic.buildwithoracle.com/scan/img/reader.webp",
+  "https://relic.buildwithoracle.com/scan/img/export.webp"
  ],
  "featureList": [
   "The whole index at a glance: Smart Scan shows every row by kind, the sessions and files behind them, and how far back your history goes.",
@@ -47,7 +50,10 @@
   "See what your agents wrote: Pick a kind of row and see where it came from.",
   "Every session as a star: Rings are the months a session started; sectors are repositories. Subagents orbit the session that started them.",
   "Home, repository, session: The same index as a tree, newest first, with rows by kind on every line.",
-  "Where the gigabytes are: Every .jsonl by folder and size, as rings, one colour per branch. Click to go in; open any folder in Finder."
+  "Where the gigabytes are: Every .jsonl by folder and size, as rings, one colour per branch. Click to go in; open any folder in Finder.",
+  "Every oracle's memory, too: The same walk finds every ψ vault: an oracle's learnings, retrospectives, inbox and writing. Open one and its notes are grouped by folder, newest first.",
+  "Read a note where it lives: Click a note and it opens rendered: front matter, headings, lists, code and tables. Nothing is copied, nothing leaves the machine.",
+  "Take the metadata with you: Every table the index holds, as CSV or JSON, in one place. The rows stay in one Parquet file per month, each one click from Finder."
  ],
  "publisher": {
   "@type": "Organization",
@@ -129,6 +135,7 @@
 }
 </script>
 <!-- /seo:jsonld -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27%3E%3Ccircle cx=%2712%27 cy=%2712%27 r=%2712%27 fill=%27%23f5b73b%27/%3E%3Ctext x=%2712%27 y=%2717.6%27 text-anchor=%27middle%27 font-family=%27Georgia,serif%27 font-size=%2717%27 font-weight=%27600%27 fill=%27%231d1405%27%3E%CE%A8%3C/text%3E%3C/svg%3E">
 <link rel="preload" href="fonts/BricolageGrotesque.woff2" as="font" type="font/woff2" crossorigin>
 <!-- Preact and htm as ES modules, Tailwind compiled in the browser: no build step -->
 <script type="importmap">
@@ -210,6 +217,9 @@ html { background: oklch(15% 0.012 262); color-scheme: dark; }
 <h2>Every session as a star</h2><p>Rings are the months a session started; sectors are repositories. Subagents orbit the session that started them.</p><ul><li>a query language: <code>repo:</code> <code>month:</code> <code>tier:</code> <code>errors&gt;=20</code></li><li>click a star for its rows, its copies and <code>claude --resume</code></li><li>⌘K finds any session, repo, home, file or scan</li></ul>
 <h2>Home, repository, session</h2><p>The same index as a tree, newest first, with rows by kind on every line.</p><ul><li>open a bank and see only that bank, with the way back</li><li>export what you see as CSV or JSON, with the time and the query</li></ul>
 <h2>Where the gigabytes are</h2><p>Every <code>.jsonl</code> by folder and size, as rings, one colour per branch. Click to go in; open any folder in Finder.</p><ul><li>indexed and not-indexed bytes for every folder</li><li>folders the scan could not read, listed in Health</li></ul>
+<h2>Every oracle's memory, too</h2><p>The same walk finds every <code>ψ</code> vault: an oracle's learnings, retrospectives, inbox and writing. Open one and its notes are grouped by folder, newest first.</p><ul><li>each vault once, however many repos link to it</li><li>git worktree copies kept apart, cloned repos inside skipped</li><li>written as plain JSON: <code>meta/vaults.json</code></li></ul>
+<h2>Read a note where it lives</h2><p>Click a note and it opens rendered: front matter, headings, lists, code and tables. Nothing is copied, nothing leaves the machine.</p><ul><li>filter a vault's notes by words in the title or path</li><li>Show in Finder from the reader</li><li>export a vault's notes as CSV</li></ul>
+<h2>Take the metadata with you</h2><p>Every table the index holds, as CSV or JSON, in one place. The rows stay in one Parquet file per month, each one click from Finder.</p><ul><li>sessions, files, homes, scans and vaults</li><li>saved to ~/Downloads with the time it was exported</li><li>click a month to show its file in Finder</li></ul>
 <h2>It stays on your machine.</h2><ul><li><b>127.0.0.1</b>: The page is served on this machine only, and makes no network calls.</li><li><b>on a click</b>: Nothing is written until you press Index now. Checks only read.</li><li><b>~/.relic-scan</b>: Your index is plain Parquet: one file per month, plus sessions, files and every .jsonl.</li><li><b>four ways in</b>: A desktop app, the page in any browser, a terminal UI, and the <code>relic-scan</code> command.</li></ul>
 <h2>Questions</h2><dl><dt><b>What is ARRA Relic Scan?</b></dt><dd>A desktop app and command-line tool that finds every AI-agent transcript on your machine, indexes it into one Parquet file per month, and lets you browse it locally: a dashboard, a session map, a tree, a disk view and a terminal UI.</dd><dt><b>Which agents does it read?</b></dt><dd>Claude Code, Codex, OMP, OMX, Gemini, Pi and thClaws: any .claude, .codex, .omp, .omx, .gemini, .pi or .thclaws home, plus backups, mirrors and archived copies of them.</dd><dt><b>Does it upload my transcripts anywhere?</b></dt><dd>No. The app serves its page on 127.0.0.1 only, the page makes no network calls, and the index is written to ~/.relic-scan on your own disk.</dd><dt><b>Does it change my transcript files?</b></dt><dd>No. It only reads them; everything it writes goes to its own folder (~/.relic-scan), and Check changes writes nothing at all.</dd><dt><b>How fast is it?</b></dt><dd>On one Apple-silicon Mac it indexed 86,904 transcripts (75.6 GB) in 58 seconds from cold, and brings that index up to date in about 15 seconds by reading only new bytes.</dd><dt><b>What format is the index?</b></dt><dd>Plain Parquet: one file per month of rows (every message, thinking block, tool call and result), plus sessions, files and every .jsonl, readable by DuckDB, Polars or pandas.</dd><dt><b>Which platforms does it run on?</b></dt><dd>macOS on Apple silicon and on Intel (a .dmg each), and Linux x86_64 (.deb and .AppImage); the relic-scan command builds on macOS and Linux with Rust.</dd><dt><b>Is it free and open source?</b></dt><dd>It is a private beta: the downloads sit in a private GitHub repository and need access to the Soul-Brews-Studio organisation.</dd></dl>
 <h2 id="get">Download</h2><p>Version 26.10.23-alpha.1041, a private beta. The files sit in a private GitHub repository: sign in with an account that has access to Soul-Brews-Studio.</p><ul><li><a href="https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1041/ARRA-Relic-Scan_26.10.23-alpha.1041_macos-arm64.dmg">macOS: .dmg · 6.6 MB</a> (Apple silicon · drag into Applications)</li><li><a href="https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1041/ARRA-Relic-Scan_26.10.23-alpha.1041_macos-x64.dmg">macOS: .dmg · 7.0 MB</a> (Intel · drag into Applications)</li><li><a href="https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1041/ARRA-Relic-Scan_26.10.23-alpha.1041_linux-amd64.deb">Linux: .deb · 7.5 MB</a> (x86_64 · Debian, Ubuntu)</li><li><a href="https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1041/ARRA-Relic-Scan_26.10.23-alpha.1041_linux-amd64.AppImage">Linux: .AppImage · 85 MB</a> (x86_64 · any distribution)</li></ul>

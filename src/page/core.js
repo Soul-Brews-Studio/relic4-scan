@@ -89,7 +89,7 @@ for (let pass = 0; pass < 2; pass++) for (let k = 0; k < N; k++) {
 
 // ---------- shared helpers (used by several views) ----------
 // bytes for people: "75.7 GB", "239.0 MB", "952 KB"
-const human = b => b >= 1e9 ? (b / 1e9).toFixed(1) + " GB" : b >= 1e6 ? (b / 1e6).toFixed(1) + " MB" : Math.round(b / 1e3) + " KB";
+const human = b => b >= 1e9 ? (b / 1e9).toFixed(1) + " GB" : b >= 1e6 ? (b / 1e6).toFixed(1) + " MB" : b >= 1e3 ? Math.round(b / 1e3) + " KB" : b + " B";
 // a link to a view (a page served by relic-scan, or ?view= when opened as a file), with an optional query
 const KFILE = location.protocol === "file:";
 const kHref = (v, hash) => (KFILE ? `?view=${v}` : `/${v}`) + (hash ? "#" + encodeURIComponent(hash) : "");
