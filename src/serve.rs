@@ -73,6 +73,12 @@ fn status(c: &Ctx) -> serde_json::Value {
     })
 }
 
+/// A path the page draws itself: "/", "/map.html", or one lower-case word ("/scan", "/disk", a view a newer page adds).
+/// Serving the page for any such word keeps a newer page working with an older server.
+fn is_view(p: &str) -> bool {
+    p == "/" || p == "/map.html" || (p.len() > 1 && p[1..].bytes().all(|b| b.is_ascii_lowercase()))
+}
+
 /// Every .jsonl the last scan saw (OUT/meta/jsonl.parquet), indexed or not.
 fn seen_paths(out: &Path) -> Vec<String> {
     use arrow::array::{Array, StringArray};
@@ -224,7 +230,7 @@ fn handle(s: TcpStream, c: &Arc<Ctx>) {
     let path = path.split(['?', '#']).next().unwrap_or("/");
     let page = c.out.join("meta").join("map.html");
     match (method, path) {
-        ("GET", "/" | "/scan" | "/scans" | "/disk" | "/banks" | "/health" | "/map" | "/tree" | "/paths" | "/map.html") => match std::fs::read(&page) {
+        ("GET", p) if is_view(p) => match std::fs::read(&page) {
             Ok(b) => reply(s, "200 OK", "text/html; charset=utf-8", &b),
             Err(_) => reply(s, "200 OK", "text/html; charset=utf-8", WELCOME.replace("{OUT}", &c.out.display().to_string()).as_bytes()),
         },
@@ -333,6 +339,16 @@ pub fn serve(out: &Path, port: u16, kind: Vec<String>) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn views_are_single_words() {
+        for v in ["/", "/scan", "/disk", "/map.html", "/somefutureview"] {
+            assert!(super::is_view(v), "{v}");
+        }
+        for v in ["/api/status", "/paths.json", "/favicon.ico", "/Scan", "/../etc", "/a-b"] {
+            assert!(!super::is_view(v), "{v}");
+        }
+    }
+
     #[test]
     fn query_strings_decode() {
         let q = super::query("GET /api/export?sid=ab-1&title=neo%20oracle+x&months=2026-09%2C2026-10&bad=%zz HTTP/1.1");

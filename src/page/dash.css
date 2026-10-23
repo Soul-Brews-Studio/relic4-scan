@@ -81,7 +81,8 @@
   }
   /* contents (on Smart Scan): every row by kind, .jsonl kind and place; the legend lists the focused ring */
   /* Smart Scan opens on what the index holds: the donut and its legend, then the file counts */
-  #dash .hero { display: grid; grid-template-columns: 260px minmax(0, 340px); gap: var(--sp-7); align-items: center; justify-content: center; margin: 0 0 var(--sp-6); }
+  /* the donut block and the stats under it share one centred column, so their edges line up */
+  #dash .hero { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: var(--sp-7); align-items: center; max-width: 880px; margin: 0 auto var(--sp-6); }
   #dash .kl .row { display: grid; grid-template-columns: 10px minmax(0, 1fr) 84px 48px; gap: var(--sp-3); align-items: center; width: 100%; padding: 7px var(--sp-2);
                    border: 0; border-radius: 8px; background: none; color: var(--ink); font: 15px var(--font-ui); font-variant-numeric: tabular-nums; text-align: left; cursor: pointer; }
   #dash .kl .row:hover, #dash .kl .row:focus-visible { background: var(--hover); outline: none; }
@@ -89,7 +90,7 @@
   #dash .kl .n { color: var(--dim); justify-self: start; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; } #dash .kl .row:hover .n { color: var(--ink); }
   #dash .kl .p { color: var(--dim); text-align: right; font-size: 13px; }
   #dash .kl .v { text-align: right; }
-  #dash .strip.five { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 700px; margin-left: auto; margin-right: auto; row-gap: var(--sp-6); }
+  #dash .strip.five { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 880px; margin-left: auto; margin-right: auto; row-gap: var(--sp-6); }
   #dash .donut { display: block; width: 100%; max-width: 300px; margin: 0; padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: 50%; }
   #dash .donut:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
   #dash .donut svg, #cpop svg { width: 100%; height: auto; display: block; }
