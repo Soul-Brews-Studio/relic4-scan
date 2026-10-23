@@ -288,6 +288,14 @@ Other keys:
 
 It sets no background colour, so it reads the same on dark and light terminals. Colour in the CLI output appears only on a terminal and is off with `NO_COLOR`.
 
+## The ledger
+A transcript only ever grows, so the index keeps a ledger of what it has read: `OUT/_ledger.tsv`, appended and never
+rewritten, one line per version of a file (the first line's hash, the line count, a hash chain over every line, the path).
+A new or changed path is answered before it is parsed: **same** (a copy of a version read elsewhere: not read),
+**update** (a known version is its start: only the new lines are read), **past changed** (flagged, read again, old rows
+kept) or **never**. A moved folder or another machine's mirror costs a hash instead of a parse. The first run after an
+upgrade builds the ledger from `_state.tsv` by hashing each file up to where it was read.
+
 ## ψ vaults and Export
 - **ψ vaults.** The walk notes every `ψ` folder it passes (an oracle's vault, or a link to one). After each index, every
   real vault is read once: its markdown notes go to `OUT/meta/vaults.json`, plain JSON, readable by `jq`, DuckDB or the

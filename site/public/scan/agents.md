@@ -93,6 +93,23 @@ jq -r '.vaults[] | select(.kind != "worktree") | [.notes, .name, .path] | @tsv' 
 
 Transcripts hold private work. Read what the human asked you to find; do not copy rows out of the machine.
 
+## The ledger: what has been read, from anywhere
+
+`~/.relic-scan/_ledger.tsv` is appended on every index and never rewritten. Each line is one version of one transcript:
+`first` (hash of its first line) · `lines` · `bytes` · `chain` (a hash chain over every line) · `session` · `last_ms` ·
+`path` · `at` · `how` (read, copy, seed). Before a new or changed path is parsed, the ledger says what it is:
+
+| answer | meaning | what the index does |
+|---|---|---|
+| same | its lines are a version already read, at any path or on any machine | nothing to read; its state says `copy_of` |
+| update | a version already read is the start of it | reads only the lines after that version |
+| past changed | its first line is known, but no known version is a prefix | reads it all and keeps the old rows |
+| never | its first line was never seen | reads it all |
+
+So a moved folder or a mirror of another machine costs a hash, not a parse. Copies the ledger recognised are listed in
+`_state.tsv` (`copy_of`) and `_ledger.tsv`, not in the rows' `sources`. The scan log (`relic-scan log`, `_scans.jsonl`)
+counts `copies`, `resumed` and `past_changed`, and lists each file with its status.
+
 ## Build, test and change the code
 
 ```sh

@@ -161,7 +161,8 @@ pub fn build(out: &Path, agent: &str, st: &HashMap<String, FileState>, threads: 
             path: p.to_string(), home: home_of(p), size: s.size as i64, lines: s.ctx.lines, last_ms: s.ctx.last_ms,
             file_sid: Some(s.ctx.session.clone()).filter(|x| !x.is_empty()), base: base_of(p).to_string(), tier: tier_of(p),
             engine, cat: cat_of(engine, proj.as_deref()), proj, parent_sid: parent_of(p),
-            agg: per_file.get(p.as_str()).cloned().unwrap_or_default(),
+            // a copy the ledger recognised was not read: its rows are the file it copies
+            agg: per_file.get(p.as_str()).or_else(|| s.copy_of.as_ref().and_then(|c| per_file.get(c.as_str()))).cloned().unwrap_or_default(),
         }
     }).collect();
     let mut fcols = vec![

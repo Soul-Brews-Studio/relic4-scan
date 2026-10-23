@@ -113,6 +113,43 @@ pub struct Ctx {
     pub lines: i64,
     pub session: String,
     pub last_ms: Option<i64>,
+    /// the ledger's view of the lines read so far: the first line's hash and the chain over every line (ledger.rs)
+    pub first: i64,
+    pub chain: crate::ledger::Chain,
+}
+
+/// Every complete line of a file from `from`, in chunks of `want` bytes, cut exactly as a whole-file read would
+/// (complete(), split_lines()). `f` gets each line with its terminator and says whether to go on. Returns the bytes
+/// of the lines it was given, or None when the file cannot be read.
+pub(crate) fn each_line(path: &str, from: u64, want: usize, bytes_read: &AtomicU64, f: &mut dyn FnMut(&[u8]) -> bool) -> Option<u64> {
+    use std::io::{Seek, SeekFrom};
+    let mut file = fs::File::open(path).ok()?;
+    file.seek(SeekFrom::Start(from)).ok()?;
+    let mut used: u64 = 0;
+    let (mut buf, mut eof, mut stop) = (Vec::new(), false, false);
+    while !eof && !stop {
+        let n = Read::by_ref(&mut file).take(want as u64).read_to_end(&mut buf).ok()?;
+        bytes_read.fetch_add(n as u64, Ordering::Relaxed);
+        eof = n < want;
+        let body: &[u8] = if eof {
+            complete(&buf)
+        } else {
+            match memchr::memrchr(b'\n', &buf) {
+                Some(nl) => &buf[..=nl],
+                None => continue, // one line longer than a chunk: read on until it ends
+            }
+        };
+        let took = body.len();
+        for line in split_lines(body) {
+            if !f(line) {
+                stop = true;
+                break;
+            }
+            used += line.len() as u64;
+        }
+        buf.drain(..took);
+    }
+    Some(used)
 }
 
 /// store.parse_chunk from `ctx.offset` with `ctx`, to the end of the file's complete lines. Returns the new ctx.
@@ -128,98 +165,83 @@ pub fn parse_file(path: &str, ctx: &Ctx, jt_compat: bool, st: &Stats, emit: &mut
 }
 
 fn parse_file_chunked(path: &str, ctx: &Ctx, jt_compat: bool, st: &Stats, emit: &mut dyn FnMut(Raw), want: usize) -> Option<Ctx> {
-    use std::io::{Seek, SeekFrom};
-    let mut f = fs::File::open(path).ok()?;
-    f.seek(SeekFrom::Start(ctx.offset)).ok()?;
     let eng = engine::engine_of(path);
     let file: Arc<str> = Arc::from(path);
     let (mut nline, mut session, mut last) = (ctx.lines, ctx.session.clone(), ctx.last_ms);
-    let mut used: u64 = 0;
+    let (mut first, mut chain) = (ctx.first, ctx.chain);
     // read a chunk, parse up to its last "\n", carry the rest into the next chunk; at the end of the file the rest
     // is cut as a whole-file read would cut it (complete()), so the rows are the same for any chunk size
-    let (mut buf, mut eof, mut stop) = (Vec::new(), false, false);
-    while !eof && !stop {
-        let n = Read::by_ref(&mut f).take(want as u64).read_to_end(&mut buf).ok()?;
-        st.bytes.fetch_add(n as u64, Ordering::Relaxed);
-        eof = n < want;
-        let body: &[u8] = if eof {
-            complete(&buf)
-        } else {
-            match memchr::memrchr(b'\n', &buf) {
-                Some(nl) => &buf[..=nl],
-                None => continue, // one line longer than a chunk: read on until it ends
+    let used = each_line(path, ctx.offset, want, &st.bytes, &mut |line: &[u8]| {
+        if jt_compat && line.len() > JT_CHUNK {
+            st.stuck.fetch_add(1, Ordering::Relaxed); // jt never ships a line longer than its chunk: the file stops here
+            return false;
+        }
+        nline += 1;
+        // every line goes into the ledger's chain, rows or not
+        let h = engine::key(line);
+        if nline == 1 {
+            first = h;
+        }
+        chain = crate::ledger::step(&chain, h);
+        let r = match engine::parse(line) {
+            Some(serde_json::Value::Object(m)) => m,
+            Some(_) => serde_json::Map::new(),
+            None => {
+                st.bad_json.fetch_add(1, Ordering::Relaxed);
+                serde_json::Map::new()
             }
         };
-        let took = body.len();
-        for line in split_lines(body) {
-            if jt_compat && line.len() > JT_CHUNK {
-                st.stuck.fetch_add(1, Ordering::Relaxed); // jt never ships a line longer than its chunk: the file stops here
-                stop = true;
-                break;
-            }
-            used += line.len() as u64;
-            nline += 1;
-            let r = match engine::parse(line) {
-                Some(serde_json::Value::Object(m)) => m,
-                Some(_) => serde_json::Map::new(),
-                None => {
-                    st.bad_json.fetch_add(1, Ordering::Relaxed);
-                    serde_json::Map::new()
-                }
-            };
-            let x = engine::extract(&r);
-            if !x.sess.is_empty() && session.is_empty() {
-                session = x.sess.clone();
-            }
-            let mut ts = x.ts;
-            if ts.is_some() {
-                last = ts;
-            } else if last.is_some() {
-                ts = last; // a line without its own time takes the file's last one
-            }
-            let trs: Vec<Tool> = engine::extract_tools(line, &r);
-            let think = engine::thinking_of(line, &r);
-            if x.text.is_empty() && think.is_none() && trs.is_empty() {
+        let x = engine::extract(&r);
+        if !x.sess.is_empty() && session.is_empty() {
+            session = x.sess.clone();
+        }
+        let mut ts = x.ts;
+        if ts.is_some() {
+            last = ts;
+        } else if last.is_some() {
+            ts = last; // a line without its own time takes the file's last one
+        }
+        let trs: Vec<Tool> = engine::extract_tools(line, &r);
+        let think = engine::thinking_of(line, &r);
+        if x.text.is_empty() && think.is_none() && trs.is_empty() {
+            return true;
+        }
+        let stp = engine::stamp(ts);
+        let sid = if x.sess.is_empty() { session.clone() } else { x.sess.clone() };
+        // a thinking row is kept even with empty text: the model thought, only the text was not saved
+        let think_text = think.clone().unwrap_or_default();
+        for (s, body) in [("text", &x.text), ("thinking", &think_text)] {
+            if body.is_empty() && !(s == "thinking" && think.is_some()) {
                 continue;
             }
-            let stp = engine::stamp(ts);
-            let sid = if x.sess.is_empty() { session.clone() } else { x.sess.clone() };
-            let h = engine::key(line);
-            // a thinking row is kept even with empty text: the model thought, only the text was not saved
-            let think_text = think.clone().unwrap_or_default();
-            for (s, body) in [("text", &x.text), ("thinking", &think_text)] {
-                if body.is_empty() && !(s == "thinking" && think.is_some()) {
-                    continue;
-                }
-                let (clean, kinds) = engine::redact(body);
-                emit(Raw {
-                    month: stp.month.clone(), s, h, idx: 0, engine: eng,
-                    role: Some(if s == "thinking" { "thinking".into() } else { x.role.clone() }), typ: Some(x.typ.clone()),
-                    sid: sid.clone(), ts: stp.ts.clone(), ts_th: stp.ts_th.clone(), text: Some(clean), kind: None, call_id: None,
-                    name: None, body: None, err: None, red: (!kinds.is_empty()).then_some(kinds), file: file.clone(), line: nline,
-                });
-            }
-            for (idx, t) in trs.into_iter().enumerate() {
-                let (clean, kinds) = engine::redact(&t.body);
-                emit(Raw {
-                    month: stp.month.clone(), s: "tools", h, idx: idx as i64, engine: eng, role: None, typ: None,
-                    sid: sid.clone(), ts: stp.ts.clone(), ts_th: stp.ts_th.clone(), text: None, kind: Some(t.kind),
-                    call_id: Some(t.call_id), name: (!t.name.is_empty()).then_some(t.name), body: Some(clean), err: Some(t.err),
-                    red: (!kinds.is_empty()).then_some(kinds), file: file.clone(), line: nline,
-                });
-            }
+            let (clean, kinds) = engine::redact(body);
+            emit(Raw {
+                month: stp.month.clone(), s, h, idx: 0, engine: eng,
+                role: Some(if s == "thinking" { "thinking".into() } else { x.role.clone() }), typ: Some(x.typ.clone()),
+                sid: sid.clone(), ts: stp.ts.clone(), ts_th: stp.ts_th.clone(), text: Some(clean), kind: None, call_id: None,
+                name: None, body: None, err: None, red: (!kinds.is_empty()).then_some(kinds), file: file.clone(), line: nline,
+            });
         }
-        buf.drain(..took);
-    }
+        for (idx, t) in trs.into_iter().enumerate() {
+            let (clean, kinds) = engine::redact(&t.body);
+            emit(Raw {
+                month: stp.month.clone(), s: "tools", h, idx: idx as i64, engine: eng, role: None, typ: None,
+                sid: sid.clone(), ts: stp.ts.clone(), ts_th: stp.ts_th.clone(), text: None, kind: Some(t.kind),
+                call_id: Some(t.call_id), name: (!t.name.is_empty()).then_some(t.name), body: Some(clean), err: Some(t.err),
+                red: (!kinds.is_empty()).then_some(kinds), file: file.clone(), line: nline,
+            });
+        }
+        true
+    })?;
     st.lines.fetch_add((nline - ctx.lines) as u64, Ordering::Relaxed);
     st.files.fetch_add(1, Ordering::Relaxed);
-    Some(Ctx { offset: ctx.offset + used, lines: nline, session, last_ms: last })
+    Some(Ctx { offset: ctx.offset + used, lines: nline, session, last_ms: last, first, chain })
 }
 
 mod merge;
 mod parts;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 pub use merge::merge_month;
 use parts::*;
