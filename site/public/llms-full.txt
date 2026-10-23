@@ -149,12 +149,12 @@ It is a private beta: the downloads sit in a private GitHub repository and need 
 
 ## Download
 
-Version 26.10.23-alpha.1041, a private beta. The files sit in a private GitHub repository: sign in with an account that has access to Soul-Brews-Studio.
+Version 26.10.23-alpha.1117, a private beta. The files sit in a private GitHub repository: sign in with an account that has access to Soul-Brews-Studio.
 
-- [macOS, .dmg · 6.6 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1041/ARRA-Relic-Scan_26.10.23-alpha.1041_macos-arm64.dmg): Apple silicon · drag into Applications
-- [macOS, .dmg · 7.0 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1041/ARRA-Relic-Scan_26.10.23-alpha.1041_macos-x64.dmg): Intel · drag into Applications
-- [Linux, .deb · 7.5 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1041/ARRA-Relic-Scan_26.10.23-alpha.1041_linux-amd64.deb): x86_64 · Debian, Ubuntu
-- [Linux, .AppImage · 85 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1041/ARRA-Relic-Scan_26.10.23-alpha.1041_linux-amd64.AppImage): x86_64 · any distribution
+- [macOS, .dmg · 6.7 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1117/ARRA-Relic-Scan_26.10.23-alpha.1117_macos-arm64.dmg): Apple silicon · drag into Applications
+- [macOS, .dmg · 7.1 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1117/ARRA-Relic-Scan_26.10.23-alpha.1117_macos-x64.dmg): Intel · drag into Applications
+- [Linux, .deb · 7.6 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1117/ARRA-Relic-Scan_26.10.23-alpha.1117_linux-amd64.deb): x86_64 · Debian, Ubuntu
+- [Linux, .AppImage · 85 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.23-alpha.1117/ARRA-Relic-Scan_26.10.23-alpha.1117_linux-amd64.AppImage): x86_64 · any distribution
 
 ```sh
 gh api repos/Soul-Brews-Studio/relic4-scan/contents/install.sh \
