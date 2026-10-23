@@ -236,6 +236,17 @@ Other keys:
 
 It sets no background colour, so it reads the same on dark and light terminals. Colour in the CLI output appears only on a terminal and is off with `NO_COLOR`.
 
+## Source layout
+No file is longer than 500 lines; a long one is split into a folder of modules.
+- `src/run.rs`: `relic-scan run` (scan, diff, parse, merge, meta, map, scan log); `src/lib.rs` keeps the arguments and the shared helpers.
+- `src/parse/`: the reader (`mod.rs`), the raw parts (`parts.rs`), the month merge (`merge.rs`), tests.
+- `src/meta/`: the tables (`mod.rs`), the path rules (`rules.rs`), the per-month pass and its cache (`agg.rs`), tests.
+- `src/tui/`: state and loading (`mod.rs`, `load.rs`), keys (`keys.rs`), drawing (`draw.rs`).
+- `src/page/`: the page as small files: the shell `index.html`, three CSS files, and the scripts in the order they run
+  (`core`, `map`, `shell`, `tree`, `paths`, `dash`, `contents`, `disk`, `scanlog`, `main`, `palette`). `map.rs` puts them
+  back together into one self-contained page; there is no build step and no network. Shared helpers live in `core.js`:
+  `human()` for bytes, `relicPost()` for every write to the server, and `overlay()` for every popup.
+
 ## Tests
 `cargo test` runs 18 tests in under a second, with no other repo needed:
 - the path rules: tier, repo (cat), project, parent and home;

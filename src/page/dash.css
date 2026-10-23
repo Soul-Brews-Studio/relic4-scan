@@ -1,0 +1,139 @@
+  /* dashboard views: scan, banks, health */
+  #dash { display: none; margin-left: var(--side); padding: 44px 48px 60px; max-width: 1180px; font-family: -apple-system, system-ui, sans-serif; }
+  #dash .eyebrow { color: var(--amber); font-size: 12px; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; }
+  #dash h1 { font-size: 44px; line-height: 1.1; margin: 8px 0 8px; font-weight: 800; letter-spacing: -.01em; }
+  #dash .sub { color: var(--dim); font-size: 17px; margin: 0 0 var(--sp-2); max-width: 75ch; }
+  #dash .scope { color: var(--dim); font-size: 13px; margin: 0 0 var(--sp-7); }
+  #dash .scope b { color: var(--accent); font-weight: 600; }
+  #dash .rchip { display: inline-block; vertical-align: middle; margin-left: var(--sp-3); padding: 4px 12px; border-radius: 8px; font: 600 15px var(--font-ui);
+                 letter-spacing: 0; color: var(--accent); border: 1px solid var(--accent); }
+  #dash .scope code { font-family: var(--font-mono); font-size: 12px; overflow-wrap: anywhere; }
+  #side .rng { color: var(--accent); font-weight: 600; }
+  #dash .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: var(--sp-5); margin-bottom: var(--sp-6); }
+  #dash .card h3 { margin: 0 0 var(--sp-3); font-size: 17px; color: var(--amber); display: flex; gap: 10px; align-items: center; }
+  #dash .card h3.c { color: var(--cyan); }
+  #dash .strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-5); margin: 0 0 var(--sp-6); }
+  /* Smart Scan: the coverage ring and the four file counts it summarises, on the page's one left axis */
+  #dash .overview { display: grid; grid-template-columns: 220px minmax(0, 600px); gap: var(--sp-7); align-items: center; margin: 0 0 var(--sp-6); }
+  #dash .overview svg { width: 220px; height: 220px; display: block; }
+  #dash .overview .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-6) var(--sp-5); margin: 0; }
+  #dash .stat .k { font-size: 11px; letter-spacing: .2em; color: var(--dim); font-weight: 700; text-transform: uppercase; }
+  #dash .stat { min-width: 0; }
+  /* the detail under a stat may take two lines (never cut off), one fact a line */
+  #dash .stat .s { margin-top: 6px; color: var(--dim); font-size: 13px; line-height: 1.45; font-variant-numeric: tabular-nums; }
+  #dash .stat .s span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #dash .strip.five .stat .v { font-size: 28px; white-space: nowrap; letter-spacing: -.01em; }
+  #dash .stat .v { font-size: 34px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  #dash .go { background: var(--amber); color: var(--on-amber); border: 0; border-radius: 10px; padding: 14px 26px;
+              font: 700 17px var(--font-ui); cursor: pointer; min-width: 220px; }
+  #dash .go:disabled { opacity: .55; cursor: default; }
+  #dash .ghost { background: var(--hover); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 14px 26px;
+                 font: 600 17px var(--font-ui); cursor: pointer; min-width: 220px; }
+  #dash .ghost:disabled { opacity: .55; cursor: default; }
+  #dash .actions { display: flex; flex-wrap: wrap; gap: var(--sp-3); margin-top: var(--sp-5); }
+  #dash .note { color: var(--dim); font-size: 13px; margin-top: var(--sp-3); }
+  #dash .diff:empty { display: none; }
+  #dash .diff { margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: 1px solid var(--line); font-size: 15px; font-variant-numeric: tabular-nums; }
+  #dash .diff .nums { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-top: 8px; color: var(--dim); font-size: 13px; }
+  #dash .diff .nums b { color: var(--ink); font-size: 15px; }
+  /* the progress track exists only while a run or a check is going */
+  #dash .track { height: 4px; border-radius: 2px; background: var(--line); margin: var(--sp-4) 0 0; overflow: hidden; display: none; }
+  #dash .track.on { display: block; }
+  #dash .track i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .4s; }
+  #dash .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  #dash .bank { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px 24px; cursor: pointer; }
+  #dash .bank:hover { border-color: var(--focus); }
+  #dash .bank .n { color: var(--amber); font-weight: 700; font-size: 17px; margin-bottom: 4px; overflow-wrap: anywhere; }
+  #dash .bank .p { color: var(--dim); font-size: 12px; margin-bottom: 14px; font-family: ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
+  #dash .bank .nums { display: flex; gap: 28px; }
+  #dash .bank .nums b { display: block; font-size: 19px; font-variant-numeric: tabular-nums; }
+  #dash .bank .nums span { font-size: 10px; letter-spacing: .18em; color: var(--dim); font-weight: 700; }
+  #dash .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-left: 8px; vertical-align: 2px;
+                 background: var(--hover); color: var(--dim); font-weight: 600; letter-spacing: .04em; }
+  #dash .repo { display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; align-items: center; padding: 14px 4px; border-top: 1px solid var(--line); cursor: pointer; }
+  #dash .repo:first-of-type { border-top: 0; }
+  #dash .repo:hover { background: var(--hover); }
+  #dash .repo .r b { display: block; font-size: 15px; }
+  #dash .repo .r code { font-size: 13px; color: var(--dim); }
+  #dash .repo .x { text-align: right; } #dash .repo .x b { font-size: 18px; } #dash .repo .x div { color: var(--dim); font-size: 12px; }
+  #dash .warn { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; padding: 9px 0; align-items: start; font-size: 15px; }
+  #dash .ulist { display: grid; gap: 4px; max-height: 360px; overflow: auto; }
+  #dash .ulist code { font: 12px var(--font-mono); color: var(--dim); overflow-wrap: anywhere; }
+  #dash .warn a { color: var(--cyan); font-size: 13px; text-decoration: none; white-space: nowrap; }
+  #dash .lvl { width: 16px; height: 16px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11px; font-weight: 800; color: #1d1405; margin-top: 2px; }
+  #dash .head { display: flex; gap: 18px; align-items: center; }
+  #dash .head .big { font-size: 40px; }
+  /* wide screens: Smart Scan gets a side column (totals, recent scans) instead of empty space */
+  #dash .side h3 { margin: 0 0 var(--sp-3); font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  #dash .side .strip { margin-bottom: var(--sp-6); }
+  #dash .side .stat .v { font-size: 26px; white-space: nowrap; }
+  #dash .recent a { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-3); padding: var(--sp-3) 0; border-top: 1px solid var(--line);
+                    color: var(--ink); text-decoration: none; font-size: 14px; font-variant-numeric: tabular-nums; }
+  #dash .recent a:hover .w { color: var(--accent); }
+  #dash .recent a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #dash .recent .m { color: var(--dim); font-size: 13px; text-align: right; }
+  #dash .more { display: inline-block; margin-top: var(--sp-3); color: var(--accent); text-decoration: none; font-size: 14px; }
+  @media (min-width: 1500px) {
+    #dash { max-width: 1640px; }
+    #dash .cols { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--sp-7); align-items: start; }
+    #dash .side .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-5); }
+    #dash .side { position: sticky; top: 72px; } /* below the index and theme buttons */
+  }
+  /* contents (on Smart Scan): every row by kind, .jsonl kind and place; the legend lists the focused ring */
+  /* Smart Scan opens on what the index holds: the donut and its legend, then the file counts */
+  #dash .hero { display: grid; grid-template-columns: 260px minmax(0, 340px); gap: var(--sp-7); align-items: center; justify-content: center; margin: 0 0 var(--sp-6); }
+  #dash .kl .row { display: grid; grid-template-columns: 10px minmax(0, 1fr) 84px 48px; gap: var(--sp-3); align-items: center; width: 100%; padding: 7px var(--sp-2);
+                   border: 0; border-radius: 8px; background: none; color: var(--ink); font: 15px var(--font-ui); font-variant-numeric: tabular-nums; text-align: left; cursor: pointer; }
+  #dash .kl .row:hover, #dash .kl .row:focus-visible { background: var(--hover); outline: none; }
+  #dash .kl .dot { width: 10px; height: 10px; border-radius: 50%; }
+  #dash .kl .n { color: var(--dim); justify-self: start; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; } #dash .kl .row:hover .n { color: var(--ink); }
+  #dash .kl .p { color: var(--dim); text-align: right; font-size: 13px; }
+  #dash .kl .v { text-align: right; }
+  #dash .strip.five { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 700px; margin-left: auto; margin-right: auto; row-gap: var(--sp-6); }
+  #dash .donut { display: block; width: 100%; max-width: 300px; margin: 0; padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: 50%; }
+  #dash .donut:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+  #dash .donut svg, #cpop svg { width: 100%; height: auto; display: block; }
+  #dash .donut path, #cpop path { stroke: var(--bg); stroke-width: 1.5; transition: opacity var(--dur-short) var(--ease-out); }
+  #dash .donut svg.hov path:not(.on) { opacity: .5; }
+  #dash .donut .hole { fill: var(--bg); } #cpop .hole { fill: var(--card); } #cpop path { stroke: var(--card); }
+  .ct { font: 700 36px var(--font-ui); letter-spacing: -.01em; fill: var(--ink); pointer-events: none; font-variant-numeric: tabular-nums; }
+  .cs { font: 500 18px var(--font-ui); fill: var(--dim); pointer-events: none; }
+  .pc { font: 700 14px var(--font-ui); pointer-events: none; font-variant-numeric: tabular-nums; }
+  /* the full contents view */
+  /* every popup (.overlay, made by overlay() in core.js): a scrim, one box centred over the content, not the sidebar */
+  .overlay { position: fixed; inset: 0; z-index: 20; font-family: var(--font-ui); }
+  .overlay[hidden] { display: none; }
+  .overlay .scrim { position: absolute; inset: 0; background: rgba(0, 0, 0, .5); }
+  .overlay .box { position: absolute; left: calc(var(--side) + (100vw - var(--side)) / 2); transform: translateX(-50%);
+                  background: var(--card); border: 1px solid var(--line); box-shadow: 0 16px 40px rgba(0, 0, 0, .4); }
+  #cpop .box { top: 50%; transform: translate(-50%, -50%);
+               width: min(1040px, calc(100vw - var(--side) - 48px)); max-height: calc(100vh - 48px); overflow: auto;
+               background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 16px 40px rgba(0, 0, 0, .4); }
+  #cpop .th { display: flex; align-items: baseline; gap: var(--sp-3); padding: var(--sp-4) var(--sp-3) var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--line); }
+  #cpop .th b { font-size: 18px; } #cpop .th .sp { flex: 1; }
+  #cpop .th button { background: none; border: 0; color: var(--dim); font: 22px/1 var(--font-ui); padding: 4px 10px; border-radius: 6px; cursor: pointer; }
+  #cpop .th button:hover { color: var(--ink); background: var(--hover); } #cpop .th button:focus-visible { outline: 2px solid var(--accent); }
+  #cpop .chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); padding: var(--sp-4) var(--sp-5) 0; }
+  #cpop .chips button { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line);
+                        background: none; color: var(--dim); font: 500 13px var(--font-ui); cursor: pointer; }
+  #cpop .chips button:hover { color: var(--ink); } #cpop .chips button.on { color: var(--ink); background: var(--hover); border-color: var(--accent); }
+  #cpop .chips button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #cpop .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  #cpop .detail { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-6); padding: var(--sp-5); }
+  #cpop h4 { margin: 0 0 var(--sp-3); font: 600 14px var(--font-ui); color: var(--ink); }
+  #cpop .track2 { display: flex; height: 10px; border-radius: 5px; overflow: hidden; gap: 2px; margin-bottom: var(--sp-3); }
+  #cpop .track2 i { display: block; height: 100%; min-width: 2px; }
+  #cpop .row { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto 44px; gap: var(--sp-3); align-items: center; padding: 5px 0; font-size: 14px; font-variant-numeric: tabular-nums; }
+  #cpop .row .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); justify-self: start; text-align: left; max-width: 100%; }
+  #cpop .row .p { color: var(--dim); text-align: right; font-size: 12px; }
+  #cpop .months { grid-column: 1 / -1; }
+  #cpop .mchart { display: flex; align-items: flex-end; gap: 6px; height: 180px; padding-top: 18px; }
+  #cpop .mc { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  #cpop .mc .b { flex: 1; width: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
+  #cpop .mc i { display: block; width: 100%; max-width: 44px; border-radius: 4px 4px 0 0; min-height: 2px; }
+  #cpop .mc .stack { display: flex; flex-direction: column-reverse; width: 100%; max-width: 44px; min-height: 2px; border-radius: 4px 4px 0 0; overflow: hidden; gap: 1px; }
+  #cpop .mc .stack i { max-width: none; border-radius: 0; min-height: 0; }
+  #cpop .mv { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #cpop .ml { font-size: 12px; color: var(--dim); height: 30px; text-align: center; line-height: 1.2; } #cpop .ml b { display: block; font-weight: 600; color: var(--ink); font-size: 11px; }
+  #cpop .foot { grid-column: 1 / -1; margin: 0; color: var(--dim); font-size: 13px; }
+  @media (max-width: 1100px) { #cpop .detail { grid-template-columns: minmax(0, 1fr); } }

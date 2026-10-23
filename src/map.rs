@@ -14,7 +14,20 @@ use arrow::array::{Array, Int64Array, RecordBatch, StringArray};
 use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use serde_json::{Value, json};
 
-const PAGE: &str = include_str!("map.html");
+// The page is kept as small files in src/page/ and put back together here, in this order, into one self-contained
+// page: the shell (head and body markup), then its CSS in <style> and its scripts, in order, in one <script>.
+const SHELL: &str = include_str!("page/index.html");
+const CSS: [&str; 3] = [include_str!("page/shell.css"), include_str!("page/dash.css"), include_str!("page/popups.css")];
+const JS: [&str; 11] = [
+    include_str!("page/core.js"), include_str!("page/map.js"), include_str!("page/shell.js"), include_str!("page/tree.js"),
+    include_str!("page/paths.js"), include_str!("page/dash.js"), include_str!("page/contents.js"), include_str!("page/disk.js"),
+    include_str!("page/scanlog.js"), include_str!("page/main.js"), include_str!("page/palette.js"),
+];
+
+/// The page template, data placeholder included (`/*DATA*/null`).
+pub fn page() -> String {
+    SHELL.replacen("/*CSS*/", CSS.concat().trim_end(), 1).replacen("/*JS*/", JS.concat().trim_end(), 1)
+}
 
 pub(crate) fn read(p: &Path) -> Vec<RecordBatch> {
     let f = fs::File::open(p).unwrap_or_else(|e| {
@@ -149,7 +162,8 @@ pub fn build(out: &Path, agent: &str) {
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_secs());
     let data = json!({
         "agent": agent,
-        "scan": scan_sum, "last_run": last_run, "out": out.display().to_string(), "home": std::env::var("HOME").unwrap_or_default(),
+        "scan": scan_sum, "last_run": last_run, "out": out.display().to_string(),
+        "unreadable": fs::read(out.join("meta").join("unreadable.json")).ok().and_then(|b| serde_json::from_slice::<Value>(&b).ok()), "home": std::env::var("HOME").unwrap_or_default(),
         "range": crate::range::Range::read(out).map(|g| json!({"from": g.from, "to": g.to, "label": g.label, "human": g.human()})),
         "built": chrono::Local::now().format("%Y-%m-%d %H:%M").to_string(),
         "cats": cats.words, "projs": projs.words,
@@ -159,7 +173,7 @@ pub fn build(out: &Path, agent: &str) {
     });
     // inline: "</" would end the <script> early
     let js = serde_json::to_string(&data).unwrap().replace("</", "<\\/");
-    let page = PAGE.replace("/*DATA*/null", &js);
+    let page = page().replace("/*DATA*/null", &js);
     let p = dir.join("map.html");
     fs::write(&p, page).unwrap();
     eprintln!("map: {} sessions · {} repos · {} homes · {:.1} MB · {} paths in {:.1}s -> {}", n, cats.words.len(), homes.len(),

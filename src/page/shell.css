@@ -1,0 +1,82 @@
+  /* Hallmark · audit + fix: app shell sidebar · genre: atmospheric (dark AI tool, light twin) · tone: technical · anchor hue: cyan
+   * fonts: system stacks on purpose (the page is offline, no font downloads) · ui sans for chrome, mono for data
+   * pre-emit critique: P4 H4 E4 S4 R5 V3 */
+  :root { --bg: #05070d; --ink: #d9dde8; --dim: #7c8496; --line: #1c2333; --panel: rgba(10, 13, 22, .92);
+          --focus: #3a4766; --hover: #121827; --sel: #2a1a17; --track: #1a2030; --barbg: #2a3550; --barfg: #6b7fb0;
+          --btn: #111727; --code: #c9d4ff; --link: #8fa3d6; color-scheme: dark; }
+  :root[data-theme="light"] { --bg: #f5f6fa; --ink: #1c2233; --dim: #5d667a; --line: #d6dbe7; --panel: rgba(255, 255, 255, .95);
+          --focus: #7d8bb5; --hover: #e9edf6; --sel: #fde6dc; --track: #e1e5ee; --barbg: #dde2ed; --barfg: #5b6fa6;
+          --btn: #ffffff; --code: #2f47a6; --link: #3554b5; color-scheme: light; }
+  * { box-sizing: border-box; }
+  /* moving between views: the old page stays until the new one is drawn, then a short cross-fade (no blank flash) */
+  @view-transition { navigation: auto; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 140ms; }
+  @media (prefers-reduced-motion: reduce) { ::view-transition-old(root), ::view-transition-new(root) { animation: none; } }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+               font: 13px/1.45 ui-monospace, "SF Mono", Menlo, monospace; overflow: hidden; }
+  canvas { position: fixed; inset: 0; display: block; cursor: crosshair; }
+  :root { --side: 232px; --amber: #f5b73b; --cyan: #67c8ef; --green: #6fd6a0; --card: #12151c; --sideb: #13161d;
+          --raised: #1d2230; --on-amber: #1d1405; --accent: var(--cyan);
+          --font-ui: -apple-system, system-ui, sans-serif; --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+          --ease-out: cubic-bezier(.2, .7, .2, 1); --dur-short: 120ms;
+          --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px; --sp-7: 48px; }
+  :root[data-theme="light"] { --amber: #b7791f; --cyan: #1f7fbf; --green: #1f9d63; --card: #fbfcfe; --sideb: #eceff5; --raised: #dde3ee; }
+  @media (max-width: 1100px) { :root { --side: 64px; } #side .lbl, #side .brand .t, #side .foot { display: none; } }
+  #bar { position: fixed; left: calc(var(--side) + 14px); top: 12px; right: 374px; display: flex; gap: 10px; align-items: center; }
+  #q { flex: 1; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px;
+       padding: 9px 12px; font: inherit; outline: none; }
+  #q:focus { border-color: var(--focus); }
+  #count { color: var(--dim); white-space: nowrap; }
+  #legend { position: fixed; left: calc(var(--side) + 14px); bottom: 12px; display: flex; gap: 14px; color: var(--dim); align-items: center; flex-wrap: wrap; }
+  #legend b { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+  #legend button { background: none; border: 1px solid var(--line); color: var(--dim); border-radius: 4px; padding: 3px 8px; font: inherit; cursor: pointer; }
+  #legend button.on { color: var(--ink); border-color: var(--focus); }
+  #panel { overflow-x: hidden; position: fixed; top: 0; right: 0; bottom: 0; width: 360px; background: var(--panel); border-left: 1px solid var(--line);
+           padding: 14px 16px; overflow-y: auto; }
+  #panel h2 { font-size: 13px; margin: 14px 0 6px; color: var(--dim); font-weight: normal; text-transform: uppercase; letter-spacing: .06em; }
+  #panel h2:first-child { margin-top: 0; }
+  .kv { display: grid; grid-template-columns: 92px 1fr; gap: 2px 10px; }
+  .kv span:nth-child(odd) { color: var(--dim); }
+  .kv span { overflow-wrap: anywhere; }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; overflow-wrap: anywhere; padding: 2px 4px; border-radius: 3px; cursor: pointer; }
+  .row:hover { background: var(--hover); }
+  .row .n { color: var(--dim); text-align: right; }
+  .bar { height: 3px; background: var(--barbg); margin: 0 4px 3px; border-radius: 2px; }
+  .bar i { display: block; height: 100%; background: var(--barfg); border-radius: 2px; }
+  .muted { color: var(--dim); }
+  .btn { background: var(--btn); border: 1px solid var(--line); color: var(--ink); border-radius: 4px; padding: 4px 8px; font: inherit; cursor: pointer; margin: 6px 6px 0 0; }
+  .btn:hover { border-color: var(--focus); }
+  code { color: var(--code); }
+  #tabs { display: flex; gap: 4px; }
+  #tabs a { color: var(--dim); text-decoration: none; border: 1px solid var(--line); border-radius: 5px; padding: 7px 11px; background: var(--panel); }
+  #tabs a.on { color: var(--ink); border-color: var(--focus); }
+  #tree { margin: 0 360px 0 var(--side); padding: 62px 14px 56px; display: none; }
+  /* tree and paths: the page is the one scroll area (no scroll box inside the page) */
+  html.doc, html.doc body { overflow-x: hidden; overflow-y: auto; height: auto; }
+  html.doc #bar { top: 0; left: var(--side); padding: 12px 14px 8px; background: var(--bg); z-index: 2; }
+  html.doc #legend { background: var(--bg); padding: 6px 8px; left: calc(var(--side) + 6px); bottom: 6px; border-radius: 6px; }
+  /* sidebar: the Relic Studio shell */
+  #side { position: fixed; left: 0; top: 0; bottom: 0; width: var(--side); background: var(--sideb); border-right: 1px solid var(--line);
+          z-index: 5; display: flex; flex-direction: column; padding: 22px 12px 18px; font-family: var(--font-ui); }
+  #side .brand { display: flex; gap: 12px; align-items: center; padding: 0 6px 28px; }
+  #side .logo { width: 40px; height: 40px; border-radius: 10px; flex: none; display: grid; place-items: center;
+                background: var(--raised); border: 1px solid var(--line); color: var(--accent); }
+  #side .logo svg { width: 24px; height: 24px; }
+  #side .t b { display: block; font-size: 18px; font-weight: 700; letter-spacing: .1em; color: var(--ink); line-height: 1.1; }
+  #side .t i { display: block; font: 400 11px/1.4 var(--font-mono); letter-spacing: .28em; color: var(--dim); font-style: normal; }
+  /* one icon voice: 24-unit grid, 1.6 stroke, round caps, currentColor */
+  #side a { display: flex; gap: 12px; align-items: center; color: var(--ink); text-decoration: none; padding: 9px 10px; border-radius: 8px;
+            font-size: 14.5px; font-weight: 500; margin-bottom: 2px; white-space: nowrap;
+            transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out); }
+  #side .ic { width: 20px; height: 20px; flex: none; color: var(--dim); transition: color var(--dur-short) var(--ease-out); }
+  #side .ic svg { width: 20px; height: 20px; display: block; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  #side a:hover { background: var(--hover); }
+  #side a:hover .ic { color: var(--ink); }
+  #side a.on { background: var(--raised); }
+  #side a.on .ic { color: var(--accent); }
+  #side a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  #side .sep { height: 1px; background: var(--line); margin: 12px 10px; }
+  #side .foot { margin-top: auto; padding: 0 10px; font-size: 12px; color: var(--dim); line-height: 1.5; }
+  #side .foot b { color: var(--ink); letter-spacing: .14em; font-size: 11px; }
+  #side .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-right: 8px; }
+  @media (max-width: 1100px) { #side { padding: 18px 10px; } #side .brand { padding: 0 2px 22px; } #side a { justify-content: center; padding: 10px 0; } }
