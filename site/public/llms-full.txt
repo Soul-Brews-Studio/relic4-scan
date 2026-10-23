@@ -143,6 +143,14 @@ Plain Parquet: one file per month of rows (every message, thinking block, tool c
 
 macOS on Apple silicon and on Intel (a .dmg each), and Linux x86_64 (.deb and .AppImage); the relic-scan command builds on macOS and Linux with Rust.
 
+### Can an AI agent install and use it?
+
+Yes. The repository's AGENTS.md (also at relic.buildwithoracle.com/scan/agents.md) tells a coding agent how to install, run, query and build it; the agent should ask before the first index, because it reads every transcript on the machine.
+
+### How does an agent query the index?
+
+With DuckDB, Polars or pandas over ~/.relic-scan: month files (YYYY-MM.parquet) hold every message and tool call with sid, ts, role, kind, name and text; meta/sessions.parquet has one line per session; meta/vaults.json lists every ψ vault.
+
 ### Is it free and open source?
 
 Yes. The source is on GitHub (github.com/Soul-Brews-Studio/relic4-scan) under the GNU AGPL v3, and every download is free.
@@ -193,5 +201,37 @@ just linux       # .deb and .AppImage, in Docker
 ```
 
 `just` lists every recipe; `just test` runs the tests; `just up` indexes this machine and serves the page on 127.0.0.1.
+
+## For AI agents
+
+Hand this to Claude Code, Codex or any coding agent. It installs relic-scan, asks before it reads anything, and answers from the index on your machine.
+
+> Install ARRA Relic Scan on this machine and tell me what my AI agents have been working on. Follow https://relic.buildwithoracle.com/scan/agents.md: install the relic-scan command, ask me before the first index, then run it and answer my questions from ~/.relic-scan with DuckDB. Keep everything on this machine.
+
+- sessions per repository:
+
+```sh
+duckdb -c "select cat as repo, count(*) as sessions from 'meta/sessions.parquet' group by 1 order by sessions desc limit 10"
+```
+
+- what I asked about something:
+
+```sh
+duckdb -c "select ts_th, left(text, 120) as text from '*.parquet' where role = 'user' and text ilike '%parquet%' order by ts desc limit 20"
+```
+
+- the tools used most:
+
+```sh
+duckdb -c "select name, count(*) as calls from '*.parquet' where kind = 'call' group by 1 order by calls desc limit 10"
+```
+
+- vaults with the most notes:
+
+```sh
+jq -r '.vaults[] | select(.kind != "worktree") | [.notes, .name] | @tsv' meta/vaults.json | head
+```
+
+Full instructions for agents: https://relic.buildwithoracle.com/scan/agents.md
 
 Your agents keep everything they did. Now you can find it.

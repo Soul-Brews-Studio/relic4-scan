@@ -2,7 +2,7 @@
 import { h, render } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import htm from "htm";
-import { SITE, DL, HERO, PROOF, PROOF_NOTE, TERMINAL, STEPS, SHOTS, TUI_ALT, LOCAL, FAQ, GET, BUILD, FOOTER } from "./content.js";
+import { SITE, DL, HERO, PROOF, PROOF_NOTE, TERMINAL, STEPS, SHOTS, TUI_ALT, LOCAL, FAQ, GET, BUILD, AGENT, FOOTER } from "./content.js";
 const html = htm.bind(h);
 
 
@@ -87,7 +87,7 @@ function TuiVideo() {
   </figure>`;
 }
 
-const SECTIONS = [["top", "Top"], [STEPS[0].id, STEPS[0].dot], ["tui", "Terminal"], ["speed", "Speed"], ...STEPS.slice(1).map(s => [s.id, s.dot]), ["local", "Local only"], ["faq", "Questions"], ["get", "Download"], ["build", "Build it"]];
+const SECTIONS = [["top", "Top"], [STEPS[0].id, STEPS[0].dot], ["tui", "Terminal"], ["speed", "Speed"], ...STEPS.slice(1).map(s => [s.id, s.dot]), ["local", "Local only"], ["faq", "Questions"], ["get", "Download"], ["build", "Build it"], ["agents", "For AI agents"]];
 
 function useScroll() {
   const [y, setY] = useState(0);
@@ -256,6 +256,29 @@ function Build() {
   </section>`;
 }
 
+// for AI agents: the prompt to hand over (with a copy button), the queries, and the files written for agents
+function Agents() {
+  const [done, setDone] = useState(false);
+  const copy = () => navigator.clipboard?.writeText(AGENT.prompt).then(() => { setDone(true); setTimeout(() => setDone(false), 1800); });
+  return html`<section id="agents" aria-labelledby="agents-h" class=${`${wrap} py-24 border-t border-line`}>
+    <div class=${center}><h2 id="agents-h" class=${h2}>${AGENT.h}</h2><p class="m-0 mb-10 text-ink-2">${AGENT.p}</p></div>
+    <figure class="m-0 mx-auto max-w-[880px]">
+      <div class="relative bg-paper-2 border border-line rounded-xl p-6 pr-6 sm:pr-36">
+        <p class="m-0 text-base leading-relaxed text-ink [overflow-wrap:anywhere]">${AGENT.prompt}</p>
+        <button onClick=${copy} class=${`${btnPrimary} mt-4 sm:mt-0 sm:absolute sm:right-4 sm:top-4 px-4`} aria-live="polite">${done ? "Copied" : "Copy prompt"}</button>
+      </div>
+      <figcaption class="mt-3 text-sm text-dim text-center">Paste it into your agent. It reads ${html`<a class="text-ink-2" href="/scan/agents.md">agents.md</a>`} for the steps.</figcaption>
+    </figure>
+    <ol class="list-none mx-auto mt-12 mb-0 p-0 max-w-[880px] grid gap-3">
+      ${AGENT.queries.map(([t, c]) => html`<li class="grid sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)] gap-1 sm:gap-6 items-start">
+        <b class="font-semibold text-sm pt-3">${t}</b>
+        <pre class="m-0 bg-paper-2 border border-line rounded-xl px-5 py-3 font-mono text-xs leading-relaxed text-ink whitespace-pre-wrap [overflow-wrap:anywhere]"><span class="text-accent">$ </span>${c}</pre></li>`)}
+    </ol>
+    <p class="mx-auto mt-8 mb-0 text-sm text-dim text-center">Run from <code class="font-mono text-ink-2">~/.relic-scan</code> ·
+      ${AGENT.links.map(([t, u], k) => html`${k ? " · " : ""}<a class="text-ink-2" href=${u}>${t}</a>`)}</p>
+  </section>`;
+}
+
 function Footer() {
   return html`<footer class=${`${wrap} pt-28 pb-14 border-t border-line text-center`}>
     <p class="mx-auto m-0 mb-8 max-w-[22ch] font-semibold text-[clamp(1.75rem,2.6vw+1rem,2.75rem)] leading-[1.34] tracking-[-0.018em]">${FOOTER.say}</p>
@@ -288,7 +311,7 @@ function App() {
   }, []);
   return html`<a href="#main" class="fixed z-30 left-4 top-4 px-4 py-3 rounded-lg bg-accent text-accent-ink font-semibold no-underline -translate-y-[200%] focus-visible:translate-y-0">Skip to the page</a>
     <${Nav} y=${y} />
-    <main id="main"><${Hero} /><${SmartScan} /><${Terminal} /><${Proof} /><${Tour} /><${Local} /><${Faq} /><${Get} /><${Build} /></main>
+    <main id="main"><${Hero} /><${SmartScan} /><${Terminal} /><${Proof} /><${Tour} /><${Local} /><${Faq} /><${Get} /><${Build} /><${Agents} /></main>
     <${Dots} y=${y} /><${Footer} /><${Next} y=${y} /><${Lightbox} />`;
 }
 

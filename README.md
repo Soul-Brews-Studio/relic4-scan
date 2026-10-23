@@ -5,6 +5,7 @@ One Rust binary, `relic-scan` (this repo is still named relic4-scan). It finds e
 Grown in the agent-relic-v4 lab (`lab/relic4-scan` on branch `lab-rust-scan`, history kept). [agent-relic-v4](https://github.com/Soul-Brews-Studio/agent-relic-v4) is the reader: it turns these month files into truth, meta, vectors and search. The verify scripts need its Python environment: `uv run --project <agent-relic-v4> python verify/…`.
 
 Open source under the [GNU AGPL v3](LICENSE). Landing page: https://relic.buildwithoracle.com/scan/
+AI agents: start with [AGENTS.md](AGENTS.md) (install, run, query with DuckDB, build, rules for changing the code).
 
 ## Use it
 **Install.** One command; it needs Rust 1.89 or newer. `install.sh` finds cargo even when it is not on PATH, builds in about 30 s and installs to `~/.local/bin/relic-scan`. Or download the desktop app from [Releases](https://github.com/Soul-Brews-Studio/relic4-scan/releases), or build from a checkout with `just` (below).

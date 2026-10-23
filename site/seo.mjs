@@ -6,7 +6,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SITE, DL, HERO, PROOF, PROOF_NOTE, TERMINAL, STEPS, LOCAL, FAQ, GET, BUILD, FOOTER } from "./public/scan/content.js";
+import { SITE, DL, HERO, PROOF, PROOF_NOTE, TERMINAL, STEPS, LOCAL, FAQ, GET, BUILD, AGENT, FOOTER } from "./public/scan/content.js";
 
 const here = dirname(fileURLToPath(import.meta.url)), pub = join(here, "public"), root = new URL(SITE.url).origin;
 const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -23,6 +23,11 @@ const ld = [
     license: "https://www.gnu.org/licenses/agpl-3.0.html", isAccessibleForFree: true, sameAs: [SITE.repo],
     offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
     publisher: { "@type": "Organization", name: SITE.org, url: "https://buildwithoracle.com/" } },
+  { "@context": "https://schema.org", "@type": "HowTo", name: `Install and build ${SITE.name}`,
+    description: "Install the relic-scan command, or build the command and the desktop app from source with just.",
+    tool: [{ "@type": "HowToTool", name: "Rust 1.89 or newer" }, { "@type": "HowToTool", name: "just" }, { "@type": "HowToTool", name: "git" }],
+    step: [{ "@type": "HowToStep", name: "Install the command", text: GET.cli },
+      ...BUILD.steps.map(([t, c]) => ({ "@type": "HowToStep", name: t, text: c.replace(/\s{2,}#[^\n]*/g, "") }))] },
   { "@context": "https://schema.org", "@type": "FAQPage",
     mainEntity: FAQ.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) },
 ];
@@ -41,6 +46,8 @@ ${STEPS.map(s => `<h2>${esc(s.h)}</h2><p>${code(s.p)}</p><ul>${s.li.map(l => `<l
 <h2 id="get">Download</h2><p>${esc(GET.p)}</p><ul>${GET.rows.map(([os, sub, meta, href]) => `<li><a href="${href}">${esc(os)}: ${esc(meta)}</a> (${esc(sub)})</li>`).join("")}</ul>
 <pre>${esc(GET.cli)}</pre>
 <h2>${esc(BUILD.h)}</h2><p>${code(BUILD.p)}</p><ol>${BUILD.steps.map(([t, c]) => `<li>${esc(t)}<pre>${esc(c)}</pre></li>`).join("")}</ol><p>${code(BUILD.more)}</p>
+<h2>${esc(AGENT.h)}</h2><p>${esc(AGENT.p)}</p><blockquote>${esc(AGENT.prompt)}</blockquote>
+<ul>${AGENT.queries.map(([t, c]) => `<li>${esc(t)}<pre>${esc(c)}</pre></li>`).join("")}</ul><p><a href="/scan/agents.md">agents.md</a> · <a href="/llms.txt">llms.txt</a></p>
 <p>${esc(FOOTER.say)}</p>
 </main>`;
 
@@ -61,7 +68,12 @@ const md = [
   `${HERO.lede.replace(/`/g, "`")} ${HERO.claim} ${HERO.close}`, "",
   `- Product page: ${SITE.url}`, `- Source (${SITE.license}): ${SITE.repo}`, `- Release ${SITE.version}: ${DL.notes}`,
   `- Made by ${SITE.org}: https://buildwithoracle.com/`, "",
-  "## Docs", "", `- [Full page text](${root}/llms-full.txt): features, measured speed, privacy, FAQ and downloads`, "",
+  "## Instructions for AI agents", "",
+  `- [agents.md](${root}/scan/agents.md): install, run, query (DuckDB over ~/.relic-scan), build and change the code; the repository's AGENTS.md`,
+  `- Install: \`${GET.cli}\``, "- Index: `relic-scan run` (ask the human first: it reads every transcript on the machine, read only)",
+  "- Query: month files `~/.relic-scan/YYYY-MM.parquet` (sid, ts, role, kind, name, text), `meta/sessions.parquet`, `meta/vaults.json`", "",
+  `A prompt a person can give their agent: "${AGENT.prompt}"`, "",
+  "## Docs", "", `- [Full page text](${root}/llms-full.txt): features, measured speed, privacy, FAQ and downloads`, `- [Source](${SITE.repo}) (${SITE.license})`, "",
   "## Questions", "", ...FAQ.map(([q, a]) => `- **${q}** ${a}`), "",
 ].join("\n");
 writeFileSync(join(pub, "llms.txt"), md);
@@ -74,15 +86,20 @@ const full = [
   "## Questions", "", ...FAQ.flatMap(([q, a]) => [`### ${q}`, "", a, ""]),
   "## Download", "", GET.p, "", ...GET.rows.map(([os, sub, meta, href]) => `- [${os}, ${meta}](${href}): ${sub}`), "", "```sh", GET.cli, "```", "",
   `## ${BUILD.h}`, "", BUILD.p, "", ...BUILD.steps.flatMap(([t, c], k) => [`${k + 1}. ${t}`, "", "```sh", c, "```", ""]), BUILD.more, "",
+  `## ${AGENT.h}`, "", AGENT.p, "", "> " + AGENT.prompt, "", ...AGENT.queries.flatMap(([t, c]) => [`- ${t}:`, "", "```sh", c, "```", ""]),
+  `Full instructions for agents: ${root}/scan/agents.md`, "",
   FOOTER.say, "",
 ].join("\n");
 writeFileSync(join(pub, "llms-full.txt"), full);
+// the repository's AGENTS.md, published as it is
+writeFileSync(join(pub, "scan", "agents.md"), readFileSync(join(here, "..", "AGENTS.md"), "utf8"));
 writeFileSync(join(pub, "robots.txt"), `# every crawler, search and AI alike, may read this site\nUser-agent: *\nAllow: /\n\nSitemap: ${root}/sitemap.xml\n`);
 writeFileSync(join(pub, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>${SITE.url}</loc><lastmod>${new Date().toISOString().slice(0, 10)}</lastmod></url>
   <url><loc>${root}/llms.txt</loc></url>
   <url><loc>${root}/llms-full.txt</loc></url>
+  <url><loc>${root}/scan/agents.md</loc></url>
 </urlset>
 `);
 console.log(`seo: index.html (JSON-LD ${ld.length}, no-JS page ${noscript.length} B) · llms.txt ${md.length} B · llms-full.txt ${full.length} B · robots.txt · sitemap.xml`);
