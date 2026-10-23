@@ -8,7 +8,7 @@ export const SITE = {
   org: "Soul Brews Studio",
   tagline: "Every agent transcript, found and kept.",
   summary: "ARRA Relic Scan finds every AI-agent transcript on your machine (Claude Code, Codex, OMP, OMX, Gemini, Pi), indexes it into one Parquet file per month, and lets you browse it locally. Nothing leaves the machine.",
-  version: "26.10.23-alpha.2312",
+  version: "26.10.24-alpha.1",
   repo: "https://github.com/Soul-Brews-Studio/relic4-scan",
   license: "GNU AGPL v3",
 };
