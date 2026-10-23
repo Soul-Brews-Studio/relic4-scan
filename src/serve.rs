@@ -295,6 +295,11 @@ fn handle(s: TcpStream, c: &Arc<Ctx>) {
         }
         ("GET", "/api/status") => json(s, "200 OK", status(c)),
         ("GET", "/api/months") => json(s, "200 OK", crate::meta::months(&c.out)),
+        // a vault note's text for the reader: /api/note?path=… (markdown inside a listed vault only)
+        ("GET", "/api/note") => match query(&line).get("path").and_then(|p| crate::vault::note_text(&c.out, p)) {
+            Some(t) => reply(s, "200 OK", "text/markdown; charset=utf-8", t.as_bytes()),
+            None => reply(s, "404 Not Found", "text/plain", b"not a note in a listed vault\n"),
+        },
         // one vault's notes: /vaults/<id>.json
         ("GET", p) if p.starts_with("/vaults/") && p.ends_with(".json") => match crate::vault::notes_file(&c.out, &p[8..p.len() - 5]).map(std::fs::read) {
             Some(Ok(b)) => reply(s, "200 OK", "application/json", &b),

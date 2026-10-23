@@ -256,8 +256,10 @@ It sets no background colour, so it reads the same on dark and light terminals. 
   ```sh
   jq '.vaults[] | {name, notes, path}' ~/.relic-scan/meta/vaults.json
   ```
-- **ψ Vaults view:** every vault with its sections as one bar; open one for its notes, newest first, filterable, each one
-  click from Finder.
+- **ψ Vaults view:** every vault with its sections as one bar. Open one for its notes, grouped by folder (`ψ/memory/`,
+  `ψ/inbox/`, …), newest first and filterable. A note opens in a reader that renders its markdown in the page (front matter,
+  headings, lists and tasks, code, tables, quotes, links); **Show in Finder** is one click from there. The page renders
+  everything escaped, and `/api/note` returns only markdown files inside a listed vault (up to 2 MB).
 - **Export view:** every metadata table in one place (sessions, files, homes, scans, vault notes) as CSV or JSON, saved to
   `~/Downloads`; and the month files (`OUT/YYYY-MM.parquet`) with their sizes, each one click from Finder
   (`/api/months`, `/api/reveal?what=month&m=2026-10`).

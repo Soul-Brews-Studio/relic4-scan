@@ -142,3 +142,29 @@
   #xpop .actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
   #xpop .ghost, #xpop .go { min-width: 0; padding: 9px 16px; font-size: 14px; }
   #xpop .msg { margin-top: var(--sp-3); font-size: 13px; color: var(--dim); overflow-wrap: anywhere; } #xpop .msg.big { color: var(--amber); }
+  /* the note reader: a vault note's markdown, rendered; the box scrolls, the page behind it does not */
+  #mdpop .box { top: 5vh; width: min(860px, calc(100vw - var(--side) - 32px)); height: 90vh; display: flex; flex-direction: column;
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 20px 48px rgba(0, 0, 0, .45); overflow: hidden; }
+  #mdpop .mhead { display: flex; justify-content: space-between; gap: var(--sp-4); align-items: flex-start; padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--line); }
+  #mdpop .mhead h3 { margin: 0 0 4px; font: 600 18px var(--font-ui); }
+  #mdpop .mhead code { font: 12px var(--font-mono); color: var(--dim); overflow-wrap: anywhere; }
+  #mdpop .mact { display: flex; gap: var(--sp-2); flex: none; }
+  #mdpop .mact .ghost { min-width: 0; padding: 7px 12px; font-size: 13px; }
+  #mdpop .md { flex: 1; overflow: auto; padding: var(--sp-5) var(--sp-6) var(--sp-7); font: 15px/1.7 var(--font-ui); color: var(--ink); scrollbar-width: thin; outline: none; }
+  #mdpop .md > :first-child { margin-top: 0; }
+  #mdpop .md h1, #mdpop .md h2, #mdpop .md h3, #mdpop .md h4 { line-height: 1.25; margin: 1.6em 0 .5em; }
+  #mdpop .md h1 { font-size: 26px; } #mdpop .md h2 { font-size: 21px; border-bottom: 1px solid var(--line); padding-bottom: 6px; } #mdpop .md h3 { font-size: 17px; }
+  #mdpop .md h4, #mdpop .md h5, #mdpop .md h6 { font-size: 15px; color: var(--dim); }
+  #mdpop .md p, #mdpop .md ul, #mdpop .md ol, #mdpop .md blockquote, #mdpop .md pre, #mdpop .md .mtab { margin: 0 0 1em; max-width: 72ch; }
+  #mdpop .md ul, #mdpop .md ol { padding-left: 1.4em; } #mdpop .md li { margin: .2em 0; }
+  #mdpop .md li.task { list-style: none; margin-left: -1.3em; } #mdpop .md .box { display: inline-block; width: 1em; margin-right: .5em; color: var(--green); }
+  #mdpop .md code { font: 13px var(--font-mono); color: var(--code); background: var(--hover); padding: 1px 5px; border-radius: 4px; }
+  #mdpop .md pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: var(--sp-3) var(--sp-4); white-space: pre-wrap; overflow-wrap: anywhere; max-width: none; }
+  #mdpop .md pre code { background: none; padding: 0; color: var(--ink); }
+  #mdpop .md blockquote { border-left: 3px solid var(--amber); padding: 2px 0 2px var(--sp-4); color: var(--dim); }
+  #mdpop .md a { color: var(--link); } #mdpop .md .mref { color: var(--cyan); border-bottom: 1px dotted var(--cyan); } #mdpop .md .mimg { color: var(--dim); font-style: italic; }
+  #mdpop .md hr { border: 0; border-top: 1px solid var(--line); margin: 1.6em 0; }
+  #mdpop .md .mtab { overflow-wrap: anywhere; max-width: none; } #mdpop .md table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  #mdpop .md th, #mdpop .md td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; } #mdpop .md th { background: var(--hover); }
+  #mdpop .mfront { font: 12px/1.6 var(--font-mono); color: var(--dim); background: var(--hover); border-radius: 8px; padding: var(--sp-2) var(--sp-3); margin: 0 0 var(--sp-5); }
+  #mdpop .mfront span { color: var(--amber); margin-right: 8px; }

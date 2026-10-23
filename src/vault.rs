@@ -257,6 +257,27 @@ pub fn reveal_target(out: &Path, p: &str) -> Option<(String, bool)> {
     inside.then(|| (p.to_string(), md.is_file()))
 }
 
+/// The biggest note /api/note returns (a longer one is cut there, and says so).
+pub const NOTE_MAX: usize = 2_000_000;
+
+/// A note's text, for the page's reader: only a markdown file inside a listed vault; anything else is None.
+pub fn note_text(out: &Path, p: &str) -> Option<String> {
+    let (path, file) = reveal_target(out, p)?;
+    let md = Path::new(&path).extension().is_some_and(|x| x == "md" || x == "markdown");
+    if !file || !md {
+        return None;
+    }
+    let mut buf = Vec::new();
+    std::fs::File::open(&path).ok()?.take(NOTE_MAX as u64 + 1).read_to_end(&mut buf).ok()?;
+    let cut = buf.len() > NOTE_MAX;
+    buf.truncate(NOTE_MAX);
+    let mut t = String::from_utf8_lossy(&buf).into_owned();
+    if cut {
+        t.push_str("\n\n---\n\n*(cut at 2 MB: open the file to read the rest)*\n");
+    }
+    Some(t)
+}
+
 /// OUT/meta/vaults/<id>.json, for /vaults/<id>.json (the id is digits only).
 pub fn notes_file(out: &Path, id: &str) -> Option<PathBuf> {
     (!id.is_empty() && id.len() < 8 && id.bytes().all(|b| b.is_ascii_digit())).then(|| out.join("meta").join("vaults").join(format!("{id}.json")))
@@ -315,6 +336,9 @@ mod tests {
         assert!(reveal_target(&out, &d.display().to_string()).is_none(), "outside every vault");
         assert!(reveal_target(&out, &format!("{}/../x", v.display())).is_none());
         assert!(notes_file(&out, "../x").is_none() && notes_file(&out, "").is_none());
+        assert!(note_text(&out, &note).is_some_and(|t| t.starts_with("# Lesson one")));
+        assert!(note_text(&out, &v.join("memory/data.jsonl").display().to_string()).is_none(), "markdown only");
+        assert!(note_text(&out, "/etc/hosts").is_none(), "only inside a vault");
         let _ = std::fs::remove_dir_all(&d);
     }
 }

@@ -216,3 +216,13 @@
     #dash .vnote .s, #dash .vnote .z { display: none; } #dash .xmonth { grid-template-columns: minmax(0, 1fr) 70px; } #dash .xmonth .bar, #dash .xmonth .t { display: none; } }
   #dash .xrow .ghost, #dash .xact .ghost, #dash .vtools .ghost, #dash .vmore { padding: 7px 14px; font-size: 13px; min-width: 0; border-radius: 8px; }
   #dash .vn .tag { font: 600 11px var(--font-ui); color: var(--dim); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px; }
+  /* a vault's groups (ψ/<group>/) beside its notes */
+  #dash .vsplit { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: var(--sp-4); align-items: start; }
+  #dash .vgroups { display: grid; gap: 2px; position: sticky; top: var(--sp-4); }
+  #dash .vgroups button { display: flex; justify-content: space-between; gap: var(--sp-2); padding: 6px 10px; border: 0; border-radius: 6px; background: none;
+    color: var(--dim); font: 13px var(--font-ui); text-align: left; cursor: pointer; }
+  #dash .vgroups button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: 12px; }
+  #dash .vgroups button b { font-weight: 500; font-variant-numeric: tabular-nums; }
+  #dash .vgroups button:hover { background: var(--hover); color: var(--ink); }
+  #dash .vgroups button.on { background: var(--raised); color: var(--ink); }
+  @media (max-width: 900px) { #dash .vsplit { grid-template-columns: minmax(0, 1fr); } #dash .vgroups { position: static; grid-auto-flow: column; overflow-x: auto; } }

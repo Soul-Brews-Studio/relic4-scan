@@ -1,7 +1,7 @@
 // ---------- vaults: every oracle's ψ vault the scan walked past, with its notes (data: /vaults.json, /vaults/<id>.json) ----------
 // one row per vault (by its real path; repos that link to it are counted with it). Git worktree copies of a vault are
 // hidden unless asked. Open a row for its notes, newest first, each one click from Finder; they load only then.
-let VAULTS = null, VOPEN = -1, VQ = "", VCAP = 200, VWT = false;
+let VAULTS = null, VOPEN = -1, VQ = "", VCAP = 200, VWT = false, VGRP = "";
 const VNOTES = new Map();
 const VCOL = ["var(--cyan)", "var(--amber)", "var(--green)", "var(--barfg)"];
 function dashVaults() {
@@ -41,7 +41,7 @@ function vaultsRender() {
     <div class="card vaults"><h3>Vaults · ${fmt(V.length)}<span class="muted" style="font-weight:400;font-size:13px">by notes · open one for its notes</span></h3>
       ${wt ? `<div class="note" style="margin:0 0 10px">${fmt(wt)} more are git worktree copies of these vaults. <a href="#" id="vwt" style="color:var(--cyan)">${VWT ? "hide them" : "show them"}</a></div>` : ""}
       ${V.map(row).join("")}</div>`;
-  for (const b of $("vbody").querySelectorAll(".vhead")) b.onclick = () => { VOPEN = +b.dataset.id === VOPEN ? -1 : +b.dataset.id; VQ = ""; VCAP = 200; vaultsRender(); };
+  for (const b of $("vbody").querySelectorAll(".vhead")) b.onclick = () => { VOPEN = +b.dataset.id === VOPEN ? -1 : +b.dataset.id; VQ = ""; VCAP = 200; VGRP = ""; vaultsRender(); };
   if ($("vwt")) $("vwt").onclick = e => { e.preventDefault(); VWT = !VWT; vaultsRender(); };
   const v = VAULTS.find(x => x.id === VOPEN);
   if (!v || !$("vq")) return;
@@ -60,19 +60,26 @@ function vdetail(v, secs) {
       ${v.links.length ? `<span class="muted">linked from ${v.links.map(l => `<code>${esc(vtilde(l))}</code>`).join(", ")}</span>` : ""}
       ${v.skipped_repos ? `<span class="muted">${fmt(v.skipped_repos)} cloned repo${v.skipped_repos > 1 ? "s" : ""} inside skipped</span>` : ""}</div>
     <div class="msg" id="vmsg" role="status"></div>
-    <div id="vnotes"><div class="muted">loading the notes…</div></div></div>`;
+    <div class="vsplit"><nav class="vgroups" id="vgroups" aria-label="Groups in this vault"></nav>
+      <div id="vnotes"><div class="muted">loading the notes…</div></div></div></div>`;
 }
 const vitems = v => VNOTES.has(v.id) ? Promise.resolve(VNOTES.get(v.id))
   : fetch(`/vaults/${v.id}.json`).then(r => r.json()).then(j => { VNOTES.set(v.id, j.items || []); return j.items || []; });
 async function vnotes(v) {
   const items = await vitems(v);
   if (v.id !== VOPEN || !$("vnotes")) return;
+  // the groups: ψ/<group>/…, one level by the folder a note sits in under the vault (the section's first folder)
+  const grp = rel => rel.includes("/") ? rel.split("/")[0] : "(top)";
+  const G = new Map(); for (const it of items) G.set(grp(it[0]), (G.get(grp(it[0])) || 0) + 1);
+  $("vgroups").innerHTML = [["", items.length], ...[...G].sort((a, b) => b[1] - a[1])].map(([g, n]) =>
+    `<button class="${g === VGRP ? "on" : ""}" data-g="${esc(g)}" aria-pressed="${g === VGRP}"><span>${g ? esc(g === "(top)" ? "(top level)" : `ψ/${g}/`) : "All notes"}</span><b>${fmt(n)}</b></button>`).join("");
+  for (const b of $("vgroups").querySelectorAll("button")) b.onclick = () => { VGRP = b.dataset.g; VCAP = 200; vnotes(v); };
   const words = VQ.toLowerCase().split(/\s+/).filter(Boolean);
-  const hit = items.filter(([rel, , t]) => words.every(w => (t + " " + rel).toLowerCase().includes(w)));
-  $("vnotes").innerHTML = (hit.length ? hit.slice(0, VCAP).map(([rel, sec, t, size, ms]) => `<button class="vnote" data-p="${esc(v.path + "/" + rel)}" title="show ${esc(rel)} in Finder">
+  const hit = items.filter(([rel, , t]) => (!VGRP || grp(rel) === VGRP) && words.every(w => (t + " " + rel).toLowerCase().includes(w)));
+  $("vnotes").innerHTML = (hit.length ? hit.slice(0, VCAP).map(([rel, sec, t, size, ms]) => `<button class="vnote" data-p="${esc(v.path + "/" + rel)}" data-t="${esc(t)}" data-r="${esc(rel)}" title="read ${esc(rel)}">
       <span class="d">${vday(ms)}</span><span class="s">${esc(sec)}</span><span class="t">${esc(t)}</span><span class="z">${human(size)}</span></button>`).join("")
     : `<div class="note">No note matches.</div>`)
     + (hit.length > VCAP ? `<button class="ghost vmore" id="vmore">show ${fmt(Math.min(500, hit.length - VCAP))} more of ${fmt(hit.length - VCAP)}</button>` : "");
-  for (const b of $("vnotes").querySelectorAll(".vnote")) b.onclick = () => kReveal("what=vault&path=" + encodeURIComponent(b.dataset.p));
+  for (const b of $("vnotes").querySelectorAll(".vnote")) b.onclick = () => openNote(b.dataset.p, b.dataset.t, `${v.name} · ψ/${b.dataset.r}`);
   if ($("vmore")) $("vmore").onclick = () => { VCAP += 500; vnotes(v); };
 }
