@@ -133,6 +133,10 @@ fn reveal_target(out: &Path, q: &std::collections::HashMap<String, String>) -> O
         Some("meta") => return Some((out.join("meta").display().to_string(), false)),
         // the whole index folder: the month files, _state.tsv, the scan log and meta/
         Some("out") => return Some((out.display().to_string(), false)),
+        // one month's file (OUT/2026-10.parquet), shown selected
+        Some("month") => return crate::meta::month_file(out, q.get("m")?).map(|p| (p.display().to_string(), true)),
+        // a ψ vault, or a note or folder inside one (only vaults the last run listed)
+        Some("vault") => return crate::vault::reveal_target(out, q.get("path")?),
         _ => {}
     }
     let st = crate::state::load(out);
@@ -282,14 +286,20 @@ fn handle(s: TcpStream, c: &Arc<Ctx>) {
             Ok(b) => reply(s, "200 OK", "text/html; charset=utf-8", &b),
             Err(_) => reply(s, "200 OK", "text/html; charset=utf-8", WELCOME.replace("{OUT}", &c.out.display().to_string()).as_bytes()),
         },
-        ("GET", "/paths.json") => {
-            let p = page.with_file_name("paths.json");
+        ("GET", "/paths.json" | "/vaults.json") => {
+            let p = page.with_file_name(&path[1..]);
             match std::fs::read(&p) {
                 Ok(b) => reply(s, "200 OK", "application/json", &b),
                 Err(e) => reply(s, "404 Not Found", "text/plain", format!("{}: {e}\n", p.display()).as_bytes()),
             }
         }
         ("GET", "/api/status") => json(s, "200 OK", status(c)),
+        ("GET", "/api/months") => json(s, "200 OK", crate::meta::months(&c.out)),
+        // one vault's notes: /vaults/<id>.json
+        ("GET", p) if p.starts_with("/vaults/") && p.ends_with(".json") => match crate::vault::notes_file(&c.out, &p[8..p.len() - 5]).map(std::fs::read) {
+            Some(Ok(b)) => reply(s, "200 OK", "application/json", &b),
+            _ => reply(s, "404 Not Found", "text/plain", b"no such vault\n"),
+        },
         ("GET", "/api/log") => {
             // /api/log?from=N: the output lines from N on, the next N, and the line being redrawn
             let from = line.split_whitespace().nth(1).and_then(|u| u.split_once("from=")).and_then(|(_, v)| v.split('&').next())

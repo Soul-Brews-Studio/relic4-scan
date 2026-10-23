@@ -167,3 +167,52 @@
   #dash .add2 input { flex: 1; min-width: 200px; width: auto; }
   #dash .ghost.sm { min-width: 0; padding: 7px 14px; font-size: 14px; }
   #dash .set input.gem { width: 20px; height: 20px; accent-color: var(--accent); }
+  /* ψ Vaults: one row per vault (name and path, its sections as one bar, notes and size); open a row for its notes */
+  #dash .vaults h3 { justify-content: space-between; }
+  #dash .vrow { border-top: 1px solid var(--line); }
+  #dash .vrow:first-of-type { border-top: 0; }
+  #dash .vhead { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 200px; gap: var(--sp-5); align-items: center; width: 100%;
+    padding: var(--sp-3) var(--sp-2); background: none; border: 0; color: var(--ink); font: inherit; text-align: left; cursor: pointer; border-radius: 10px; }
+  #dash .vhead:hover, #dash .vrow.open .vhead { background: var(--hover); }
+  #dash .vn { min-width: 0; display: grid; gap: 2px; }
+  #dash .vn b { font-size: 15px; }
+  #dash .vn code, #dash .vlegend code { font: 12px var(--font-mono); color: var(--dim); overflow-wrap: anywhere; }
+  #dash .vbar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--track); gap: 2px; }
+  #dash .vbar i { display: block; min-width: 3px; }
+  #dash .vx { text-align: right; font-size: 13px; color: var(--dim); font-variant-numeric: tabular-nums; }
+  #dash .vx b { color: var(--ink); font-size: 15px; }
+  #dash .vdet { padding: var(--sp-2) var(--sp-2) var(--sp-5); }
+  #dash .vtools { display: flex; gap: var(--sp-3); margin: var(--sp-2) 0 var(--sp-3); }
+  #dash .vtools input { flex: 1; min-width: 0; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font: 14px var(--font-ui); }
+  #dash .vtools input:focus { border-color: var(--focus); outline: none; }
+  #dash .vlegend { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); font-size: 12px; color: var(--dim); margin: 0 0 var(--sp-3); }
+  #dash .vlegend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+  #dash .vnote { display: grid; grid-template-columns: 92px minmax(0, 170px) minmax(0, 1fr) 70px; gap: var(--sp-3); align-items: baseline; width: 100%;
+    padding: 6px var(--sp-2); background: none; border: 0; border-radius: 6px; color: var(--ink); font: 13px var(--font-ui); text-align: left; cursor: pointer; }
+  #dash .vnote:hover { background: var(--hover); }
+  #dash .vnote .d, #dash .vnote .z { color: var(--dim); font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+  #dash .vnote .z { text-align: right; }
+  #dash .vnote .s { color: var(--cyan); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #dash .vnote .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #dash .vmore { margin-top: var(--sp-3); }
+  /* Export: one row per table (what, how many lines, CSV/JSON), then the month files, newest first */
+  #dash .xtab { display: grid; }
+  #dash .xrow { display: grid; grid-template-columns: minmax(0, 1fr) 120px auto; gap: var(--sp-2) var(--sp-5); align-items: center; padding: var(--sp-3) 0; border-top: 1px solid var(--line); }
+  #dash .xrow:first-child { border-top: 0; }
+  #dash .xrow .xn { color: var(--dim); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+  #dash .xrow .xb { display: flex; gap: var(--sp-2); }
+  #dash .xrow .msg { grid-column: 1 / -1; font-size: 12px; color: var(--dim); min-height: 0; }
+  #dash .xrow .msg:empty { display: none; }
+  #dash .xact { display: flex; gap: var(--sp-2); margin: 0 0 var(--sp-3); }
+  #dash .xmonth { display: grid; grid-template-columns: minmax(0, 230px) minmax(0, 1fr) 80px 150px; gap: var(--sp-4); align-items: center; width: 100%;
+    padding: 7px var(--sp-2); background: none; border: 0; border-radius: 8px; color: var(--ink); font: 14px var(--font-ui); text-align: left; cursor: pointer; }
+  #dash .xmonth:hover { background: var(--hover); }
+  #dash .xmonth b { font-family: var(--font-mono); font-weight: 600; margin-right: 8px; }
+  #dash .xmonth .bar { height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
+  #dash .xmonth .bar i { display: block; height: 100%; background: var(--amber); border-radius: 3px; }
+  #dash .xmonth .z { text-align: right; font-variant-numeric: tabular-nums; color: var(--dim); }
+  #dash .xmonth .t { font-size: 12px; text-align: right; }
+  @media (max-width: 900px) { #dash .vhead { grid-template-columns: minmax(0, 1fr); } #dash .vx { text-align: left; } #dash .vnote { grid-template-columns: 84px minmax(0, 1fr); }
+    #dash .vnote .s, #dash .vnote .z { display: none; } #dash .xmonth { grid-template-columns: minmax(0, 1fr) 70px; } #dash .xmonth .bar, #dash .xmonth .t { display: none; } }
+  #dash .xrow .ghost, #dash .xact .ghost, #dash .vtools .ghost, #dash .vmore { padding: 7px 14px; font-size: 13px; min-width: 0; border-radius: 8px; }
+  #dash .vn .tag { font: 600 11px var(--font-ui); color: var(--dim); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px; }

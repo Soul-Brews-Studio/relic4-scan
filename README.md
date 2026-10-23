@@ -248,6 +248,20 @@ Other keys:
 
 It sets no background colour, so it reads the same on dark and light terminals. Colour in the CLI output appears only on a terminal and is off with `NO_COLOR`.
 
+## ψ vaults and Export
+- **ψ vaults.** The walk notes every `ψ` folder it passes (an oracle's vault, or a link to one). After each index, every
+  real vault is read once: its markdown notes go to `OUT/meta/vaults.json`, plain JSON, readable by `jq`, DuckDB or the
+  page. Each vault lists its notes (path inside the vault, section such as `memory/learnings`, title from the first
+  `# ` heading, size, date) and the repos that reach it through a link. Nothing in a vault is changed.
+  ```sh
+  jq '.vaults[] | {name, notes, path}' ~/.relic-scan/meta/vaults.json
+  ```
+- **ψ Vaults view:** every vault with its sections as one bar; open one for its notes, newest first, filterable, each one
+  click from Finder.
+- **Export view:** every metadata table in one place (sessions, files, homes, scans, vault notes) as CSV or JSON, saved to
+  `~/Downloads`; and the month files (`OUT/YYYY-MM.parquet`) with their sizes, each one click from Finder
+  (`/api/months`, `/api/reveal?what=month&m=2026-10`).
+
 ## Repository layout
 - `src/`: the `relic-scan` crate (CLI, server, TUI, and the page it serves).
 - `desktop/`: the Tauri desktop app, its icons, the DMG background and the Linux build (`desktop/linux/Dockerfile`).

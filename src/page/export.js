@@ -30,6 +30,14 @@ function exportBody(x, fmt) {
   return JSON.stringify({ exported_at: stamp, view: VIEW, what: x.what, query: x.q, out: D.out, built: D.built, version: "relic-scan",
     count: rows.length, items: rows.map(r => Object.fromEntries(x.cols.map((c, j) => [c, r[j]]))) }, null, 1);
 }
+// save one export: to ~/Downloads through the server (shown in Finder), or as a browser download from a file page
+async function xsave(x, f) {
+  const name = `relic-scan-${VIEW}-${x.what}-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.${f}`, body = exportBody(x, f);
+  if (!SERVED) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([body])); a.download = name; a.click(); return "Downloaded by the browser."; }
+  const r = await fetch("/api/save?name=" + encodeURIComponent(name), { method: "POST", headers: { "X-Relic": "1" }, body });
+  const out = await r.json();
+  return r.ok ? `Saved ${human(body.length)} to ${out.path.replace(D.home || "\u0000", "~")} (shown in Finder).` : "Not saved: " + out.error;
+}
 function openExport() {
   const x = exportSet(), big = x.n > EXPORT_MAX;
   const pop = overlay("xpop", `aria-labelledby="xpt"`, `<h3 id="xpt"></h3><p class="what" id="xwhat"></p><p class="cols" id="xcols"></p>
@@ -42,13 +50,7 @@ function openExport() {
   $("xmsg").className = "msg" + (big ? " big" : "");
   $("xmsg").textContent = big ? `${fmt(x.n)} is more than ${fmt(EXPORT_MAX)} lines: narrow the query, or open the meta folder for the full tables (sessions, files, every .jsonl, as Parquet).`
     : SERVED ? "Saved to ~/Downloads and shown in Finder." : "Downloaded by the browser.";
-  for (const b of $("xact").querySelectorAll("[data-f]")) b.onclick = async () => {
-    const f = b.dataset.f, name = `relic-scan-${VIEW}-${x.what}-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.${f}`, body = exportBody(x, f);
-    if (!SERVED) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([body])); a.download = name; a.click(); return; }
-    const r = await fetch("/api/save?name=" + encodeURIComponent(name), { method: "POST", headers: { "X-Relic": "1" }, body });
-    const out = await r.json();
-    $("xmsg").className = "msg"; $("xmsg").textContent = r.ok ? `Saved ${human(body.length)} to ${out.path.replace(D.home || "\u0000", "~")} (shown in Finder).` : "Not saved: " + out.error;
-  };
+  for (const b of $("xact").querySelectorAll("[data-f]")) b.onclick = async () => { $("xmsg").className = "msg"; $("xmsg").textContent = await xsave(x, b.dataset.f); };
   if ($("xmeta")) $("xmeta").onclick = () => kReveal("what=meta").then(ok => { $("xmsg").textContent = ok ? "The meta folder is open in Finder." : "Could not open the meta folder."; });
   pop.hidden = false; ($("xact").querySelector("button") || $("xpt")).focus();
 }

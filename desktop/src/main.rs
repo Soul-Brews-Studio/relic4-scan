@@ -25,7 +25,7 @@ fn main() {
     let view = args.iter().position(|a| a == "--view").and_then(|i| args.get(i + 1)).cloned().unwrap_or_default();
     // a view of the page, optionally with its #hash (scan#contents opens the contents popup)
     let base = view.split('#').next().unwrap_or("");
-    let views = ["scan", "scans", "banks", "health", "map", "tree", "paths", "disk", "settings"];
+    let views = ["scan", "scans", "banks", "vaults", "health", "map", "tree", "paths", "disk", "export", "settings"];
     let view = if views.contains(&base) && view.bytes().all(|b| b.is_ascii_alphanumeric() || b"#:-_".contains(&b)) { view } else { String::new() };
     let listener = relic_scan::serve::bind(0);
     let port = listener.local_addr().expect("local address").port();
