@@ -183,7 +183,8 @@ fn main() {
             let o = relic_scan::export_s3::Opts { out: std::path::PathBuf::from(out_dir(&out, &kind)), to, endpoint, region, dry_run, overwrite, verify, insecure_http };
             match relic_scan::export_s3::run(&o) {
                 Ok(s) => {
-                    eprintln!("export: {} sent ({:.1} MB) · {} same · {} refused · {} differ · {} missing", s.uploaded, s.bytes as f64 / 1e6, s.same, s.refused, s.differs, s.missing);
+                    eprintln!("export: {} sent ({:.1} MB) · {} same · {} refused · {} differ · {} missing{}", s.uploaded, s.bytes as f64 / 1e6, s.same, s.refused, s.differs, s.missing,
+                        if s.outdated > 0 { format!(" · {} older in the store", s.outdated) } else { String::new() });
                     if s.refused + s.differs + s.missing > 0 {
                         std::process::exit(1);
                     }

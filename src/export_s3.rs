@@ -44,6 +44,8 @@ pub struct Summary {
     pub refused: usize,
     pub missing: usize,
     pub differs: usize,
+    /// meta/months.json differs: it changes with every scan, so the copy in the store is older, not wrong
+    pub outdated: usize,
     pub bytes: u64,
 }
 
@@ -137,7 +139,8 @@ struct Client {
 
 impl Client {
     fn new(o: &Opts, bucket: &str) -> Result<Client, String> {
-        let env = |ks: &[&str]| ks.iter().find_map(|k| std::env::var(k).ok().filter(|v| !v.is_empty()));
+        let file = key_file()?;
+        let env = |ks: &[&str]| ks.iter().find_map(|k| std::env::var(k).ok().filter(|v| !v.is_empty()).or_else(|| file.get(*k).cloned()));
         let endpoint = o.endpoint.clone().or_else(|| env(&["RELIC_S3_ENDPOINT", "AWS_ENDPOINT_URL_S3", "AWS_ENDPOINT_URL"]));
         let region = o.region.clone().or_else(|| env(&["RELIC_S3_REGION", "AWS_REGION", "AWS_DEFAULT_REGION"])).unwrap_or_else(|| "us-east-1".into());
         let key = env(&["AWS_ACCESS_KEY_ID", "RELIC_S3_KEY"]).ok_or("set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY")?;
@@ -230,7 +233,52 @@ fn plan(o: &Opts, prefix: &str) -> Result<Vec<Target>, String> {
     Ok(t)
 }
 
+/// One object as the export handled it.
+#[derive(Clone, Debug)]
+pub struct Item {
+    pub key: String,
+    pub size: u64,
+    /// same | upload | would send | refused | differs | missing
+    pub action: &'static str,
+}
+
+/// KEY=VALUE lines of ~/.config/relic-scan/s3.env (RELIC_S3_ENV_FILE changes the path). The file must not be readable by
+/// group or others: a key in a world-readable file is refused, not used.
+fn key_file() -> Result<BTreeMap<String, String>, String> {
+    use std::os::unix::fs::PermissionsExt;
+    let p = std::env::var("RELIC_S3_ENV_FILE").map(PathBuf::from).unwrap_or_else(|_| {
+        PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".config").join("relic-scan").join("s3.env")
+    });
+    let Ok(md) = fs::metadata(&p) else { return Ok(BTreeMap::new()) };
+    if md.permissions().mode() & 0o077 != 0 {
+        return Err(format!("{} is readable by others: chmod 600 it", p.display()));
+    }
+    let text = fs::read_to_string(&p).map_err(|e| format!("{}: {e}", p.display()))?;
+    Ok(text.lines().filter_map(|l| {
+        let l = l.trim().strip_prefix("export ").unwrap_or(l.trim());
+        let (k, v) = l.split_once('=')?;
+        (!k.starts_with('#')).then(|| (k.trim().to_string(), v.trim().trim_matches(['"', '\'']).to_string()))
+    }).collect())
+}
+
+/// Where the keys come from, for the Export view: ("environment" | "file" | "missing", a sentence). Never the keys.
+pub fn creds_status() -> (&'static str, String) {
+    let have = |k: &str| std::env::var(k).is_ok_and(|v| !v.is_empty());
+    if have("AWS_ACCESS_KEY_ID") && have("AWS_SECRET_ACCESS_KEY") {
+        return ("environment", "keys found in the environment".into());
+    }
+    match key_file() {
+        Ok(f) if f.contains_key("AWS_ACCESS_KEY_ID") && f.contains_key("AWS_SECRET_ACCESS_KEY") => ("file", "keys found in ~/.config/relic-scan/s3.env".into()),
+        Err(e) => ("missing", e),
+        _ => ("missing", "no keys: set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, or put them in ~/.config/relic-scan/s3.env (mode 600)".into()),
+    }
+}
+
 pub fn run(o: &Opts) -> Result<Summary, String> {
+    run_with(o, &mut |i| println!("{:<9} {:>12}  {}", i.action, i.size, i.key))
+}
+
+pub fn run_with(o: &Opts, on: &mut dyn FnMut(&Item)) -> Result<Summary, String> {
     let rest = o.to.strip_prefix("s3://").ok_or("--to must look like s3://bucket/prefix")?;
     let (bucket, prefix) = rest.split_once('/').unwrap_or((rest, ""));
     if bucket.is_empty() {
@@ -253,7 +301,7 @@ pub fn run(o: &Opts) -> Result<Summary, String> {
         let action = match (status, remote.as_deref()) {
             (200, Some(r)) if r == sha => "same",
             (200, _) if t.month && !o.overwrite && !o.verify => "refused",
-            (200, _) if o.verify => "differs",
+            (200, _) if o.verify => if t.month { "differs" } else { "outdated" },
             (404, _) if o.verify => "missing",
             (200, _) | (404, _) => "upload",
             (c, _) => return Err(format!("HEAD {}: HTTP {c} (wrong keys, bucket or endpoint?)", t.key)),
@@ -262,6 +310,7 @@ pub fn run(o: &Opts) -> Result<Summary, String> {
             "same" => s.same += 1,
             "refused" => s.refused += 1,
             "differs" => s.differs += 1,
+            "outdated" => s.outdated += 1,
             "missing" => s.missing += 1,
             _ if o.dry_run || o.verify => {}
             _ => {
@@ -270,7 +319,7 @@ pub fn run(o: &Opts) -> Result<Summary, String> {
                 s.bytes += size;
             }
         }
-        println!("{:<9} {:>12}  {}", if o.dry_run && action == "upload" { "would send" } else { action }, size, t.key);
+        on(&Item { key: t.key.clone(), size, action: if o.dry_run && action == "upload" { "would send" } else { action } });
         sent.insert(t.key.clone(), serde_json::json!({"size": size, "sha256": sha}));
         i += 1;
         // the manifest of what the store now holds goes last, built from the objects just handled

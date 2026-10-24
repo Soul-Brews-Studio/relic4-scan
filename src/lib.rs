@@ -29,6 +29,7 @@ pub mod meta;
 pub mod parse;
 pub mod range;
 pub mod run;
+pub mod s3job;
 pub mod scanlog;
 pub mod scan;
 pub mod serve;

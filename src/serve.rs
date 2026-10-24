@@ -346,6 +346,12 @@ fn handle(s: TcpStream, c: &Arc<Ctx>) {
                 None => json(s, "404 Not Found", serde_json::json!({"error": "no such scan"})),
             }
         }
+        ("GET", "/api/s3") => json(s, "200 OK", crate::s3job::status(&c.out)),
+        ("POST", "/api/s3/check" | "/api/s3/send") if !relic_header => json(s, "403 Forbidden", serde_json::json!({"error": "needs the X-Relic header"})),
+        ("POST", "/api/s3/check" | "/api/s3/send") => match crate::s3job::start(&c.out, path == "/api/s3/check") {
+            Ok(()) => json(s, "200 OK", serde_json::json!({"started": true})),
+            Err(e) => json(s, "409 Conflict", serde_json::json!({"error": e})),
+        },
         ("GET", "/api/config") => json(s, "200 OK", serde_json::json!({
             "config": crate::config::load(&c.out), "defaults": crate::config::Config::default(),
             "out": c.out.display().to_string(), "kind": c.kind, "version": env!("CARGO_PKG_VERSION"),

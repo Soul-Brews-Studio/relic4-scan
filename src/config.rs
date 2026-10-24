@@ -10,6 +10,18 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
+/// Where the S3 copy goes (Export view, `relic-scan export`). No keys: they come from the environment or
+/// ~/.config/relic-scan/s3.env (mode 600), never from this file.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct S3Cfg {
+    /// s3://bucket/prefix; empty = no S3 copy set up
+    pub to: String,
+    /// an S3-compatible endpoint (Garage, MinIO); empty = AWS S3
+    pub endpoint: String,
+    pub region: String,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
@@ -17,11 +29,12 @@ pub struct Config {
     pub exclude: Vec<String>,
     pub depth: usize,
     pub auto_check_min: u32,
+    pub s3: S3Cfg,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Config { roots: vec!["~".into(), "/opt/Code".into()], exclude: vec![], depth: 8, auto_check_min: 0 }
+        Config { roots: vec!["~".into(), "/opt/Code".into()], exclude: vec![], depth: 8, auto_check_min: 0, s3: S3Cfg::default() }
     }
 }
 
@@ -43,6 +56,18 @@ pub fn save(out: &Path, mut c: Config) -> Result<Config, String> {
     }
     if let Some(r) = c.roots.iter().find(|r| !Path::new(&crate::expand(r)).is_dir()) {
         return Err(format!("{r} is not a folder on this machine"));
+    }
+    c.s3.to = c.s3.to.trim().to_string();
+    c.s3.endpoint = c.s3.endpoint.trim().trim_end_matches('/').to_string();
+    c.s3.region = c.s3.region.trim().to_string();
+    if !c.s3.to.is_empty() {
+        let rest = c.s3.to.strip_prefix("s3://").ok_or("the S3 destination looks like s3://bucket/prefix")?;
+        if rest.split('/').next().is_none_or(str::is_empty) || c.s3.to.contains(char::is_whitespace) {
+            return Err("the S3 destination needs a bucket: s3://bucket/prefix".into());
+        }
+    }
+    if !c.s3.endpoint.is_empty() && !(c.s3.endpoint.starts_with("http://") || c.s3.endpoint.starts_with("https://")) {
+        return Err("the S3 endpoint starts with http:// or https://".into());
     }
     if !(1..=32).contains(&c.depth) {
         return Err("depth is 1 to 32".into());
@@ -66,7 +91,7 @@ mod tests {
         let d = std::env::temp_dir().join(format!("relic-scan-test-{}-config", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         assert_eq!(load(&d), Config::default(), "no file: the defaults");
-        let ok = Config { roots: vec![" /tmp ".into(), "".into()], exclude: vec!["node_modules".into()], depth: 6, auto_check_min: 30 };
+        let ok = Config { roots: vec![" /tmp ".into(), "".into()], exclude: vec!["node_modules".into()], depth: 6, auto_check_min: 30, s3: S3Cfg::default() };
         let saved = save(&d, ok).unwrap();
         assert_eq!(saved.roots, ["/tmp"]);
         assert_eq!(load(&d), saved);
