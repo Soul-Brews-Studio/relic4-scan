@@ -114,6 +114,12 @@ relic-scan export --to s3://bucket/relic                           # sealed mont
 relic-scan export --to s3://bucket/relic --verify                  # compare the store with the files; exit 1 if they differ
 ```
 
+The app and `relic-scan serve` have the same thing on the **Export** view ("S3 copy": Check against S3, Send sealed months, each month
+listed as identical, older or missing); the destination is set in **Settings** (`s3.to`, `s3.endpoint`, `s3.region` in `_config.json`,
+never a key). The server, not the page, makes the S3 requests (`GET /api/s3`, `POST /api/s3/check` and `/api/s3/send`, which need the
+`X-Relic` header); the page still makes no network calls. Keys: the environment, or `~/.config/relic-scan/s3.env` (KEY=VALUE lines,
+mode 600; a file others can read is refused), which is what an app started from Finder uses.
+
 Only closed (sealed) months go, then `meta/months.json` (the seals) and `export-manifest.json`. Each object stores its sha256 in
 `x-amz-meta-sha256`, so a re-run sends nothing that is already there. A sealed month that differs in the store (it was sealed
 again after a late row) is refused unless `--overwrite`. Plain http is allowed only to this machine or the tailnet
