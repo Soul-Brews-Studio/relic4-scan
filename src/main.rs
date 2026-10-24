@@ -229,14 +229,14 @@ fn main() {
             let out = out_dir(&out, &kind);
             loop {
                 let v = relic_scan::ops::snapshot(std::path::Path::new(&out), !no_hub);
-                if json {
-                    println!("{}", serde_json::to_string_pretty(&v).unwrap());
+                let text = if json {
+                    serde_json::to_string_pretty(&v).unwrap() + "\n"
                 } else {
-                    if watch {
-                        print!("\x1b[2J\x1b[H");
-                    }
-                    println!("relic ops · {}\n", chrono::Local::now().format("%H:%M:%S"));
-                    relic_scan::ops::render(&v).iter().for_each(|l| println!("{l}"));
+                    format!("{}relic ops · {}\n\n{}\n", if watch { "\x1b[2J\x1b[H" } else { "" }, chrono::Local::now().format("%H:%M:%S"), relic_scan::ops::render(&v).join("\n"))
+                };
+                // a closed pipe (`| head`) ends the command quietly, it is not a panic
+                if std::io::Write::write_all(&mut std::io::stdout(), text.as_bytes()).is_err() {
+                    break;
                 }
                 if !watch || json {
                     break;
