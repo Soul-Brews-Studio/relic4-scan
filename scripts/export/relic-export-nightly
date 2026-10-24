@@ -1,0 +1,11 @@
+#!/bin/sh
+# nightly: copy this machine's sealed months to the black RustFS store (relic-scan export). HEAD/PUT only, never lists or deletes.
+# Keys come from ~/.config/relic-scan/s3.env (mode 600). usage: relic-export-nightly <machine>
+M=${1:?machine label}
+export RELIC_S3_ENDPOINT=http://black.follow-rankine.ts.net:9200 RELIC_S3_REGION=black-ssd-rustfs
+export PATH="$HOME/.local/bin:$PATH"
+echo "$(date '+%F %T') export $M start"
+relic-scan export --to "s3://relic-scan-sealed-months/$M" 2>&1 | tail -3
+RC=$?
+relic-scan export --to "s3://relic-scan-sealed-months/$M" --verify 2>&1 | tail -1
+echo "$(date '+%F %T') export $M end"
