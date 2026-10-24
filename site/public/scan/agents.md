@@ -8,7 +8,7 @@ change ARRA Relic Scan. Humans: the [README](README.md) has the same facts at mo
 `relic-scan` finds every AI-agent transcript on a machine (Claude Code, Codex, OMP, OMX, Gemini, Pi, thClaws: any `.claude`,
 `.codex`, `.omp`, `.omx`, `.gemini`, `.pi` or `.thclaws` home, and backups or mirrors of them) and every oracle `ψ` vault. It
 indexes the transcripts into one Parquet file per Bangkok month under `~/.relic-scan`, and serves a page to browse them on
-`127.0.0.1` only. It never changes a transcript and makes no network calls. A desktop app (Tauri) wraps the same page.
+`127.0.0.1` only. It never changes a transcript and makes no network calls, except `relic-scan export --to s3://…`, which you run yourself. A desktop app (Tauri) wraps the same page.
 
 ## Install (pick one)
 
@@ -103,6 +103,21 @@ jq -r '.vaults[] | select(.kind != "worktree") | [.notes, .name, .path] | @tsv' 
 ```
 
 Transcripts hold private work. Read what the human asked you to find; do not copy rows out of the machine.
+
+## Copy the sealed months to an S3-compatible store
+
+```sh
+export RELIC_S3_ENDPOINT=http://odin.follow-rankine.ts.net:3920   # unset = AWS S3; Garage and MinIO need an endpoint (path-style)
+export AWS_ACCESS_KEY_ID=… AWS_SECRET_ACCESS_KEY=…                 # never on the command line; RELIC_S3_REGION (default us-east-1)
+relic-scan export --to s3://bucket/relic --dry-run                 # HEAD only: says what would be sent
+relic-scan export --to s3://bucket/relic                           # sealed months, meta/months.json, export-manifest.json
+relic-scan export --to s3://bucket/relic --verify                  # compare the store with the files; exit 1 if they differ
+```
+
+Only closed (sealed) months go, then `meta/months.json` (the seals) and `export-manifest.json`. Each object stores its sha256 in
+`x-amz-meta-sha256`, so a re-run sends nothing that is already there. A sealed month that differs in the store (it was sealed
+again after a late row) is refused unless `--overwrite`. Plain http is allowed only to this machine or the tailnet
+(`*.ts.net`, `100.64/10`), else `--insecure-http`. Nothing is listed or deleted in the store.
 
 ## The ledger: what has been read, from anywhere
 
