@@ -58,6 +58,17 @@ enum Cmd {
         #[arg(long)]
         kind: Vec<String>,
     },
+    /// Closed months and their seals (read-only files with the time, rows and key hash they were sealed at); --verify checks each again
+    Seals {
+        #[arg(long, default_value = DEFAULT_OUT)]
+        out: String,
+        /// the --kind the run used: picks ~/.relic-scan/<kind> when --out is not given
+        #[arg(long)]
+        kind: Vec<String>,
+        /// read every sealed month again and compare it with its seal
+        #[arg(long)]
+        verify: bool,
+    },
     /// The scan log: every index run and check (dry run) with what it found; --diff N lists one entry's files
     Log {
         #[arg(long, default_value = DEFAULT_OUT)]
@@ -140,6 +151,7 @@ fn main() {
     match cmd {
         Cmd::Tui { out, kind } => tui::tui(std::path::Path::new(&out_dir(&out, &kind))),
         Cmd::Run(a) => run_cmd(a),
+        Cmd::Seals { out, kind, verify } => seals_cmd(std::path::Path::new(&out_dir(&out, &kind)), verify),
         Cmd::Log { out, kind, n, diff } => log_cmd(std::path::Path::new(&out_dir(&out, &kind)), n, diff),
         Cmd::Up { run, port } => {
             let out = run.out_dir().unwrap_or_else(|e| {
@@ -293,4 +305,23 @@ fn log_cmd(out: &std::path::Path, n: usize, diff: Option<u64>) {
 
 fn human(b: u64) -> String {
     if b >= 1_000_000_000 { format!("{:.2} GB", b as f64 / 1e9) } else if b >= 1_000_000 { format!("{:.1} MB", b as f64 / 1e6) } else { format!("{:.0} KB", b as f64 / 1e3) }
+}
+
+/// `relic-scan seals`: the closed months with their seals; with --verify each is read again and checked.
+fn seals_cmd(out: &std::path::Path, check: bool) {
+    let months = relic_scan::manifest::build(out);
+    let checked: std::collections::HashMap<String, bool> = if check { relic_scan::manifest::verify(out).into_iter().map(|v| (v.0, v.3)).collect() } else { Default::default() };
+    println!("{:<9} {:>10}  {:<20} {:>8}  {}", "month", "rows", "sealed at", "resealed", "status");
+    for e in &months {
+        let status = match (e.sealed_at.is_empty(), checked.get(&e.month)) {
+            (true, _) => "open".to_string(),
+            (false, Some(true)) => "sealed, matches".to_string(),
+            (false, Some(false)) => "CHANGED since the seal".to_string(),
+            (false, None) => "sealed".to_string(),
+        };
+        println!("{:<9} {:>10}  {:<20} {:>8}  {}", e.month, e.rows, if e.sealed_at.is_empty() { "-" } else { &e.sealed_at }, e.resealed, status);
+    }
+    if checked.values().any(|ok| !ok) {
+        std::process::exit(1);
+    }
 }
