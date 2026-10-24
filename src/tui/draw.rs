@@ -12,6 +12,7 @@ impl App {
             Tab::Sessions => self.sessions_view(f, body),
             Tab::Paths => self.paths_view(f, body),
             Tab::S3 => self.s3_view(f, body),
+            Tab::Ops => self.ops_view(f, body),
         }
         self.footer(f, foot);
         if let Some(k) = self.open {
@@ -29,7 +30,7 @@ impl App {
             Span::styled(format!("   {} sessions · {} .jsonl · {}", num(self.sess.len() as i64), num(self.files.len() as i64), self.tilde(&self.out)),
                          Style::new().fg(DIM)),
         ]);
-        let tabs: Vec<Span> = [(Tab::Overview, "1 overview"), (Tab::Repos, "2 repos"), (Tab::Sessions, "3 sessions"), (Tab::Paths, "4 paths"), (Tab::S3, "5 s3")]
+        let tabs: Vec<Span> = [(Tab::Overview, "1 overview"), (Tab::Repos, "2 repos"), (Tab::Sessions, "3 sessions"), (Tab::Paths, "4 paths"), (Tab::S3, "5 s3"), (Tab::Ops, "6 ops")]
             .iter()
             .flat_map(|(t, l)| {
                 let st = if *t == self.tab { Style::new().fg(Color::Black).bg(CYAN).bold() } else { Style::new().fg(DIM) };
@@ -47,7 +48,7 @@ impl App {
             Line::from(Span::styled(format!(" {t}"), Style::new().fg(CYAN)))
         } else {
             let mut s = vec![Span::styled(" q", Style::new().fg(PINK)), Span::styled(" quit  ", Style::new().fg(DIM)),
-                             Span::styled("1-5/tab", Style::new().fg(PINK)), Span::styled(" view  ", Style::new().fg(DIM)),
+                             Span::styled("1-6/tab", Style::new().fg(PINK)), Span::styled(" view  ", Style::new().fg(DIM)),
                              Span::styled("/", Style::new().fg(PINK)), Span::styled(" filter  ", Style::new().fg(DIM)),
                              Span::styled("↑↓ jk g G", Style::new().fg(PINK)), Span::styled(" move  ", Style::new().fg(DIM)),
                              Span::styled("enter", Style::new().fg(PINK)), Span::styled(" open  ", Style::new().fg(DIM)),

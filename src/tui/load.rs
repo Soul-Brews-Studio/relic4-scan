@@ -86,7 +86,7 @@ impl App {
         state.select(Some(0));
         App {
             out: out.display().to_string(), sess, repos, dirs, files, tab: Tab::Overview, filter: String::new(), typing: false,
-            repo_pick: None, dir_pick: None, open: None, state, toast: None, home: std::env::var("HOME").unwrap_or_default(),
+            repo_pick: None, dir_pick: None, open: None, state, toast: None, ops: None, home: std::env::var("HOME").unwrap_or_default(),
         }
     }
 
@@ -106,7 +106,7 @@ impl App {
         let w = self.words();
         let hit = |s: &str| w.iter().all(|x| s.contains(x.as_str()));
         match self.tab {
-            Tab::Overview | Tab::S3 => vec![],
+            Tab::Overview | Tab::S3 | Tab::Ops => vec![],
             Tab::Repos => (0..self.repos.len()).filter(|&k| hit(&self.repos[k].find)).collect(),
             Tab::Sessions => (0..self.sess.len())
                 .filter(|&k| self.repo_pick.as_ref().is_none_or(|r| *r == self.sess[k].repo) && hit(&self.sess[k].find)).collect(),

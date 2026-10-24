@@ -26,6 +26,7 @@ pub mod export_s3;
 pub mod manifest;
 pub mod map;
 pub mod meta;
+pub mod ops;
 pub mod parse;
 pub mod range;
 pub mod run;

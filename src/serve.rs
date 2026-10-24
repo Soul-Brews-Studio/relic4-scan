@@ -346,6 +346,7 @@ fn handle(s: TcpStream, c: &Arc<Ctx>) {
                 None => json(s, "404 Not Found", serde_json::json!({"error": "no such scan"})),
             }
         }
+        ("GET", "/api/ops") => json(s, "200 OK", crate::ops::snapshot(&c.out, true)),
         ("GET", "/api/s3") => json(s, "200 OK", crate::s3job::status(&c.out)),
         ("POST", "/api/s3/check" | "/api/s3/send") if !relic_header => json(s, "403 Forbidden", serde_json::json!({"error": "needs the X-Relic header"})),
         ("POST", "/api/s3/check" | "/api/s3/send") => match crate::s3job::start(&c.out, path == "/api/s3/check") {

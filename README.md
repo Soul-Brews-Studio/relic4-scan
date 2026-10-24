@@ -282,7 +282,9 @@ Map, tree and paths are below. Map and tree share the query box, the side panel 
 
 Query words match the path. Filters: `is:indexed|skipped|vault|loose`, `verdict:not-transcript`, `name:agent-`, `mb>100`, `size>1e9`, `rows>10000`, `rows=0`, `after:` and `before:` (modified, Bangkok time). A small result opens every folder it touches. Clicking a file shows its status, verdict, size, rows and modified time, with a button to copy its path.
 
-**`relic-scan tui`:** the same data in the terminal, with five views on the number keys:
+**`relic-scan ops`:** what the relic chain (scan, extract, push, hub index, sync check) is doing right now. It reads the chain log (`~/Library/Logs/relic-chain.log`, or `~/.local/state/relic-chain.log`; `RELIC_CHAIN_LOG` changes it), the running processes, the hub's status (`RELIC_OPS_HUB`, default the tailnet hub) and the S3 job, and prints each stage with its time against its typical time and an ETA. `--watch` redraws every 2 seconds, `--json` prints the snapshot that the Activity view (`/api/ops`) and other tools read, `--no-hub` makes no network call.
+
+**`relic-scan tui`:** the same data in the terminal, with six views on the number keys:
 
 | key | view |
 |---|---|
@@ -290,6 +292,7 @@ Query words match the path. Filters: `is:indexed|skipped|vault|loose`, `verdict:
 | `2` | repos: sessions (main / sub / workflow), rows, thinking, errors, last activity. Enter lists the repo's sessions. |
 | `3` | sessions, newest first. Enter opens one; `c` copies `claude --resume <sid>`. |
 | `4` | paths: folders holding `.jsonl`, with indexed / skipped / other. Enter lists the folder's files; Enter on a file copies its path. |
+| `6` | ops: the same snapshot as `relic-scan ops`, redrawn every 2 seconds. |
 | `5` | s3: the S3 copy of the sealed months (destination, key status, one row per object). `c` checks against the store and sends nothing; `s` sends what is missing and never replaces a month that differs. Same job as the Export view's card. |
 
 Other keys:

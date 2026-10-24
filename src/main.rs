@@ -89,6 +89,23 @@ enum Cmd {
         #[arg(long)]
         list: bool,
     },
+    /// What the relic chain is doing right now: the pass in flight with its stages and ETA, running processes, the hub, the S3 job
+    Ops {
+        #[arg(long, default_value = DEFAULT_OUT)]
+        out: String,
+        /// the --kind the run used: picks ~/.relic-scan/<kind> when --out is not given
+        #[arg(long)]
+        kind: Vec<String>,
+        /// the snapshot as JSON (what the page and the menu-bar app read), once
+        #[arg(long)]
+        json: bool,
+        /// redraw every 2 seconds until Ctrl-C
+        #[arg(long)]
+        watch: bool,
+        /// do not ask the hub (no network)
+        #[arg(long)]
+        no_hub: bool,
+    },
     /// Closed months and their seals (read-only files with the time, rows and key hash they were sealed at); --verify checks each again
     Seals {
         #[arg(long, default_value = DEFAULT_OUT)]
@@ -206,6 +223,25 @@ fn main() {
                     eprintln!("export: {e}");
                     std::process::exit(2);
                 }
+            }
+        }
+        Cmd::Ops { out, kind, json, watch, no_hub } => {
+            let out = out_dir(&out, &kind);
+            loop {
+                let v = relic_scan::ops::snapshot(std::path::Path::new(&out), !no_hub);
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&v).unwrap());
+                } else {
+                    if watch {
+                        print!("\x1b[2J\x1b[H");
+                    }
+                    println!("relic ops · {}\n", chrono::Local::now().format("%H:%M:%S"));
+                    relic_scan::ops::render(&v).iter().for_each(|l| println!("{l}"));
+                }
+                if !watch || json {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_secs(2));
             }
         }
         Cmd::Seals { out, kind, verify } => seals_cmd(std::path::Path::new(&out_dir(&out, &kind)), verify),

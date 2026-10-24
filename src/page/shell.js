@@ -10,7 +10,7 @@ function tabs() {
   const ago = D.last_run ? agoText(Date.now() / 1000 - D.last_run) : "never";
   $("side").innerHTML = `<a class="brand" href="${href("scan")}" title="ARRA Relic Scan · Smart Scan" aria-label="ARRA Relic Scan: back to Smart Scan"><div class="logo"><svg viewBox="0 0 24 24" class="mark" style="color:var(--amber)" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="currentColor"/><text x="12" y="17.6" text-anchor="middle" font-family="'Instrument Serif', Georgia, 'Times New Roman', serif" font-size="17" font-weight="600" fill="var(--on-amber)">Ψ</text></svg></div><div class="t"><b>ARRA RELIC</b><i>scan</i></div></a>`
     + `<nav aria-label="Views">`
-    + item("scan", "scan", "Smart Scan") + item("banks", "banks", "Banks & Repos") + item("vaults", "vaults", "ψ Vaults") + item("health", "health", "Health") + item("scans", "log", "Scan log")
+    + item("scan", "scan", "Smart Scan") + item("banks", "banks", "Banks & Repos") + item("vaults", "vaults", "ψ Vaults") + item("health", "health", "Health") + item("scans", "log", "Scan log") + item("ops", "ops", "Activity")
     + `<div class="sep"></div>` + item("map", "map", "Session map") + `<div class="subs">` + sub("tree", "tree", "Tree") + sub("paths", "paths", "Paths") + (gemOn("disk") || VIEW === "disk" ? sub("disk", "disk", "Disk") : "") + `</div>`
     + `<div class="sep"></div>` + item("export", "export", "Export") + item("settings", "settings", "Settings")
     + `</nav>`
@@ -29,6 +29,7 @@ const ICONS = {
   vaults: `<path d="M12 3.5v17M5.5 7.5c0 4.8 2.6 7.5 6.5 7.5s6.5-2.7 6.5-7.5"/><path d="M9 20.5h6"/>`,
   export: `<path d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5"/><path d="M4.5 16.5v2a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-2"/>`,
   search: `<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>`,
+  ops: `<path d="M3 12h3l2-5 3 10 3-8 2 3h5"/>`,
   log: `<path d="M4 6h11M4 12h6M4 18h8"/><circle cx="17" cy="16" r="4"/><path d="M17 14.2v1.9l1.2 1"/>`,
   paths: `<path d="M3.5 7.5a2 2 0 0 1 2-2h3.8l2 2.5h7.2a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>`,
 };

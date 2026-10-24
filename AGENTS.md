@@ -8,7 +8,7 @@ change ARRA Relic Scan. Humans: the [README](README.md) has the same facts at mo
 `relic-scan` finds every AI-agent transcript on a machine (Claude Code, Codex, OMP, OMX, Gemini, Pi, thClaws: any `.claude`,
 `.codex`, `.omp`, `.omx`, `.gemini`, `.pi` or `.thclaws` home, and backups or mirrors of them) and every oracle `ψ` vault. It
 indexes the transcripts into one Parquet file per Bangkok month under `~/.relic-scan`, and serves a page to browse them on
-`127.0.0.1` only. It never changes a transcript and makes no network calls, except `relic-scan export --to s3://…`, which you run yourself. A desktop app (Tauri) wraps the same page.
+`127.0.0.1` only. It never changes a transcript and makes no network calls, except `relic-scan export --to s3://…`, which you run yourself, and `relic-scan ops` / the Activity view, which read the hub's status with one GET (`RELIC_OPS_HUB=off` or `--no-hub` skips it). A desktop app (Tauri) wraps the same page.
 
 ## Install (pick one)
 
@@ -31,6 +31,7 @@ relic-scan run                  # index: scan, parse only new bytes, write month
 relic-scan run --dry-run        # what an index would read; writes nothing
 relic-scan up                   # index, then serve http://127.0.0.1:8787 (Smart Scan, map, tree, ψ Vaults, Export)
 relic-scan tui                  # the same index in the terminal
+relic-scan ops --watch          # what the relic chain is doing now: stages with times and ETA, processes, the hub (--json for tools)
 relic-scan run --kind claude    # one agent only, into ~/.relic-scan/claude
 relic-scan run --month 2026-10  # one month only, into ~/.relic-scan/all@2026-10
 ```

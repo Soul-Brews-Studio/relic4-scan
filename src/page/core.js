@@ -6,10 +6,10 @@ const LIGHT = THEME_PICK === "light" || (THEME_PICK === "auto" && matchMedia("(p
 document.documentElement.dataset.theme = LIGHT ? "light" : "dark";
 // one page, three views: /map, /tree and /paths when served, ?view=tree|paths when opened as a file
 // served: / is Smart Scan; opened as a file (no server, no index button): the map
-const VIEWS = ["scans", "scan", "disk", "settings", "banks", "vaults", "export", "health", "map", "tree", "paths"];
+const VIEWS = ["scans", "scan", "disk", "settings", "banks", "vaults", "export", "ops", "health", "map", "tree", "paths"];
 let VIEW = VIEWS.find(v => location.pathname.endsWith("/" + v) || new URLSearchParams(location.search).get("view") === v)
   || (location.protocol.startsWith("http") && /\/$/.test(location.pathname) ? "scan" : "map");
-const DASH = ["scan", "scans", "disk", "settings", "banks", "vaults", "export", "health"].includes(VIEW);
+const DASH = ["scan", "scans", "disk", "settings", "banks", "vaults", "export", "ops", "health"].includes(VIEW);
 const S = D.s, N = S.sid.length, BKK = 7 * 3600;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
