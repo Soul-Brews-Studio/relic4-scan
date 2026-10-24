@@ -333,5 +333,6 @@ pub fn run_with(o: &Opts, on: &mut dyn FnMut(&Item)) -> Result<Summary, String> 
     Ok(s)
 }
 
+pub mod list;
 #[cfg(test)]
 mod tests;

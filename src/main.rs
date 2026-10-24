@@ -85,6 +85,9 @@ enum Cmd {
         /// allow plain http to a host that is neither this machine nor on the tailnet
         #[arg(long)]
         insecure_http: bool,
+        /// say what the store holds, one line per month (reads meta/months.json and export-manifest.json there); sends nothing
+        #[arg(long)]
+        list: bool,
     },
     /// Closed months and their seals (read-only files with the time, rows and key hash they were sealed at); --verify checks each again
     Seals {
@@ -179,8 +182,18 @@ fn main() {
     match cmd {
         Cmd::Tui { out, kind } => tui::tui(std::path::Path::new(&out_dir(&out, &kind))),
         Cmd::Run(a) => run_cmd(a),
-        Cmd::Export { out, kind, to, endpoint, region, dry_run, overwrite, verify, insecure_http } => {
+        Cmd::Export { out, kind, to, endpoint, region, dry_run, overwrite, verify, insecure_http, list } => {
             let o = relic_scan::export_s3::Opts { out: std::path::PathBuf::from(out_dir(&out, &kind)), to, endpoint, region, dry_run, overwrite, verify, insecure_http };
+            if list {
+                match relic_scan::export_s3::list::list(&o) {
+                    Ok(r) => relic_scan::export_s3::list::table(&r).iter().for_each(|l| println!("{l}")),
+                    Err(e) => {
+                        eprintln!("export: {e}");
+                        std::process::exit(2);
+                    }
+                }
+                return;
+            }
             match relic_scan::export_s3::run(&o) {
                 Ok(s) => {
                     eprintln!("export: {} sent ({:.1} MB) · {} same · {} refused · {} differ · {} missing{}", s.uploaded, s.bytes as f64 / 1e6, s.same, s.refused, s.differs, s.missing,

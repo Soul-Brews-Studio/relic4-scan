@@ -81,7 +81,8 @@ fn fake_s3() -> (String, Store, std::thread::JoinHandle<()>, Arc<Mutex<bool>>) {
             }
         } else {
             match s2.lock().unwrap().get(&path) {
-                Some((b, m)) => format!("HTTP/1.1 200 OK\r\nx-amz-meta-sha256: {m}\r\ncontent-length: {}\r\nconnection: close\r\n\r\n", b.len()),
+                Some((b, m)) => format!("HTTP/1.1 200 OK\r\nx-amz-meta-sha256: {m}\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}", b.len(),
+                                        if method == "GET" { String::from_utf8_lossy(b).to_string() } else { String::new() }),
                 None => "HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\nconnection: close\r\n\r\n".to_string(),
             }
         };
@@ -147,6 +148,16 @@ fn export_sends_sealed_months_once_and_refuses_to_replace_a_changed_one() {
     std::fs::write(&mj, t).unwrap();
     let w = run(&Opts { verify: true, ..opts(&d, &addr) }).unwrap();
     assert_eq!((w.outdated, w.differs, w.missing), (1, 0, 0), "{w:?}");
+    // --list: the sealed month, with the size and hash the manifest recorded; nothing is listed or sent
+    let before = store.lock().unwrap().len();
+    let l = list::list(&opts(&d, &addr)).unwrap();
+    let m = l.iter().find(|r| r.month == "2026-07").expect("the sealed month is listed");
+    assert_eq!(m.stored.as_ref().map(|s| s.0), Some(local.len() as u64), "{l:?}");
+    assert!(l.iter().all(|r| r.month != "undated") && list::table(&l).iter().any(|t| t.starts_with("2026-07")), "{l:?}");
+    assert_eq!(store.lock().unwrap().len(), before);
+    // an empty prefix says so
+    let err = list::list(&Opts { to: "s3://relic-test/none".into(), ..opts(&d, &addr) }).unwrap_err();
+    assert!(err.contains("nothing was exported"), "{err}");
     *stop.lock().unwrap() = true;
     h.join().unwrap();
     let _ = std::fs::remove_dir_all(&d);
