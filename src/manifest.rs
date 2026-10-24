@@ -7,6 +7,9 @@
 //!                            machine, or a file whose past changed (the ledger's "past changed")
 //!   late_total               late_rows summed over every run since the manifest began
 //!   sealed                   the month is before the current Bangkok month: no new line can be written into it
+//!   sealed_at, sealed_rows,  the seal: when a closed month was first seen, with its rows and key hash then. The month file
+//!   sealed_keys, resealed    is made read-only. If it changes later (a late row), it is sealed again and `resealed` counts it.
+//!                            `relic-scan seals --verify` reads each sealed month again and checks it against its seal.
 //!
 //! A month is read again only when its file changed (size or mtime); the other entries are copied over.
 
@@ -31,6 +34,10 @@ pub struct Entry {
     pub late_rows: u64,
     pub late_total: u64,
     pub sealed: bool,
+    pub sealed_at: String,
+    pub sealed_rows: u64,
+    pub sealed_keys: String,
+    pub resealed: u64,
     pub updated_at: String,
 }
 
@@ -84,7 +91,8 @@ fn read_month(path: &Path, month: &str, prev: Option<&Entry>) -> Entry {
     Entry {
         month: month.to_string(), rows, first_ts: first, max_ts: max, keys: hex(&st.finalize().as_bytes()[..16]),
         bytes: md.len(), mtime_ms, late_rows: late, late_total: prev.map(|p| p.late_total).unwrap_or(0) + late,
-        sealed: false, updated_at: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+        sealed: false, sealed_at: String::new(), sealed_rows: 0, sealed_keys: String::new(), resealed: 0,
+        updated_at: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
     }
 }
 
@@ -116,6 +124,7 @@ pub fn build_at(out: &Path, now: &str) -> Vec<Entry> {
             _ => read_month(&f, &m, prev),
         };
         e.sealed = m.as_str() < now && m != "undated";
+        seal(&mut e, prev, &f);
         entries.push(e);
     }
     let _ = fs::create_dir_all(out.join("meta"));
@@ -124,6 +133,41 @@ pub fn build_at(out: &Path, now: &str) -> Vec<Entry> {
         let _ = fs::rename(&tmp, &path);
     }
     entries
+}
+
+/// A closed month gets its seal the first time it is seen closed; a seal that no longer matches the file is renewed and
+/// counted; an open month has none. The file of a sealed month is made read-only.
+fn seal(e: &mut Entry, prev: Option<&Entry>, file: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+    if !e.sealed {
+        (e.sealed_at, e.sealed_rows, e.sealed_keys, e.resealed) = (String::new(), 0, String::new(), 0);
+        return;
+    }
+    let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
+    match prev.filter(|p| !p.sealed_at.is_empty()) {
+        Some(p) if p.sealed_keys == e.keys => {
+            (e.sealed_at, e.sealed_rows, e.sealed_keys, e.resealed) = (p.sealed_at.clone(), p.sealed_rows, p.sealed_keys.clone(), p.resealed);
+        }
+        Some(p) => (e.sealed_at, e.sealed_rows, e.sealed_keys, e.resealed) = (now, e.rows, e.keys.clone(), p.resealed + 1),
+        None => (e.sealed_at, e.sealed_rows, e.sealed_keys, e.resealed) = (now, e.rows, e.keys.clone(), 0),
+    }
+    if let Ok(md) = fs::metadata(file) {
+        let mut perm = md.permissions();
+        if perm.mode() & 0o222 != 0 {
+            perm.set_mode(perm.mode() & !0o222);
+            let _ = fs::set_permissions(file, perm);
+        }
+    }
+}
+
+/// Read every sealed month again and say whether it still matches its seal: (month, sealed_at, rows now, ok).
+pub fn verify(out: &Path) -> Vec<(String, String, u64, bool)> {
+    let old: File = fs::read(out.join("meta").join("months.json")).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+    old.months.iter().filter(|e| !e.sealed_at.is_empty()).filter_map(|e| {
+        let f = crate::meta::month_file(out, &e.month)?;
+        let now = read_month(&f, &e.month, None);
+        Some((e.month.clone(), e.sealed_at.clone(), now.rows, now.keys == e.sealed_keys))
+    }).collect()
 }
 
 pub fn build(out: &Path) -> Vec<Entry> {
@@ -166,6 +210,38 @@ mod tests {
         let c = build_at(&out, "2026-08");
         let l = c.iter().find(|e| e.month == "2026-07").unwrap();
         assert!(l.rows > n.rows && l.late_rows > 0 && l.late_total == l.late_rows, "{l:?}");
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn a_closed_month_is_sealed_once_and_a_late_row_reseals_it() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = tmp("seal");
+        let (src, out) = (d.join("s.jsonl"), d.join("out"));
+        let sp = src.to_str().unwrap().to_string();
+        let job = |ctx| crate::parse::Job { path: sp.clone(), size: fs::metadata(&src).unwrap().len(), verdict: String::new(), ctx };
+        fs::write(&src, lines(2, 10)).unwrap();
+        let c1 = crate::parse::run(vec![job(Default::default())], &out, "t@x", 2, false, false, None)[&sp].clone();
+        // while 2026-07 is the current month it has no seal
+        let open = build_at(&out, "2026-07");
+        assert!(open.iter().all(|e| e.sealed_at.is_empty()), "{open:?}");
+        // the month closes: it is sealed with its rows and keys, and its file is read-only
+        let a = build_at(&out, "2026-08");
+        let m = a.iter().find(|e| e.month == "2026-07").unwrap();
+        assert!(!m.sealed_at.is_empty() && m.sealed_rows == m.rows && m.sealed_keys == m.keys && m.resealed == 0, "{m:?}");
+        assert_eq!(fs::metadata(out.join("2026-07.parquet")).unwrap().permissions().mode() & 0o222, 0, "read-only");
+        // seen again: the same seal, not a new one
+        let b = build_at(&out, "2026-08");
+        assert_eq!(b.iter().find(|e| e.month == "2026-07").unwrap().sealed_at, m.sealed_at);
+        assert!(verify(&out).iter().all(|v| v.3), "{:?}", verify(&out));
+        // a late row (the file grows into a closed month): the seal no longer matches, and is renewed once
+        fs::write(&src, lines(2, 10) + &lines(3, 10)).unwrap();
+        crate::parse::run(vec![job(c1)], &out, "t@x", 2, false, false, None);
+        assert!(verify(&out).iter().any(|v| !v.3), "the old seal must see the change");
+        let c = build_at(&out, "2026-08");
+        let n = c.iter().find(|e| e.month == "2026-07").unwrap();
+        assert!(n.resealed == 1 && n.sealed_rows == n.rows && n.sealed_rows > m.sealed_rows, "{n:?}");
+        assert!(verify(&out).iter().all(|v| v.3));
         let _ = fs::remove_dir_all(&d);
     }
 }
