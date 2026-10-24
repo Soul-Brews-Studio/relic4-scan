@@ -36,6 +36,14 @@ async function loadSettings() {
       <div class="field"><b>Skip paths holding</b><span>a path with any of these in it is not walked</span><div id="s-ex"></div></div>
       <label class="row2"><b>Depth</b><span>how deep the walk looks for agent homes · default ${d.depth}</span>
         <input id="s-depth" type="number" min="1" max="32" value="${c.depth}"></label>
+      <h3>S3 copy</h3>
+      <label class="row2"><b>Send the sealed months to</b><span>s3://bucket/prefix · empty = no S3 copy · the Export view does the sending</span>
+        <input id="s-s3to" type="text" value="${esc(c.s3?.to || "")}" placeholder="s3://relic-scan-sealed-months/m5" spellcheck="false" autocomplete="off"></label>
+      <label class="row2"><b>Endpoint</b><span>an S3-compatible store (Garage, MinIO) · empty = AWS S3 · plain http only to this Mac or the tailnet</span>
+        <input id="s-s3ep" type="text" value="${esc(c.s3?.endpoint || "")}" placeholder="http://odin.follow-rankine.ts.net:3920" spellcheck="false" autocomplete="off"></label>
+      <label class="row2"><b>Region</b><span>Garage uses its own name · empty = us-east-1</span>
+        <input id="s-s3rg" type="text" value="${esc(c.s3?.region || "")}" placeholder="garage" spellcheck="false" autocomplete="off"></label>
+      <div class="note">The keys are not kept here: set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, or put them in <code>~/.config/relic-scan/s3.env</code> (mode 600).</div>
       <h3>Checking</h3>
       <label class="row2"><b>Check changes automatically</b><span>while this server runs; it never indexes on its own</span>
         <select id="s-auto">${[[0, "off"], [15, "every 15 minutes"], [30, "every 30 minutes"], [60, "every hour"]]
@@ -58,10 +66,11 @@ async function loadSettings() {
   const skips = chipList($("s-ex"), c.exclude, { placeholder: "node_modules", suggest: ["node_modules", ".git", "Library", ".Trash", ".cache", "target", "wt/"] });
   // a gem shows or hides at once in the sidebar (no Save needed)
   for (const b of document.querySelectorAll("#sform .gem")) b.onchange = () => { gemSet(b.dataset.gem, b.checked); tabs(); };
-  $("s-reset").onclick = () => { roots.set(d.roots); skips.set([]); $("s-depth").value = d.depth; $("s-auto").value = "0"; $("s-msg").textContent = "Defaults filled in; Save to keep them."; };
+  $("s-reset").onclick = () => { roots.set(d.roots); skips.set([]); $("s-depth").value = d.depth; $("s-auto").value = "0"; $("s-s3to").value = $("s-s3ep").value = $("s-s3rg").value = ""; $("s-msg").textContent = "Defaults filled in; Save to keep them."; };
   $("sform").onsubmit = async e => {
     e.preventDefault();
-    const body = { roots: roots.get(), exclude: skips.get(), depth: Number($("s-depth").value), auto_check_min: Number($("s-auto").value) };
+    const body = { roots: roots.get(), exclude: skips.get(), depth: Number($("s-depth").value), auto_check_min: Number($("s-auto").value),
+      s3: { to: $("s-s3to").value, endpoint: $("s-s3ep").value, region: $("s-s3rg").value } };
     const res = await fetch("/api/config", { method: "POST", headers: { "X-Relic": "1", "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const out = await res.json();
     if (!res.ok) { $("s-msg").textContent = "Not saved: " + out.error + "."; $("s-msg").className = "note bad"; return; }

@@ -140,6 +140,13 @@ fn export_sends_sealed_months_once_and_refuses_to_replace_a_changed_one() {
     assert_eq!(run(&Opts { verify: true, ..opts(&d, &addr) }).unwrap().differs, 1);
     let e = run(&Opts { overwrite: true, ..opts(&d, &addr) }).unwrap();
     assert_eq!((e.refused, e.uploaded >= 1), (0, true), "{e:?}");
+    // months.json changes with every scan: verify calls it outdated, not a difference, and says the months are fine
+    let mj = d.join("out").join("meta").join("months.json");
+    let mut t = std::fs::read_to_string(&mj).unwrap();
+    t.push('\n');
+    std::fs::write(&mj, t).unwrap();
+    let w = run(&Opts { verify: true, ..opts(&d, &addr) }).unwrap();
+    assert_eq!((w.outdated, w.differs, w.missing), (1, 0, 0), "{w:?}");
     *stop.lock().unwrap() = true;
     h.join().unwrap();
     let _ = std::fs::remove_dir_all(&d);

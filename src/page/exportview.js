@@ -32,6 +32,7 @@ function dashExport() {
       <span class="xn" id="xn${i}">${k.served && !SERVED ? "needs the server" : "…"}</span>
       <span class="xb">${k.served && !SERVED ? "" : `<button class="ghost" data-f="csv">CSV</button><button class="ghost" data-f="json">JSON</button>`}</span>
       <div class="msg" id="xm${i}" role="status"></div></div>`).join("")}</div></div>
+    ${s3Card()}
     <div class="card"><h3>Month files <span class="muted" style="font-weight:400;font-size:13px">one Parquet file per Bangkok month · click a month to show it in Finder</span></h3>
       <div class="xact">${SERVED ? `<button class="ghost" data-reveal="out">Open the index folder</button><button class="ghost" id="xmetaf">Open the meta folder</button>` : ""}</div>
       <div id="xmonths"><div class="muted">${SERVED ? "loading…" : "Needs the server: open the page through relic-scan serve or the app."}</div></div></div>`;
@@ -48,6 +49,7 @@ function exportLoad() {
   });
   if ($("xmetaf")) $("xmetaf").onclick = () => kReveal("what=meta");
   if (!SERVED) return;
+  s3Load();
   fetch("/api/months").then(r => r.json()).then(j => {
     const M = j.months || [], tot = M.reduce((t, m) => t + m.bytes, 0), top = Math.max(1, ...M.map(m => m.bytes));
     const mname = m => new Date(m + "-01T00:00:00Z").toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
