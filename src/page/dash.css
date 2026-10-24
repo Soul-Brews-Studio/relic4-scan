@@ -207,6 +207,12 @@
   #dash .s3chip.ok { color: var(--green); } #dash .s3chip.warn { color: var(--amber); } #dash .s3chip.bad { color: var(--amber); border-color: var(--amber); }
   #dash .s3bar { height: 6px; border-radius: 3px; background: var(--track); margin-top: var(--sp-4); overflow: hidden; }
   #dash .s3bar i { display: block; height: 100%; background: var(--accent); transition: width .3s var(--ease-out); }
+  #dash .opstab { margin-top: var(--sp-4); display: grid; }
+  #dash .opsrow { display: grid; grid-template-columns: 22px minmax(0, 190px) 70px 110px minmax(0, 1fr); gap: var(--sp-4); align-items: center; padding: 6px 0; border-top: 1px solid var(--line); font-size: 13px; }
+  #dash .card > .opsrow { grid-template-columns: minmax(0, 190px) 90px 90px 100px 110px; } #dash .opsrow:first-child { border-top: 0; }
+  #dash .card > .opsrow.hub { grid-template-columns: minmax(0, 190px) 170px minmax(0, 1fr); }
+  #dash .opsrow .z { color: var(--dim); text-align: right; font-variant-numeric: tabular-nums; } #dash .opsrow .d { overflow-wrap: anywhere; }
+  #dash .opsrow.running { color: var(--accent); } #dash .opsrow.waiting { color: var(--dim); } #dash .opsrow .mk { text-align: center; }
   #dash .s3tab { margin-top: var(--sp-4); display: grid; }
   #dash .s3row { display: grid; grid-template-columns: minmax(0, 1fr) 90px auto; gap: var(--sp-4); align-items: center; padding: 6px 0; border-top: 1px solid var(--line); font-size: 13px; }
   #dash .s3row:first-child { border-top: 0; } #dash .s3row .z { color: var(--dim); text-align: right; font-variant-numeric: tabular-nums; }
