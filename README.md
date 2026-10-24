@@ -282,7 +282,7 @@ Map, tree and paths are below. Map and tree share the query box, the side panel 
 
 Query words match the path. Filters: `is:indexed|skipped|vault|loose`, `verdict:not-transcript`, `name:agent-`, `mb>100`, `size>1e9`, `rows>10000`, `rows=0`, `after:` and `before:` (modified, Bangkok time). A small result opens every folder it touches. Clicking a file shows its status, verdict, size, rows and modified time, with a button to copy its path.
 
-**`relic-scan tui`:** the same data in the terminal, with four views on the number keys:
+**`relic-scan tui`:** the same data in the terminal, with five views on the number keys:
 
 | key | view |
 |---|---|
@@ -290,6 +290,7 @@ Query words match the path. Filters: `is:indexed|skipped|vault|loose`, `verdict:
 | `2` | repos: sessions (main / sub / workflow), rows, thinking, errors, last activity. Enter lists the repo's sessions. |
 | `3` | sessions, newest first. Enter opens one; `c` copies `claude --resume <sid>`. |
 | `4` | paths: folders holding `.jsonl`, with indexed / skipped / other. Enter lists the folder's files; Enter on a file copies its path. |
+| `5` | s3: the S3 copy of the sealed months (destination, key status, one row per object). `c` checks against the store and sends nothing; `s` sends what is missing and never replaces a month that differs. Same job as the Export view's card. |
 
 Other keys:
 - `/` filters the list (words, AND) and `Esc` clears the filter.
@@ -349,7 +350,7 @@ No file is longer than 500 lines; a long one is split into a folder of modules.
 - `src/run.rs`: `relic-scan run` (scan, diff, parse, merge, meta, map, scan log); `src/lib.rs` keeps the arguments and the shared helpers.
 - `src/parse/`: the reader (`mod.rs`), the raw parts (`parts.rs`), the month merge (`merge.rs`), tests.
 - `src/meta/`: the tables (`mod.rs`), the path rules (`rules.rs`), the per-month pass and its cache (`agg.rs`), tests.
-- `src/tui/`: state and loading (`mod.rs`, `load.rs`), keys (`keys.rs`), drawing (`draw.rs`).
+- `src/tui/`: state and loading (`mod.rs`, `load.rs`), keys (`keys.rs`), drawing (`draw.rs`), the S3 view (`s3view.rs`).
 - `src/page/`: the page as small files: the shell `index.html`, three CSS files, and the scripts in the order they run
   (`core`, `map`, `shell`, `tree`, `paths`, `dash`, `contents`, `disk`, `scanlog`, `settings`, `main`, `palette`). `map.rs` puts them
   back together into one self-contained page; there is no build step and no network. Shared helpers live in `core.js`:

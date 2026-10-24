@@ -4,6 +4,7 @@
 //!   2 repos      one row per repo; Enter lists its sessions
 //!   3 sessions   newest first; Enter opens one (c copies `claude --resume <sid>`)
 //!   4 paths      every .jsonl folder the scan saw (indexed / skipped / vault / loose); Enter lists its files
+//!   5 s3         the S3 copy of the sealed months: c checks against the store, s sends what is missing
 //!
 //! / filters the current list (words, AND), Esc clears, Backspace goes back, q quits.
 //! No background colour is set anywhere, so it reads the same on a dark or a light terminal.
@@ -81,6 +82,7 @@ enum Tab {
     Repos,
     Sessions,
     Paths,
+    S3,
 }
 
 struct App {
@@ -139,6 +141,7 @@ fn bar(frac: f64, w: usize) -> String {
 mod draw;
 mod keys;
 mod load;
+mod s3view;
 
 fn run_app(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
     loop {

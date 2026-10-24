@@ -49,14 +49,19 @@ impl App {
                 self.dir_pick = None;
                 self.switch(Tab::Paths)
             }
+            KeyCode::Char('5') => self.switch(Tab::S3),
+            KeyCode::Char('c') if self.tab == Tab::S3 => self.s3_start(true),
+            KeyCode::Char('s') if self.tab == Tab::S3 => self.s3_start(false),
             KeyCode::Tab | KeyCode::Right => self.switch(match self.tab {
                 Tab::Overview => Tab::Repos,
                 Tab::Repos => Tab::Sessions,
                 Tab::Sessions => Tab::Paths,
-                Tab::Paths => Tab::Overview,
+                Tab::Paths => Tab::S3,
+                Tab::S3 => Tab::Overview,
             }),
             KeyCode::BackTab | KeyCode::Left => self.switch(match self.tab {
-                Tab::Overview => Tab::Paths,
+                Tab::Overview => Tab::S3,
+                Tab::S3 => Tab::Paths,
                 Tab::Repos => Tab::Overview,
                 Tab::Sessions => Tab::Repos,
                 Tab::Paths => Tab::Sessions,
@@ -91,7 +96,7 @@ impl App {
                         let p = format!("{}/{}", self.dirs[f.dir].path, f.name);
                         self.copy(&p);
                     }
-                    Tab::Overview => {}
+                    Tab::Overview | Tab::S3 => {}
                 }
             }
             KeyCode::Backspace => {
