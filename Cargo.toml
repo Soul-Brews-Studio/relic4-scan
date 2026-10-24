@@ -1,6 +1,6 @@
 [package]
 name = "relic-scan"
-version = "26.10.24-alpha.1234"
+version = "26.10.24-alpha.1255"
 edition = "2024"
 rust-version = "1.89"
 license = "AGPL-3.0-only"
