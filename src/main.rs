@@ -58,6 +58,34 @@ enum Cmd {
         #[arg(long)]
         kind: Vec<String>,
     },
+    /// Copy the sealed months and their seals to an S3-compatible store (AWS S3, Garage, MinIO); re-runnable, nothing is replaced unless --overwrite
+    Export {
+        #[arg(long, default_value = DEFAULT_OUT)]
+        out: String,
+        /// the --kind the run used: picks ~/.relic-scan/<kind> when --out is not given
+        #[arg(long)]
+        kind: Vec<String>,
+        /// where to: s3://bucket/prefix. Endpoint and keys come from RELIC_S3_ENDPOINT, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+        #[arg(long)]
+        to: String,
+        /// the S3 endpoint (default: RELIC_S3_ENDPOINT, else AWS S3)
+        #[arg(long)]
+        endpoint: Option<String>,
+        #[arg(long)]
+        region: Option<String>,
+        /// only look (HEAD): say what would be sent, send nothing
+        #[arg(long)]
+        dry_run: bool,
+        /// replace a sealed month that differs in the store (it was sealed again after a late row)
+        #[arg(long)]
+        overwrite: bool,
+        /// compare the store with the local files; send nothing; exit 1 when they differ
+        #[arg(long)]
+        verify: bool,
+        /// allow plain http to a host that is neither this machine nor on the tailnet
+        #[arg(long)]
+        insecure_http: bool,
+    },
     /// Closed months and their seals (read-only files with the time, rows and key hash they were sealed at); --verify checks each again
     Seals {
         #[arg(long, default_value = DEFAULT_OUT)]
@@ -151,6 +179,21 @@ fn main() {
     match cmd {
         Cmd::Tui { out, kind } => tui::tui(std::path::Path::new(&out_dir(&out, &kind))),
         Cmd::Run(a) => run_cmd(a),
+        Cmd::Export { out, kind, to, endpoint, region, dry_run, overwrite, verify, insecure_http } => {
+            let o = relic_scan::export_s3::Opts { out: std::path::PathBuf::from(out_dir(&out, &kind)), to, endpoint, region, dry_run, overwrite, verify, insecure_http };
+            match relic_scan::export_s3::run(&o) {
+                Ok(s) => {
+                    eprintln!("export: {} sent ({:.1} MB) · {} same · {} refused · {} differ · {} missing", s.uploaded, s.bytes as f64 / 1e6, s.same, s.refused, s.differs, s.missing);
+                    if s.refused + s.differs + s.missing > 0 {
+                        std::process::exit(1);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("export: {e}");
+                    std::process::exit(2);
+                }
+            }
+        }
         Cmd::Seals { out, kind, verify } => seals_cmd(std::path::Path::new(&out_dir(&out, &kind)), verify),
         Cmd::Log { out, kind, n, diff } => log_cmd(std::path::Path::new(&out_dir(&out, &kind)), n, diff),
         Cmd::Up { run, port } => {

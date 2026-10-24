@@ -141,6 +141,14 @@ For comparison, relic v3 needed 43 s for an incremental run with 37 changed file
 - the light scan re-walks every home (8.5 s): cache the home list and only stat known files, or watch with FSEvents;
 - rewriting the current month (4.3 s): a small delta file plus compaction would trade the "1 month = 1 file" rule for speed.
 
+## Copy the sealed months to S3
+`relic-scan export --to s3://bucket/prefix` copies every sealed month, `meta/months.json` (the seals) and an
+`export-manifest.json` to an S3-compatible store (AWS S3, Garage, MinIO). The endpoint and keys come from the environment
+(`RELIC_S3_ENDPOINT`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`), never the command line. It is safe to re-run: each object
+carries its sha256, so what is already there is skipped, and a sealed month that differs in the store is refused unless
+`--overwrite`. `--dry-run` only looks; `--verify` compares the store with the files. It is the only command that uses the network,
+and only when you run it. Plain http is allowed only to this machine or the tailnet.
+
 ## Only some days
 `--month`, `--day`, `--from` and `--to` keep only the rows whose Bangkok date is in the range. A row with no time at all is left out.
 - **Its own folder:** without `--out`, the run writes `~/.relic-scan/<kinds or all>@<range>`, for example `~/.relic-scan/all@2026-10` or `~/.relic-scan/claude@2026-10-22`. Pass that path as `--out` to `serve`, `tui`, `meta` and `map`; the summary card prints it.
