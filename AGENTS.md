@@ -156,7 +156,7 @@ just             # every recipe
 ```
 
 Layout: `src/` is the crate (CLI, server, TUI); `src/page/` is the page, small JS and CSS files joined into one self-contained
-page by `src/map.rs`; `desktop/` is the Tauri app; `site/` is the landing page; `docs/` has the design and research notes.
+page by `src/map.rs`; `desktop/` is the Tauri app; `site/` is the landing page; `docs/` has the design and research notes. `scripts/` has the operator scripts for the relic chain across machines (merge `.claude` homes, nightly S3 export, release builds); see its README.
 
 Rules this code keeps:
 - **No file over 500 lines.** Split a long one into a folder of modules.
