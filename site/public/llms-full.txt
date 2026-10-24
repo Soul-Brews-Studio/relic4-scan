@@ -161,12 +161,12 @@ Yes. The source is on GitHub (github.com/Soul-Brews-Studio/relic4-scan) under th
 
 ## Download
 
-Version 26.10.24-alpha.1255, free and open source under the GNU AGPL v3. The source, the release notes and every file are on GitHub.
+Version 26.10.24-alpha.1312, free and open source under the GNU AGPL v3. The source, the release notes and every file are on GitHub.
 
-- [macOS, .dmg · 6.8 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.24-alpha.1255/ARRA-Relic-Scan_26.10.24-alpha.1255_macos-arm64.dmg): Apple silicon · drag into Applications
-- [macOS, .dmg · 7.1 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.24-alpha.1255/ARRA-Relic-Scan_26.10.24-alpha.1255_macos-x64.dmg): Intel · drag into Applications
-- [Linux, .deb · 7.6 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.24-alpha.1255/ARRA-Relic-Scan_26.10.24-alpha.1255_linux-amd64.deb): x86_64 · Debian, Ubuntu
-- [Linux, .AppImage · 85 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.24-alpha.1255/ARRA-Relic-Scan_26.10.24-alpha.1255_linux-amd64.AppImage): x86_64 · any distribution
+- [macOS, .dmg · 6.8 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.24-alpha.1312/ARRA-Relic-Scan_26.10.24-alpha.1312_macos-arm64.dmg): Apple silicon · drag into Applications
+- [macOS, .dmg · 7.1 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.24-alpha.1312/ARRA-Relic-Scan_26.10.24-alpha.1312_macos-x64.dmg): Intel · drag into Applications
+- [Linux, .deb · 7.6 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.24-alpha.1312/ARRA-Relic-Scan_26.10.24-alpha.1312_linux-amd64.deb): x86_64 · Debian, Ubuntu
+- [Linux, .AppImage · 85 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.24-alpha.1312/ARRA-Relic-Scan_26.10.24-alpha.1312_linux-amd64.AppImage): x86_64 · any distribution
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Soul-Brews-Studio/relic4-scan/main/install.sh | sh

@@ -112,6 +112,7 @@ export AWS_ACCESS_KEY_ID=… AWS_SECRET_ACCESS_KEY=…                 # never o
 relic-scan export --to s3://bucket/relic --dry-run                 # HEAD only: says what would be sent
 relic-scan export --to s3://bucket/relic                           # sealed months, meta/months.json, export-manifest.json
 relic-scan export --to s3://bucket/relic --verify                  # compare the store with the files; exit 1 if they differ
+relic-scan export --to s3://bucket/relic --list                    # what the store holds: one line per month (rows, dates, size, sha256, seal); reads two small files, lists nothing
 ```
 
 The app and `relic-scan serve` have the same thing on the **Export** view ("S3 copy": Check against S3, Send sealed months, each month
