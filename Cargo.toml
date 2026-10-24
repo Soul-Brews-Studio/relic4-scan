@@ -16,6 +16,9 @@ ignore = "0.4.33"
 libc = "0.2.191"
 memchr = "2.8.3"
 zstd = "0.14"
+ureq = { version = "3", default-features = false, features = ["rustls"] }
+sha2 = "0.10"
+hmac = "0.12"
 parquet = { version = "60.0.0", default-features = false, features = ["arrow", "zstd", "lz4", "snap"] }
 ratatui = { version = "0.30.2", default-features = false, features = ["crossterm", "layout-cache"] }
 regex = "1.13.1"

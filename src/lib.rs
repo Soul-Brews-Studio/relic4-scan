@@ -22,6 +22,7 @@ pub mod config;
 pub mod engine;
 pub mod ledger;
 pub mod export;
+pub mod export_s3;
 pub mod manifest;
 pub mod map;
 pub mod meta;
