@@ -62,3 +62,21 @@ fn months_and_cache_round_trip() {
     let b = agg_from(&c[2..]);
     assert_eq!((b.n_rows, b.by, b.first_ts, b.last_ts), (5, [1, 1, 0, 2, 1, 1], Some(String::new()), None));
 }
+
+#[test]
+fn usage_adds_ranks_and_survives_the_cache() {
+    let mut a = Usage { out: 10, inp: 2, cache_read: 5, cache_write: 1, models: BTreeMap::from([("opus".to_string(), 2), ("haiku".to_string(), 1)]) };
+    a.add(&Usage { out: 5, inp: 1, cache_read: 0, cache_write: 0, models: BTreeMap::from([("haiku".to_string(), 3)]) });
+    assert_eq!((a.out, a.inp, a.cache_read, a.cache_write), (15, 3, 5, 1));
+    assert_eq!(a.ranked(), (vec!["haiku".to_string(), "opus".to_string()], vec![4, 2]));
+    let d = std::env::temp_dir().join(format!("relic-scan-test-{}-usage", std::process::id()));
+    let _ = fs::remove_dir_all(&d);
+    fs::create_dir_all(&d).unwrap();
+    let mut m = MonthAgg::default();
+    m.usage.insert(("b".into(), "main".into()), a.clone());
+    let p = d.join("2026-07.tsv");
+    save_cache(&p, "1\t2.3", "t@x", &m);
+    let back = load_cache(&p, "1\t2.3", "t@x").expect("cache reads back");
+    assert_eq!(back.usage[&("b".to_string(), "main".to_string())], a);
+    let _ = fs::remove_dir_all(&d);
+}

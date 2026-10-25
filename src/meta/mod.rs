@@ -60,6 +60,17 @@ fn lists(rows: impl Iterator<Item = Vec<String>>) -> ArrayRef {
     Arc::new(b.finish())
 }
 
+fn int_lists(rows: impl Iterator<Item = Vec<i64>>) -> ArrayRef {
+    let mut b = ListBuilder::new(arrow::array::Int64Builder::new());
+    for v in rows {
+        for x in v {
+            b.values().append_value(x);
+        }
+        b.append(true);
+    }
+    Arc::new(b.finish())
+}
+
 fn write_parquet(p: &Path, cols: Vec<(&str, ArrayRef)>) {
     let schema = Arc::new(Schema::new(cols.iter().map(|(n, a)| Field::new(*n, a.data_type().clone(), true)).collect::<Vec<_>>()));
     let batch = RecordBatch::try_new(schema.clone(), cols.into_iter().map(|(_, a)| a).collect()).unwrap();
@@ -206,12 +217,13 @@ pub fn build(out: &Path, agent: &str, st: &HashMap<String, FileState>, threads: 
         months: BTreeSet<&'a str>,
         meta: crate::engine::SessMeta,
         meta_ms: Option<i64>,
+        usage: Usage,
     }
     let mut ss: HashMap<(&str, &str), Sess> = HashMap::new();
     for f in files.iter().filter(|f| f.tier != "other") {
         let e = ss.entry((f.base.as_str(), f.tier)).or_insert(Sess {
             engine: f.engine, last_ms: None, copies: 0, size: 0, proj: None, file_sid: None, parent_sid: None,
-            agg: Agg::default(), months: BTreeSet::new(), meta: Default::default(), meta_ms: None,
+            agg: Agg::default(), months: BTreeSet::new(), meta: Default::default(), meta_ms: None, usage: Usage::default(),
         });
         e.last_ms = e.last_ms.max(f.last_ms);
         e.copies += 1;
@@ -251,6 +263,11 @@ pub fn build(out: &Path, agent: &str, st: &HashMap<String, FileState>, threads: 
                 e.months.insert(m.as_str());
             }
         }
+        for (k, u) in &a.usage {
+            if let Some(e) = ss.get_mut(&(k.0.as_str(), k.1.as_str())) {
+                e.usage.add(u);
+            }
+        }
     }
     let mut keys: Vec<(&str, &str)> = ss.keys().copied().collect();
     keys.sort_by(|a, b| {
@@ -258,6 +275,7 @@ pub fn build(out: &Path, agent: &str, st: &HashMap<String, FileState>, threads: 
         (x.is_none(), x, a.0).cmp(&(y.is_none(), y, b.0)).then(a.1.cmp(b.1))
     });
     let rows: Vec<(&str, &str, &Sess)> = keys.iter().map(|k| (k.0, k.1, &ss[k])).collect();
+    let ranked: Vec<(Vec<String>, Vec<i64>)> = rows.iter().map(|r| r.2.usage.ranked()).collect();
     let cats: Vec<String> = rows.iter().map(|(_, _, s)| cat_of(s.engine, s.proj)).collect();
     let mut scols = vec![
         ("base", utf8(rows.iter().map(|r| Some(r.0.to_string())))),
@@ -298,6 +316,14 @@ pub fn build(out: &Path, agent: &str, st: &HashMap<String, FileState>, threads: 
         ("via", utf8(rows.iter().map(|r| Some(r.2.meta.via.clone()).filter(|x| !x.is_empty())))),
         ("chat", utf8(rows.iter().map(|r| Some(r.2.meta.chat.clone()).filter(|x| !x.is_empty())))),
         ("from_user", utf8(rows.iter().map(|r| Some(r.2.meta.from_user.clone()).filter(|x| !x.is_empty())))),
+        // the models that answered (most answers first) and their answer counts; tokens summed over the session's API
+        // responses, each once (NULL-free: 0 when the transcript records none, as for Codex)
+        ("models", lists(ranked.iter().map(|r| r.0.clone()))),
+        ("model_msgs", int_lists(ranked.iter().map(|r| r.1.clone()))),
+        ("in_tokens", i64s(rows.iter().map(|r| Some(r.2.usage.inp)))),
+        ("out_tokens", i64s(rows.iter().map(|r| Some(r.2.usage.out)))),
+        ("cache_read_tokens", i64s(rows.iter().map(|r| Some(r.2.usage.cache_read)))),
+        ("cache_write_tokens", i64s(rows.iter().map(|r| Some(r.2.usage.cache_write)))),
     ];
     for (j, n) in TYPES.iter().enumerate() {
         scols.push((n, i64s(rows.iter().map(|r| Some(r.2.agg.by[j])))));

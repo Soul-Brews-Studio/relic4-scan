@@ -55,11 +55,41 @@ impl Agg {
     }
 }
 
+/// What a session's model answers cost: tokens summed over its API responses (each once: the month file keeps a
+/// response's tokens on one row) and the answers per model.
+#[derive(Default, Clone, Debug, PartialEq)]
+pub(super) struct Usage {
+    pub(super) out: i64,
+    pub(super) inp: i64,
+    pub(super) cache_read: i64,
+    pub(super) cache_write: i64,
+    pub(super) models: BTreeMap<String, i64>,
+}
+
+impl Usage {
+    pub(super) fn add(&mut self, o: &Usage) {
+        self.out += o.out;
+        self.inp += o.inp;
+        self.cache_read += o.cache_read;
+        self.cache_write += o.cache_write;
+        for (m, n) in &o.models {
+            *self.models.entry(m.clone()).or_default() += n;
+        }
+    }
+    /// The models, the most answers first, and their answer counts.
+    pub(super) fn ranked(&self) -> (Vec<String>, Vec<i64>) {
+        let mut v: Vec<(&String, &i64)> = self.models.iter().collect();
+        v.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
+        (v.iter().map(|x| x.0.clone()).collect(), v.iter().map(|x| *x.1).collect())
+    }
+}
+
 /// One month's aggregates: per file path, and per session (base, tier).
 #[derive(Default)]
 pub(super) struct MonthAgg {
     pub(super) files: HashMap<String, Agg>,
     pub(super) sessions: HashMap<(String, String), Agg>,
+    pub(super) usage: HashMap<(String, String), Usage>,
 }
 
 /// msgkey for a text row is md5(to_json([s, role, ts, text])); count(DISTINCT msgkey) only needs a stable key of
@@ -91,8 +121,9 @@ pub(super) fn opt(a: &StringArray, i: usize) -> Option<&str> {
 
 pub(super) fn month_agg(path: &Path, agent: &str) -> MonthAgg {
     let b = ParquetRecordBatchReaderBuilder::try_new(fs::File::open(path).unwrap()).unwrap();
-    let want = ["s", "role", "kind", "err", "ts", "text", "sources"];
-    let idx: Vec<usize> = want.iter().map(|n| b.schema().index_of(n).unwrap()).collect();
+    // model and the token columns came later: a month written before them has none
+    let want = ["s", "role", "kind", "err", "ts", "text", "sources", "model", "msg_id", "out_tokens", "in_tokens", "cache_read", "cache_write"];
+    let idx: Vec<usize> = want.iter().filter_map(|n| b.schema().index_of(n).ok()).collect();
     let mask = ProjectionMask::roots(b.parquet_schema(), idx);
     let rd = b.with_projection(mask).with_batch_size(16_384).build().unwrap();
     let prefix = format!("{agent}:");
@@ -105,6 +136,10 @@ pub(super) fn month_agg(path: &Path, agent: &str) -> MonthAgg {
         let (s, role, ts, text) = (str_col(&batch, "s"), str_col(&batch, "role"), str_col(&batch, "ts"), str_col(&batch, "text"));
         let kind = str_col(&batch, "kind");
         let err = batch.column_by_name("err").unwrap().as_any().downcast_ref::<arrow::array::BooleanArray>().unwrap();
+        let model = batch.column_by_name("model").map(|a| a.as_any().downcast_ref::<StringArray>().unwrap());
+        let msg_id = batch.column_by_name("msg_id").map(|a| a.as_any().downcast_ref::<StringArray>().unwrap());
+        let tok = |n: &str| batch.column_by_name(n).map(|a| a.as_any().downcast_ref::<Int64Array>().unwrap());
+        let (t_out, t_in, t_cr, t_cw) = (tok("out_tokens"), tok("in_tokens"), tok("cache_read"), tok("cache_write"));
         let src = batch.column_by_name("sources").unwrap().as_any().downcast_ref::<ListArray>().unwrap();
         let vals = src.values().as_any().downcast_ref::<StringArray>().unwrap();
         let offs = src.value_offsets();
@@ -132,7 +167,22 @@ pub(super) fn month_agg(path: &Path, agent: &str) -> MonthAgg {
                     touched.push(k.clone()); // a row counts once per session, however many of its copies it holds
                 }
             }
+            // an answer: the row that carries its tokens, or an assistant text row with no response id (Codex)
+            let n = |c: Option<&Int64Array>| c.and_then(|a| (!a.is_null(i)).then(|| a.value(i))).unwrap_or(0);
+            let has_tokens = t_out.is_some_and(|a| !a.is_null(i));
+            let answer = has_tokens || (is_text && opt(role, i) == Some("assistant") && msg_id.is_none_or(|a| a.is_null(i)));
+            let mdl = model.and_then(|a| opt(a, i)).filter(|m| !m.is_empty());
             for k in &touched {
+                if has_tokens || answer {
+                    let u = out.usage.entry(k.clone()).or_default();
+                    u.out += n(t_out);
+                    u.inp += n(t_in);
+                    u.cache_read += n(t_cr);
+                    u.cache_write += n(t_cw);
+                    if let (true, Some(m)) = (answer, mdl) {
+                        *u.models.entry(m.to_string()).or_default() += 1;
+                    }
+                }
                 let sa = out.sessions.entry(k.clone()).or_default();
                 sa.n_rows += 1;
                 sa.text_rows += is_text as i64;
@@ -174,7 +224,7 @@ pub(super) fn agg_from(c: &[&str]) -> Agg {
 
 /// The cache format and the rules it was counted with: bump it when a path rule changes what a session is (#4: omp
 /// subagents are sessions), so every month is counted again once.
-const CACHE_V: &str = "#4";
+const CACHE_V: &str = "#5";
 
 pub(super) fn save_cache(p: &Path, stamp: &str, agent: &str, m: &MonthAgg) {
     let tmp = p.with_extension("tsv.part");
@@ -185,6 +235,10 @@ pub(super) fn save_cache(p: &Path, stamp: &str, agent: &str, m: &MonthAgg) {
     }
     for ((base, tier), a) in &m.sessions {
         writeln!(w, "S\t{base}\t{tier}\t{}", agg_tsv(a)).unwrap();
+    }
+    for ((base, tier), u) in &m.usage {
+        let models = serde_json::to_string(&u.models).unwrap();
+        writeln!(w, "U\t{base}\t{tier}\t{}\t{}\t{}\t{}\t{models}", u.out, u.inp, u.cache_read, u.cache_write).unwrap();
     }
     w.flush().unwrap();
     drop(w);
@@ -206,6 +260,11 @@ pub(super) fn load_cache(p: &Path, stamp: &str, agent: &str) -> Option<MonthAgg>
             }
             "S" if c.len() == 14 => {
                 m.sessions.insert((c[1].to_string(), c[2].to_string()), agg_from(&c[3..]));
+            }
+            "U" if c.len() == 8 => {
+                let n = |i: usize| c[i].parse::<i64>().unwrap_or(0);
+                let models = serde_json::from_str(c[7]).ok()?;
+                m.usage.insert((c[1].to_string(), c[2].to_string()), Usage { out: n(3), inp: n(4), cache_read: n(5), cache_write: n(6), models });
             }
             _ => return None,
         }
