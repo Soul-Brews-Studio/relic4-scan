@@ -222,19 +222,33 @@ pub fn index(found: Vec<PathBuf>, out: &Path, threads: usize) -> Summary {
     }
     let own: Vec<&Vault> = vaults.iter().filter(|v| v.kind != "worktree").collect();
     let s = Summary { vaults: own.len(), worktrees: vaults.len() - own.len(), notes: own.iter().map(|v| v.notes).sum(), bytes: own.iter().map(|v| v.bytes).sum() };
-    // the notes, one file per vault (written fresh: ids follow this run's order)
+    // the notes, one file per vault: each written to a temp file and renamed over the old one, so a reader sees a whole file, never half
+    // (ids follow this run's order; files past the new count are removed afterwards, the folder is never emptied)
     let vd = dir.join("vaults");
-    let _ = std::fs::remove_dir_all(&vd);
     let _ = std::fs::create_dir_all(&vd);
     for v in &vaults {
-        let _ = std::fs::write(vd.join(format!("{}.json", v.id)), serde_json::json!({"path": v.path, "items": v.items}).to_string());
+        write_atomic(&vd.join(format!("{}.json", v.id)), serde_json::json!({"path": v.path, "items": v.items}).to_string().as_bytes());
+    }
+    for e in std::fs::read_dir(&vd).into_iter().flatten().flatten() {
+        let n = e.file_name().to_string_lossy().to_string();
+        let keep = n.strip_suffix(".json").and_then(|i| i.parse::<usize>().ok()).is_some_and(|i| i < vaults.len());
+        if !keep {
+            let _ = std::fs::remove_file(e.path());
+        }
     }
     let body = serde_json::json!({ "built_ms": chrono::Utc::now().timestamp_millis(), "vaults": vaults });
-    let tmp = dir.join("vaults.json.part");
-    if std::fs::write(&tmp, body.to_string()).is_ok() {
-        let _ = std::fs::rename(&tmp, dir.join("vaults.json"));
-    }
+    write_atomic(&dir.join("vaults.json"), body.to_string().as_bytes());
     s
+}
+
+/// Write a file so a reader sees the old one or the new one, never half: a temp file beside it, then `rename`.
+pub fn write_atomic(p: &Path, body: &[u8]) {
+    let mut tmp = p.as_os_str().to_owned();
+    tmp.push(".part");
+    let tmp = std::path::PathBuf::from(tmp);
+    if std::fs::write(&tmp, body).is_ok() && std::fs::rename(&tmp, p).is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
 }
 
 /// The vaults in OUT/meta/vaults.json: their paths and links (what /api/reveal may open).
@@ -286,6 +300,20 @@ pub fn notes_file(out: &Path, id: &str) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_file_is_replaced_whole_and_leaves_no_temp_file() {
+        let d = std::env::temp_dir().join(format!("relic-scan-test-{}-atomic", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("vaults.json");
+        write_atomic(&p, b"old");
+        write_atomic(&p, b"new and longer");
+        assert_eq!(std::fs::read_to_string(&p).unwrap(), "new and longer");
+        let names: Vec<_> = std::fs::read_dir(&d).unwrap().flatten().map(|e| e.file_name().to_string_lossy().to_string()).collect();
+        assert_eq!(names, vec!["vaults.json".to_string()]);
+        let _ = std::fs::remove_dir_all(&d);
+    }
 
     #[test]
     fn reads_a_vault_its_link_and_a_worktree_copy() {

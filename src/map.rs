@@ -176,7 +176,7 @@ pub fn build(out: &Path, agent: &str) {
     let js = serde_json::to_string(&data).unwrap().replace("</", "<\\/");
     let page = page().replace("/*DATA*/null", &js);
     let p = dir.join("map.html");
-    fs::write(&p, page).unwrap();
+    crate::vault::write_atomic(&p, page.as_bytes());
     eprintln!("map: {} sessions · {} repos · {} homes · {:.1} MB · {} paths in {:.1}s -> {}", n, cats.words.len(), homes.len(),
               fs::metadata(&p).unwrap().len() as f64 / 1e6, np, t0.elapsed().as_secs_f64(), p.display());
 }
