@@ -30,8 +30,8 @@ https://github.com/Soul-Brews-Studio/relic4-scan/releases
 relic-scan run                  # index: scan, parse only new bytes, write months + meta (first run ~1 min, then ~15 s)
 relic-scan run --dry-run        # what an index would read; writes nothing
 relic-scan up                   # index, then serve http://127.0.0.1:8787 (Smart Scan, map, tree, ψ Vaults, Export)
-relic-scan tui                  # the same index in the terminal
-relic-scan ops --watch          # what the relic chain is doing now: stages with times and ETA, processes, the hub (--json for tools)
+relic-scan tui                  # the same index in the terminal; `o` opens the page on the selected session, repo or folder (--mouse: click a row, click it again)
+relic-scan ops --watch          # what the relic chain is doing now: stages with times and ETA, processes, the hub (--json for tools); on a terminal HUB and the page address are clickable links (`RELIC_LINKS=off` or NO_COLOR: plain text; `RELIC_PAGE_URL` moves the page address)
 relic-scan run --kind claude    # one agent only, into ~/.relic-scan/claude
 relic-scan run --month 2026-10  # one month only, into ~/.relic-scan/all@2026-10
 ```

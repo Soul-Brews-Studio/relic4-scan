@@ -56,3 +56,19 @@ pub fn render(v: &Value) -> Vec<String> {
     }
     o
 }
+
+/// `render` for a terminal: the word HUB is a link to the hub, and the last line points at the page's Activity view.
+/// `on` false leaves the escapes out (a pipe, NO_COLOR); the page line stays as plain text.
+pub fn render_linked(v: &Value, base: &str, hub: &str, on: bool) -> Vec<String> {
+    use crate::links::{link, view_url};
+    let mut o = render(v);
+    if hub != "off" && v["hub"]["ok"].as_bool() == Some(true) {
+        if let Some(l) = o.iter_mut().find(|l| l.starts_with("HUB")) {
+            *l = format!("{}{}", link(on, hub, "HUB"), &l[3..]);
+        }
+    }
+    let page = view_url(base, "ops");
+    o.push(String::new());
+    o.push(format!("page  {}", link(on, &page, &page)));
+    o
+}

@@ -56,7 +56,7 @@ To install a branch instead of `main`, pipe to `REF=<branch> sh`. Run the same l
 ```
 relic-scan                         # the logo, what is indexed already, and the commands below
 relic-scan up --kind claude        # index Claude transcripts into ~/.relic-scan/claude, then serve http://127.0.0.1:8787
-relic-scan tui --kind claude       # the same data in the terminal
+relic-scan tui --kind claude       # the same data in the terminal; o opens the page on the selected row (--mouse: click a row, again to open)
 ```
 The first run reads everything: on an M5 Mac that is 83,673 files and 67.6 GB in about 45 s. After that a run reads only new bytes and takes about 10 s, most of it spent walking the homes. Without `--kind`, every agent is indexed into `~/.relic-scan`.
 

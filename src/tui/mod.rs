@@ -103,6 +103,7 @@ struct App {
     toast: Option<(String, Instant)>,
     ops: Option<(Instant, serde_json::Value)>,
     home: String,
+    list_area: Rect, // where the list was drawn last (for a mouse click)
 }
 
 fn epoch(ts: Option<&str>) -> Option<i64> {
@@ -143,6 +144,7 @@ fn bar(frac: f64, w: usize) -> String {
 
 mod draw;
 mod keys;
+mod links;
 mod load;
 mod opsview;
 mod s3view;
@@ -154,15 +156,15 @@ fn run_app(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
         if !event::poll(Duration::from_millis(500))? {
             continue;
         }
-        if let Event::Key(k) = event::read()?
-            && k.kind == KeyEventKind::Press
-            && !app.key(k.code, k.modifiers) {
-            return Ok(());
+        match event::read()? {
+            Event::Key(k) if k.kind == KeyEventKind::Press && !app.key(k.code, k.modifiers) => return Ok(()),
+            Event::Mouse(m) => app.mouse(m),
+            _ => {}
         }
     }
 }
 
-pub fn tui(out: &Path) {
+pub fn tui(out: &Path, mouse: bool) {
     if !out.join("meta").join("sessions.parquet").exists() {
         eprintln!("tui: no {}/meta/sessions.parquet (run `relic-scan run` first)", out.display());
         std::process::exit(1);
@@ -170,7 +172,14 @@ pub fn tui(out: &Path) {
     let t0 = Instant::now();
     let mut app = App::load(out);
     let loaded = t0.elapsed();
+    // mouse capture takes text selection from the terminal (hold Shift or Option to select), so it is opt-in
+    if mouse {
+        let _ = ratatui::crossterm::execute!(std::io::stdout(), ratatui::crossterm::event::EnableMouseCapture);
+    }
     let r = ratatui::run(|term| run_app(term, &mut app));
+    if mouse {
+        let _ = ratatui::crossterm::execute!(std::io::stdout(), ratatui::crossterm::event::DisableMouseCapture);
+    }
     if let Err(e) = r {
         eprintln!("tui: {e}");
         std::process::exit(1);
