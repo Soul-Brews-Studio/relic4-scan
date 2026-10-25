@@ -1,7 +1,8 @@
 # Starting the old relic3 and relic4 again
 
 Both are stopped since 2026-10-25 and replaced by relic5 (the hub on white) fed by `relic-scan` and `relic-extract`.
-Nothing was deleted: the data folders, repos and service files are all still in place. Use this page only if you need
+The repos, tools and service files are still in place. Their old data folders were copied to the S3 store on black, checked
+(sha256 and file count) and then deleted from the machines: see "Restore the old data" below. Use this page only if you need
 one of them back. Stop commands are at the end.
 
 ## relic3 (agent-relic-v3, MCP `relic_search`)
@@ -14,7 +15,7 @@ one of them back. Stop commands are at the end.
 | white | index timer and API (systemd user units, already inactive since 2026-10-22) | `systemctl --user start relic3-index.timer relic3-serve.service` |
 | white | `relic serve` on port 4319 and the UI on 5174 (pm2) | `pm2 start relic relic-ui` |
 
-Data: white `~/.relic3-gens` (81 GB), `~/.relic` (198 MB), `~/.local/share/relic-ui` (277 MB). On m5 `~/.relic3-hub` and
+Data: white `~/.relic3-gens` (81 GB; now only in S3, restore below), `~/.relic` (198 MB), `~/.local/share/relic-ui` (277 MB). On m5 `~/.relic3-hub` and
 `~/.relic3-mirror` were deleted earlier after a verified backup on black (`/home/beta/relic3-backup-20261024`), so the m5
 indexer would have to rebuild them.
 
@@ -35,8 +36,39 @@ uv run -q --extra mcp --extra vec python -m relic4.mcp_server                   
 The two `serve` commands were read from the process list, but which index each port served was not recorded; look in the
 repo's README and `~/.relic4*` before relying on it. `~/.local/bin/relic4` is a link into the uv tool install.
 
-Data: `~/.relic` (8.4 GB), `~/.relic-v2`, `~/.relic-v2.1`, `~/.relic-v2.2*`, `~/.relic-rs`. These were also copied to
-`s3://relic-scan-sealed-months/relic-versions-m5/` on black as `<name>.tar.zst` (sha256 in the upload log).
+Data (m5): `~/.relic` (8.4 GB), `~/.relic-v2`, `~/.relic-v2.1`, `~/.relic-v2.2*`, `~/.relic-rs`. Deleted from m5 on 2026-10-25 after a
+verified copy to S3; restore below.
+
+## Restore the old data
+
+Everything deleted on 2026-10-25 is in the bucket `relic-scan-sealed-months` on black (RustFS, `http://black.follow-rankine.ts.net:9200`,
+region `black-ssd-rustfs`), one `.tar.zst` per folder, with its sha256 in `relic-versions-sha256.txt` at the top of the bucket.
+
+| prefix | what |
+|---|---|
+| `relic-versions-m5/` | `relic`, `relic-rs`, `relic-v2`, `relic-v2.1`, `relic-v2.1-backup-2026-10-01`, `relic-v2.2`, `relic-v2.2-baseline-layout6-2026-10-01`, `relic-v2.2-month-prose`, `relic-extract-parity`, `relic-scan.before-fixes/meta/model-2026-10-23`, `misc` (`.relic-import`, `.relic-adhoc`, `.relic-extract-import`, `.relic-extract-relic3-codex`), `relic-mirrors`, `bins` (old `relic-chain`, `relic-scan`, `relic5-push` copies) |
+| `relic-versions-mba/` | `index-copies` (the old `.relic-scan.bak-*` and `.before-*` folders), `bins` |
+| `relic-versions-white/` | `relic3-gens` (`.relic3-gens`, 69 GiB), `index-copies`, `bins` |
+
+Each archive holds the folder under its own name (for example `.relic-v2/…`), made with `tar -C ~`. Keys are in
+`~/.config/relic-scan/s3.env` (mode 600; never print them).
+
+```sh
+set -a; . ~/.config/relic-scan/s3.env; set +a
+export AWS_DEFAULT_REGION=black-ssd-rustfs
+EP=http://black.follow-rankine.ts.net:9200; BK=s3://relic-scan-sealed-months
+aws --endpoint-url $EP s3 ls $BK/relic-versions-m5/ --human-readable               # what is there
+aws --endpoint-url $EP s3 cp $BK/relic-versions-sha256.txt - | rg relic-v2.tar.zst  # its sha256
+
+# check, then restore one folder into the home directory (add a different -C to put it elsewhere)
+aws --endpoint-url $EP s3 cp $BK/relic-versions-m5/relic-v2.tar.zst - | shasum -a 256   # must equal the line above
+aws --endpoint-url $EP s3 cp $BK/relic-versions-m5/relic-v2.tar.zst - | zstd -d -q | tar -tf - | head   # look first
+aws --endpoint-url $EP s3 cp $BK/relic-versions-m5/relic-v2.tar.zst - | zstd -d -q | tar -C ~ -xf -
+```
+
+Restore on the machine that owned the folder: mba and white have `aws` and the same `s3.env`, so run the same commands there
+(`~/.relic3-gens` on white). Never extract over a folder that exists; move it aside first. A restored `.relic-scan.before-*`
+folder is only an old index copy: the live index is `~/.relic-scan`.
 
 ## Stop again
 
