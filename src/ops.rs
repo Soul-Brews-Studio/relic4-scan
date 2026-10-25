@@ -154,8 +154,13 @@ pub fn hub_view(j: &Value) -> Value {
 static HUB: Mutex<Option<(Instant, Value)>> = Mutex::new(None);
 
 /// The hub's status, at most one GET every 4 seconds (a second reader gets the last answer). RELIC_OPS_HUB=off skips it.
+/// Where the hub is (`RELIC_OPS_HUB`, `RELIC5_HUB_URL`); "off" when it is not to be read.
+pub fn hub_url() -> String {
+    std::env::var("RELIC_OPS_HUB").or_else(|_| std::env::var("RELIC5_HUB_URL")).unwrap_or_else(|_| "http://white.follow-rankine.ts.net:8795".into())
+}
+
 pub fn hub() -> Value {
-    let url = std::env::var("RELIC_OPS_HUB").or_else(|_| std::env::var("RELIC5_HUB_URL")).unwrap_or_else(|_| "http://white.follow-rankine.ts.net:8795".into());
+    let url = hub_url();
     if url == "off" {
         return json!({"ok": false, "error": "off"});
     }
@@ -180,6 +185,6 @@ pub fn snapshot(out: &Path, with_hub: bool) -> Value {
 }
 
 mod text;
-pub use text::render;
+pub use text::{render, render_linked};
 #[cfg(test)]
 mod tests;

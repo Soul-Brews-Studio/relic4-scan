@@ -135,6 +135,9 @@ enum Cmd {
     Tui {
         #[arg(long, default_value = DEFAULT_OUT)]
         out: String,
+        /// click a row to select it and click it again to open the page (`o` does the same); the terminal then needs Shift or Option to select text
+        #[arg(long)]
+        mouse: bool,
         /// the --kind the run used: picks ~/.relic-scan/<kind> when --out is not given
         #[arg(long)]
         kind: Vec<String>,
@@ -197,7 +200,7 @@ fn main() {
     let cli = Cli::parse();
     let Some(cmd) = cli.cmd else { return banner() };
     match cmd {
-        Cmd::Tui { out, kind } => tui::tui(std::path::Path::new(&out_dir(&out, &kind))),
+        Cmd::Tui { out, kind, mouse } => tui::tui(std::path::Path::new(&out_dir(&out, &kind)), mouse),
         Cmd::Run(a) => run_cmd(a),
         Cmd::Export { out, kind, to, endpoint, region, dry_run, overwrite, verify, insecure_http, list } => {
             let o = relic_scan::export_s3::Opts { out: std::path::PathBuf::from(out_dir(&out, &kind)), to, endpoint, region, dry_run, overwrite, verify, insecure_http };
@@ -227,12 +230,13 @@ fn main() {
         }
         Cmd::Ops { out, kind, json, watch, no_hub } => {
             let out = out_dir(&out, &kind);
+            let links_on = relic_scan::links::enabled();
             loop {
                 let v = relic_scan::ops::snapshot(std::path::Path::new(&out), !no_hub);
                 let text = if json {
                     serde_json::to_string_pretty(&v).unwrap() + "\n"
                 } else {
-                    format!("{}relic ops · {}\n\n{}\n", if watch { "\x1b[2J\x1b[H" } else { "" }, chrono::Local::now().format("%H:%M:%S"), relic_scan::ops::render(&v).join("\n"))
+                    format!("{}relic ops · {}\n\n{}\n", if watch { "\x1b[2J\x1b[H" } else { "" }, chrono::Local::now().format("%H:%M:%S"), relic_scan::ops::render_linked(&v, &relic_scan::links::base(), &relic_scan::ops::hub_url(), links_on).join("\n"))
                 };
                 // a closed pipe (`| head`) ends the command quietly, it is not a panic
                 if std::io::Write::write_all(&mut std::io::stdout(), text.as_bytes()).is_err() {
