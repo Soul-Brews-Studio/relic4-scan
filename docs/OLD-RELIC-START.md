@@ -46,7 +46,8 @@ region `black-ssd-rustfs`), one `.tar.zst` per folder, with its sha256 in `relic
 
 | prefix | what |
 |---|---|
-| `relic-versions-m5/` | `relic`, `relic-rs`, `relic-v2`, `relic-v2.1`, `relic-v2.1-backup-2026-10-01`, `relic-v2.2`, `relic-v2.2-baseline-layout6-2026-10-01`, `relic-v2.2-month-prose`, `relic-extract-parity`, `relic-scan.before-fixes/meta/model-2026-10-23`, `misc` (`.relic-import`, `.relic-adhoc`, `.relic-extract-import`, `.relic-extract-relic3-codex`), `relic-mirrors`, `bins` (old `relic-chain`, `relic-scan`, `relic5-push` copies) |
+| `relic-versions-m5/` | `relic`, `relic-rs`, `relic-v2`, `relic-v2.1`, `relic-v2.1-backup-2026-10-01`, `relic-v2.2`, `relic-v2.2-baseline-layout6-2026-10-01`, `relic-v2.2-month-prose`, `relic-extract-parity`, `relic-scan.before-fixes/meta/model-2026-10-23`, `misc` (`.relic-import`, `.relic-adhoc`, `.relic-extract-import`, `.relic-extract-relic3-codex`), `relic-mirrors`, `bins` (old `relic-chain`, `relic-scan`, `relic5-push` copies), `relic3cert` (the relic3 certification files that were in `/tmp`) |
+| `relic-versions-m5-claude/` | `archive` (the old `~/.claude/archive`: `mba-extra-homes`, `white-extra-homes`, `union-originals-from-backups`) and `backups` (the `from-*` folders and loose `.bak` files of `~/.claude/backups`); restore into `~/.claude` with `tar -C ~/.claude/backups` for `backups` and `tar -C ~/.claude` for `archive`. `token-env` was not copied. |
 | `relic-versions-mba/` | `index-copies` (the old `.relic-scan.bak-*` and `.before-*` folders), `bins` |
 | `relic-versions-white/` | `relic3-gens` (`.relic3-gens`, 69 GiB), `index-copies`, `bins` |
 
