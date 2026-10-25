@@ -180,7 +180,7 @@ fn model_msg_id_and_out_tokens_once_per_response() {
         fs::create_dir_all(p.parent().unwrap()).unwrap();
     }
     // Claude: one response written as two lines (thinking, then text and a tool call), usage repeated on both
-    let msg = |content: &str, out: i64| format!(r#"{{"type":"assistant","sessionId":"c1","timestamp":"2026-07-06T01:00:01.000Z","message":{{"id":"msg_A","model":"claude-opus-4-8","role":"assistant","content":[{content}],"usage":{{"output_tokens":{out}}}}}}}"#);
+    let msg = |content: &str, out: i64| format!(r#"{{"type":"assistant","sessionId":"c1","timestamp":"2026-07-06T01:00:01.000Z","message":{{"id":"msg_A","model":"claude-opus-4-8","role":"assistant","content":[{content}],"usage":{{"input_tokens":3,"output_tokens":{out},"cache_read_input_tokens":100,"cache_creation_input_tokens":5}}}}}}"#);
     let claude = format!(r#"{{"type":"user","sessionId":"c1","timestamp":"2026-07-06T01:00:00.000Z","message":{{"role":"user","content":"go"}}}}"#)
         + "\n" + &msg(r#"{"type":"thinking","thinking":"plan"}"#, 7) + "\n"
         + &msg(r#"{"type":"text","text":"done"},{"type":"tool_use","id":"tu9","name":"Bash","input":{}}"#, 40) + "\n";
@@ -196,7 +196,7 @@ fn model_msg_id_and_out_tokens_once_per_response() {
         r#"{"type":"response_item","timestamp":"2026-07-06T02:00:05.000Z","payload":{"type":"function_call_output","call_id":"fc1","output":"ok"}}"#,
     ].join("\n") + "\n").unwrap();
     // omp: responseId and usage.output
-    fs::write(&o, r#"{"type":"message","id":"o1","timestamp":"2026-07-06T03:00:00.000Z","message":{"role":"assistant","model":"glm-5.3","responseId":"msg_O","usage":{"output":692},"content":[{"type":"text","text":"omp says"}]}}"#.to_string() + "\n").unwrap();
+    fs::write(&o, r#"{"type":"message","id":"o1","timestamp":"2026-07-06T03:00:00.000Z","message":{"role":"assistant","model":"glm-5.3","responseId":"msg_O","usage":{"input":11,"output":692,"cacheRead":50,"cacheWrite":2},"content":[{"type":"text","text":"omp says"}]}}"#.to_string() + "\n").unwrap();
     let job = |p: &PathBuf| Job { path: p.to_str().unwrap().to_string(), size: fs::metadata(p).unwrap().len(), verdict: String::new(), ctx: Ctx::default() };
     let out = d.join("out");
     run(vec![job(&c), job(&m), job(&x), job(&o)], &out, "t@x", 2, false, false, None);
@@ -222,6 +222,17 @@ fn model_msg_id_and_out_tokens_once_per_response() {
     }
     let claude_tokens: Vec<i64> = rows.iter().filter(|r| r.3 == "msg_A").filter_map(|r| r.5).collect();
     assert_eq!(claude_tokens, vec![40], "one row per response holds its tokens, the largest copy: {rows:#?}");
+    // the input and cache tokens ride on the same single row as the output tokens
+    let r = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(fs::File::open(out.join("2026-07.parquet")).unwrap()).unwrap().build().unwrap();
+    let mut sums = [0i64; 4];
+    for b in r {
+        let b = b.unwrap();
+        for (k, n) in ["out_tokens", "in_tokens", "cache_read", "cache_write"].iter().enumerate() {
+            let a = b.column_by_name(n).unwrap().as_any().downcast_ref::<Int64Array>().unwrap().clone();
+            sums[k] += a.iter().flatten().sum::<i64>();
+        }
+    }
+    assert_eq!(sums, [40 + 692, 3 + 11, 100 + 50, 5 + 2], "each response once, all four counters");
     assert_eq!(get("answer").2, "gpt-6-astra");
     assert_eq!(rows.iter().find(|r| r.0 == "call" && r.2 == "gpt-6-astra").map(|r| r.3.as_str()), Some("-"), "a Codex call: model, no id");
     assert_eq!((get("ask").2.as_str(), get("ok").2.as_str()), ("-", "-"), "user text and tool results name no model");

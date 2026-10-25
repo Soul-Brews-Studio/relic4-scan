@@ -171,6 +171,11 @@ pub struct Usage {
     pub model: String,
     pub msg_id: String,
     pub out_tokens: Option<i64>,
+    /// input tokens and the prompt cache (Claude `input_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens`;
+    /// omp `input`, `cacheRead`, `cacheWrite`)
+    pub in_tokens: Option<i64>,
+    pub cache_read: Option<i64>,
+    pub cache_write: Option<i64>,
 }
 
 pub fn usage_of(r: &Map<String, Value>) -> Usage {
@@ -184,6 +189,9 @@ pub fn usage_of(r: &Map<String, Value>) -> Usage {
         model: gstr(m.get("model")),
         msg_id: if id.is_empty() { gstr(m.get("responseId")) } else { id },
         out_tokens: get(u, "output_tokens").or_else(|| get(u, "output")).and_then(Value::as_i64),
+        in_tokens: get(u, "input_tokens").or_else(|| get(u, "input")).and_then(Value::as_i64),
+        cache_read: get(u, "cache_read_input_tokens").or_else(|| get(u, "cacheRead")).and_then(Value::as_i64),
+        cache_write: get(u, "cache_creation_input_tokens").or_else(|| get(u, "cacheWrite")).and_then(Value::as_i64),
     }
 }
 

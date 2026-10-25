@@ -61,6 +61,9 @@ pub struct Raw {
     pub model: Option<String>,
     pub msg_id: Option<String>,
     pub out_tokens: Option<i64>,
+    pub in_tokens: Option<i64>,
+    pub cache_read: Option<i64>,
+    pub cache_write: Option<i64>,
     pub file: Arc<str>, // one allocation per file, shared by its rows
     pub line: i64,
 }
@@ -238,6 +241,7 @@ fn parse_file_chunked(path: &str, ctx: &Ctx, jt_compat: bool, st: &Stats, emit: 
         let u = engine::usage_of(&r);
         let model = if !u.model.is_empty() { Some(u.model) } else if !turn.is_empty() { Some(turn.clone()) } else { None };
         let (msg_id, out_tokens) = ((!u.msg_id.is_empty()).then_some(u.msg_id), u.out_tokens);
+        let (in_tokens, cache_read, cache_write) = (u.in_tokens, u.cache_read, u.cache_write);
         // what the model wrote: assistant text, thinking, tool calls (not the user's text, not tool results)
         let by_model = |s: &str, role: &str| s == "thinking" || s == "call" || role == "assistant";
         // a thinking row is kept even with empty text: the model thought, only the text was not saved
@@ -253,7 +257,9 @@ fn parse_file_chunked(path: &str, ctx: &Ctx, jt_compat: bool, st: &Stats, emit: 
                 sid: sid.clone(), ts: stp.ts.clone(), ts_th: stp.ts_th.clone(), text: Some(clean), kind: None, call_id: None,
                 name: None, body: None, err: None, red: (!kinds.is_empty()).then_some(kinds),
                 model: by_model(s, &x.role).then(|| model.clone()).flatten(), msg_id: by_model(s, &x.role).then(|| msg_id.clone()).flatten(),
-                out_tokens: by_model(s, &x.role).then_some(out_tokens).flatten(), file: file.clone(), line: nline,
+                out_tokens: by_model(s, &x.role).then_some(out_tokens).flatten(),
+                in_tokens: by_model(s, &x.role).then_some(in_tokens).flatten(), cache_read: by_model(s, &x.role).then_some(cache_read).flatten(),
+                cache_write: by_model(s, &x.role).then_some(cache_write).flatten(), file: file.clone(), line: nline,
             });
         }
         for (idx, t) in trs.into_iter().enumerate() {
@@ -264,7 +270,8 @@ fn parse_file_chunked(path: &str, ctx: &Ctx, jt_compat: bool, st: &Stats, emit: 
                 call_id: Some(t.call_id), name: (!t.name.is_empty()).then_some(t.name), body: Some(clean), err: Some(t.err),
                 red: (!kinds.is_empty()).then_some(kinds), model: by_model(t.kind, "").then(|| model.clone()).flatten(),
                 msg_id: by_model(t.kind, "").then(|| msg_id.clone()).flatten(), out_tokens: by_model(t.kind, "").then_some(out_tokens).flatten(),
-                file: file.clone(), line: nline,
+                in_tokens: by_model(t.kind, "").then_some(in_tokens).flatten(), cache_read: by_model(t.kind, "").then_some(cache_read).flatten(),
+                cache_write: by_model(t.kind, "").then_some(cache_write).flatten(), file: file.clone(), line: nline,
             });
         }
         true
