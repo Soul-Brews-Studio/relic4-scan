@@ -1,0 +1,16 @@
+$ duckdb -c "select cat as repo, count(*) as sessions, sum(n_rows) as n_rows from …
+… 'meta/sessions.parquet' group by 1 order by sessions desc limit 8"
+┌────────────────────────┬──────────┬────────┐
+│          repo          │ sessions │ n_rows │
+│        varchar         │  int64   │ int128 │
+├────────────────────────┼──────────┼────────┤
+│ tea-cart               │       23 │    662 │
+│ codex (no cwd in path) │       23 │    152 │
+│ harbor-bot             │       18 │    481 │
+│ lantern-app            │       18 │    462 │
+│ omp (no cwd in path)   │       16 │     88 │
+│ kite-docs              │       16 │    430 │
+│ starfish-api           │       16 │    492 │
+│ moss-cli               │       14 │    406 │
+└────────────────────────┴──────────┴────────┘
+(exit 0 · 0.0 s)

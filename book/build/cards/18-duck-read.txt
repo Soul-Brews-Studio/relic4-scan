@@ -1,0 +1,16 @@
+$ duckdb -c "select role, left(text, 70) as text from '*.parquet' where sid = …
+… '0af4d28e-a79c-4ad8-bb26-26a0708bfab4' and role in ('user','assistant') order by ts limit 8"
+┌───────────┬────────────────────────────────────────────────────────────────────────┐
+│   role    │                                  text                                  │
+│  varchar  │                                varchar                                 │
+├───────────┼────────────────────────────────────────────────────────────────────────┤
+│ user      │ summarise yesterday's errors from the log                              │
+│ assistant │ Three kinds: two timeouts to the payment sandbox, one bad date, and a  │
+│ user      │ write the tour page for new members                                    │
+│ assistant │ I drafted the page with three steps: join, borrow a kite, fly it. Chec │
+│ user      │ the watering schedule skips sundays, find out why                      │
+│ assistant │ The cron expression uses day 7 for Sunday, but this scheduler counts f │
+│ user      │ one more thing: add a changelog line                                   │
+│ assistant │ Added: 'retry with backoff for order sync'.                            │
+└───────────┴────────────────────────────────────────────────────────────────────────┘
+(exit 0 · 0.0 s)

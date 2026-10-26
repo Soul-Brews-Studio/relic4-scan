@@ -1,0 +1,7 @@
+$ head -3 ~/.relic-scan/_state.tsv | cut -f1,4,6,7
+path    size    lines    session
+~/.claude/projects/-opt-Code-github-com-laris-co-harbor-bot/032daf02-180a-41e3-9035-78be87b7d920.j …
+… sonl    15827    34    032daf02-180a-41e3-9035-78be87b7d920
+~/.claude/projects/-opt-Code-github-com-laris-co-harbor-bot/039574c9-2505-4d26-a658-eda8ccd63d12.j …
+… sonl    15904    34    039574c9-2505-4d26-a658-eda8ccd63d12
+(exit 0 · 0.0 s)
