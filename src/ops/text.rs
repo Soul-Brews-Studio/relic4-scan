@@ -18,8 +18,9 @@ pub fn render(v: &Value) -> Vec<String> {
                     (Some(t), _) => format!(" · typical {}, over it now", dur(t as i64)),
                     _ => String::new() }));
         }
-        Some("idle") => o.push(format!("CHAIN {}  idle  last pass {} took {} · next in about {}", c["machine"].as_str().unwrap_or(""),
-            c["started"].as_str().unwrap_or("")[11..].to_string(), dur(c["took_s"].as_i64().unwrap_or(0)), dur(c["next_in_s"].as_i64().unwrap_or(0)))),
+        Some("idle") => o.push(format!("CHAIN {}  idle  last pass {} took {} · {}", c["machine"].as_str().unwrap_or(""),
+            c["started"].as_str().unwrap_or("")[11..].to_string(), dur(c["took_s"].as_i64().unwrap_or(0)),
+            c["next_in_s"].as_i64().map_or("manual (no loop)".to_string(), |n| format!("next in about {}", dur(n))))),
         _ => o.push("CHAIN  no pass logged yet (".to_string() + v["log"].as_str().unwrap_or("") + ")"),
     }
     for s in c["stages"].as_array().into_iter().flatten() {
