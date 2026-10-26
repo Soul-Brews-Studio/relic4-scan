@@ -30,8 +30,8 @@ https://github.com/Soul-Brews-Studio/relic4-scan/releases
 relic-scan run                  # index: scan, parse only new bytes, write months + meta (first run ~1 min, then ~15 s)
 relic-scan run --dry-run        # what an index would read; writes nothing
 relic-scan up                   # index, then serve http://127.0.0.1:8787 (Smart Scan, map, tree, ψ Vaults, Export)
-relic-scan tui                  # the same index in the terminal
-relic-scan ops --watch          # what the relic chain is doing now: stages with times and ETA, processes, the hub (--json for tools)
+relic-scan tui                  # the same index in the terminal; `o` opens the page on the selected session, repo or folder (--mouse: click a row, click it again)
+relic-scan ops --watch          # what the relic chain is doing now: stages with times and ETA, processes, the hub (--json for tools); on a terminal HUB and the page address are clickable links (`RELIC_LINKS=off` or NO_COLOR: plain text; `RELIC_PAGE_URL` moves the page address)
 relic-scan run --kind claude    # one agent only, into ~/.relic-scan/claude
 relic-scan run --month 2026-10  # one month only, into ~/.relic-scan/all@2026-10
 ```
@@ -45,8 +45,8 @@ Paths are relative to `~/.relic-scan`. Month files hold the rows; `meta/` holds 
 
 | file | one row per | useful columns |
 |---|---|---|
-| `YYYY-MM.parquet` | message, thinking block, tool call or result | `sid`, `engine`, `ts`, `ts_th` (Bangkok), `role` (user, assistant, thinking), `kind` (call, result), `name` (tool), `text`, `body`, `err`, `sources`, `model`, `msg_id`, `out_tokens` |
-| `meta/sessions.parquet` | session | `sid`, `parent_sid`, `tier` (main, subagent, workflow-agent), `cat` (repo), `proj`, `first_ts`, `last_ts`, `last_ms`, `n_rows`, `user_text`, `assistant_text`, `thinking`, `tool_calls`, `tool_results`, `tool_errors`, `cwd` (where the session began), `title` (its newest `custom-title`), `branch`, `version`, `via`, `chat`, `from_user` (the channel plugin, room and sender of the session's first channel message, e.g. `plugin:discord:discord`) |
+| `YYYY-MM.parquet` | message, thinking block, tool call or result | `sid`, `engine`, `ts`, `ts_th` (Bangkok), `role` (user, assistant, thinking), `kind` (call, result), `name` (tool), `text`, `body`, `err`, `sources`, `model`, `msg_id`, `out_tokens`, `in_tokens`, `cache_read`, `cache_write` |
+| `meta/sessions.parquet` | session | `sid`, `parent_sid`, `tier` (main, subagent, workflow-agent), `cat` (repo), `proj`, `first_ts`, `last_ts`, `last_ms`, `n_rows`, `user_text`, `assistant_text`, `thinking`, `tool_calls`, `tool_results`, `tool_errors`, `cwd` (where the session began), `title` (its newest `custom-title`), `branch`, `version`, `via`, `chat`, `from_user` (the channel plugin, room and sender of the session's first channel message, e.g. `plugin:discord:discord`), `models` (the models that answered, most answers first) and `model_msgs` (their answer counts), `in_tokens`, `out_tokens`, `cache_read_tokens`, `cache_write_tokens` (summed over the session's API responses, each once; 0 where the transcript records none, as for Codex) |
 | `meta/files.parquet`, `meta/jsonl.parquet` | transcript file | path, home, size, verdict |
 | `meta/months.json` | month file | `month`, `rows`, `first_ts`, `max_ts`, `keys` (hash of the row keys: equal manifests, equal rows), `late_rows` (rows this run added at or before the month's previous newest time; normally 0), `sealed` (before the current Bangkok month), `sealed_at`/`sealed_rows`/`sealed_keys`/`resealed` (the month's seal: when it was first seen closed, its rows and key hash then, and how many times a late row made it seal again; the month file is made read-only; `relic-scan seals --verify` reads each sealed month again and checks it) |
 | `meta/vaults.json`, `meta/vaults/<id>.json` | ψ vault, and its notes | plain JSON: name, path, kind, notes, sections; notes as `[path, section, title, bytes, mtime_ms]` |
@@ -85,7 +85,8 @@ text and tool results have none of the three.
 Indexes written by v26.10.23-alpha.1117 or earlier differ (fixed in v26.10.23-alpha.1308): omp tool results were also text rows (`role = 'toolResult'`), empty
 thinking blocks were dropped, mirrored copies that differed in one field were separate rows, and resumed Claude sessions
 and omp subagents were missing from `meta/sessions.parquet`. Indexes written by v26.10.23-alpha.1858 or earlier have no
-`model`, `msg_id` or `out_tokens` (the columns read as NULL), and `meta/sessions.parquet` has no `cwd`, `title`, `branch` or `version` until the files are read again. Re-index from scratch
+`model`, `msg_id` or `out_tokens` (the columns read as NULL), and `meta/sessions.parquet` has no `cwd`, `title`, `branch` or `version` until the files are read again. Months written before the input and cache token columns (`in_tokens`, `cache_read`, `cache_write`) read them as NULL, and the
+token columns of `meta/sessions.parquet` count only the months that have them. Re-index from scratch
 (move `~/.relic-scan` aside, then `relic-scan run`) to get the current shape.
 
 ```sh
@@ -156,7 +157,7 @@ just             # every recipe
 ```
 
 Layout: `src/` is the crate (CLI, server, TUI); `src/page/` is the page, small JS and CSS files joined into one self-contained
-page by `src/map.rs`; `desktop/` is the Tauri app; `site/` is the landing page; `docs/` has the design and research notes.
+page by `src/map.rs`; `desktop/` is the Tauri app; `site/` is the landing page; `docs/` has the design and research notes. `scripts/` has the operator scripts for the relic chain across machines (merge `.claude` homes, nightly S3 export, release builds); see its README.
 
 Rules this code keeps:
 - **No file over 500 lines.** Split a long one into a folder of modules.
