@@ -1,9 +1,0 @@
-$ ls -a ~
-.
-..
-.claude
-.codex
-.omp
-.relic-scan
-Code
-(exit 0 · 0.0 s)

@@ -1,9 +1,0 @@
-$ relic-scan run --dry-run
-run: scan 0.2s · new 144 · grown 0 · rewritten 0 · unchanged 0 · gone 0 · 0.00 GB to read
-╭─ ▓▒░ RELIC·SCAN ░▒▓ ───────────────────────────────────╮
-│ dry run · an index would read 144 files, 0.00 GB       │
-│ new 144 · grown 0 · rewritten 0 · unchanged 0 · gone 0 │
-│ scan 0.2s · nothing written                            │
-│ → ~/.relic-scan                                        │
-╰────────────────────────────────────────────────────────╯
-(exit 0 · 0.2 s)

@@ -1,3 +1,0 @@
-$ relic-scan --version
-relic-scan 26.10.26-alpha.516
-(exit 0 · 0.0 s)
