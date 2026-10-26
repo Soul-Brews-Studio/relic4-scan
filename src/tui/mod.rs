@@ -119,7 +119,7 @@ fn num(n: i64) -> String {
     let s = n.abs().to_string();
     let mut out = String::new();
     for (i, c) in s.chars().enumerate() {
-        if i > 0 && (s.len() - i) % 3 == 0 {
+        if i > 0 && (s.len() - i).is_multiple_of(3) {
             out.push(',');
         }
         out.push(c);
@@ -136,7 +136,7 @@ fn size(b: i64) -> String {
 fn bar(frac: f64, w: usize) -> String {
     let cells = (frac.clamp(0.0, 1.0) * w as f64 * 8.0).round() as usize;
     let mut s = "█".repeat(cells / 8);
-    if cells % 8 > 0 {
+    if !cells.is_multiple_of(8) {
         s.push(['▏', '▎', '▍', '▌', '▋', '▊', '▉'][cells % 8 - 1]);
     }
     format!("{s:<w$}")

@@ -316,8 +316,8 @@ fn main() {
             let mut homes = r.homes.clone();
             homes.sort_by(|a, b| b.bytes.cmp(&a.bytes));
             let w = homes.iter().map(|h| tilde(&h.path).chars().count()).max().unwrap_or(4).clamp(4, 90);
-            println!("{:<w$}  {:<7} {:<7} {:<5} {:>8} {:>8} {:>8} {:>6} {:>6} {:>8} {:>6}  {}", "HOME", "KIND", "ORIGIN", "BY", "FILES",
-                     "CHATS", "EMPTY", "NOT", "DUP", "GB", "", "NEWEST (BKK)");
+            println!("{:<w$}  {:<7} {:<7} {:<5} {:>8} {:>8} {:>8} {:>6} {:>6} {:>8} {:>6}  NEWEST (BKK)", "HOME", "KIND", "ORIGIN", "BY", "FILES",
+                     "CHATS", "EMPTY", "NOT", "DUP", "GB", "");
             for h in homes.iter().filter(|h| h.files > 0 || h.dup_files > 0) {
                 let mut p = tilde(&h.path);
                 if p.chars().count() > w {
@@ -389,8 +389,8 @@ fn log_cmd(out: &std::path::Path, n: usize, diff: Option<u64>) {
         return;
     }
     // copies, resumed and past changed: what the ledger answered for the new and rewritten paths (ledger.rs)
-    println!("{:>5}  {:<16}  {:<6} {:>7} {:>7} {:>9} {:>6} {:>10} {:>7} {:>7} {:>6} {:>9} {:>7}  {}", "#", "when", "job", "new", "grown",
-             "rewritten", "gone", "unchanged", "copies", "resumed", "past", "read", "secs", "range");
+    println!("{:>5}  {:<16}  {:<6} {:>7} {:>7} {:>9} {:>6} {:>10} {:>7} {:>7} {:>6} {:>9} {:>7}  range", "#", "when", "job", "new", "grown",
+             "rewritten", "gone", "unchanged", "copies", "resumed", "past", "read", "secs");
     for e in all.iter().rev().take(n) {
         println!("{:>5}  {:<16}  {:<6} {:>7} {:>7} {:>9} {:>6} {:>10} {:>7} {:>7} {:>6} {:>9} {:>7.1}  {}", u(e, "i"), when(e),
                  e["job"].as_str().unwrap_or(""), num(u(e, "new")), num(u(e, "grown")), num(u(e, "rewritten")), num(u(e, "gone")),
@@ -408,7 +408,7 @@ fn human(b: u64) -> String {
 fn seals_cmd(out: &std::path::Path, check: bool) {
     let months = relic_scan::manifest::build(out);
     let checked: std::collections::HashMap<String, bool> = if check { relic_scan::manifest::verify(out).into_iter().map(|v| (v.0, v.3)).collect() } else { Default::default() };
-    println!("{:<9} {:>10}  {:<20} {:>8}  {}", "month", "rows", "sealed at", "resealed", "status");
+    println!("{:<9} {:>10}  {:<20} {:>8}  status", "month", "rows", "sealed at", "resealed");
     for e in &months {
         let status = match (e.sealed_at.is_empty(), checked.get(&e.month)) {
             (true, _) => "open".to_string(),

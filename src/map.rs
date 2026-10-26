@@ -50,7 +50,7 @@ pub(crate) fn b<'a>(b: &'a RecordBatch, n: &str) -> &'a arrow::array::BooleanArr
     b.column_by_name(n).unwrap().as_any().downcast_ref::<arrow::array::BooleanArray>().unwrap()
 }
 
-pub(crate) fn get<'a>(a: &'a StringArray, k: usize) -> Option<&'a str> {
+pub(crate) fn get(a: &StringArray, k: usize) -> Option<&str> {
     if a.is_null(k) { None } else { Some(a.value(k)) }
 }
 
