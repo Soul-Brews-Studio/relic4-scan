@@ -5,7 +5,11 @@ Nothing here is real: the repos, people, prompts and answers are invented. Deter
 """
 import json, os, random, sys, uuid, datetime as dt
 
-OUT = sys.argv[1]
+OUT = os.path.abspath(sys.argv[1])
+# the real relic-scan walks ~ and /opt/Code: a demo home there is indexed as if it were real (it was, on 2026-10-26, and had to be cut out)
+for bad in (os.path.expanduser("~"), "/opt/Code"):
+    if OUT == bad or OUT.startswith(bad + os.sep):
+        sys.exit(f"refusing: {OUT} is under {bad}, which relic-scan indexes. Use a folder outside it, e.g. /tmp/relic-demo.")
 R = random.Random(2610)
 REPOS = [  # (dir name, branch, what it is)
     ("starfish-api", "main", "a REST API for a fish-tank shop"),
