@@ -1,0 +1,11 @@
+$ relic-scan tui --help
+Browse the sessions, repos and every .jsonl in the terminal (reads OUT/meta/*.parquet)
+
+Usage: relic-scan tui [OPTIONS]
+
+Options:
+      --out <OUT>    [default: ~/.relic-scan]
+      --mouse        click a row to select it and click it again to open the page (`o` does the same); the ter
+      --kind <KIND>  the --kind the run used: picks ~/.relic-scan/<kind> when --out is not given
+  -h, --help         Print help
+(exit 0 · 0.0 s)

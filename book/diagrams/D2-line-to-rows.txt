@@ -1,0 +1,15 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║  ONE TRANSCRIPT LINE BECOMES ROWS                                          ║
+║  a response is several rows; its tokens sit on exactly ONE of them         ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+   one API response, written as 3 lines     rows in the month file
+   ┌─────────────────────────────────┐
+   │ id=msg_A  thinking              │ ──►  role=thinking   msg_id=msg_A  tokens kept here
+   │ id=msg_A  text                  │ ──►  role=assistant  msg_id=msg_A  tokens NULL
+   │ id=msg_A  tool_use              │ ──►  kind=call       msg_id=msg_A  tokens NULL
+   └─────────────────────────────────┘
+     usage repeated on every line         sum(out_tokens) counts the response once
+
+   a tool result: kind=result, err true or false, no model, no tokens
+   a copy of the same line in another home: folded into the same row, `sources` lists both

@@ -1,0 +1,4 @@
+$ jq -r '.vaults[] | [.notes, .name, .path] | @tsv' ~/.relic-scan/meta/vaults.json
+3	kite-docs	~/Code/kite-docs/ψ
+2	moss-cli	~/Code/moss-cli/ψ
+(exit 0 · 0.0 s)

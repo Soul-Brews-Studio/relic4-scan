@@ -1,0 +1,22 @@
+$ ls ~/.relic-scan ~/.relic-scan/meta
+_config.json
+_ledger.tsv
+_scans.jsonl
+_state.tsv
+2026-07.parquet
+2026-08.parquet
+2026-09.parquet
+2026-10.parquet
+meta
+
+cache
+files.parquet
+jsonl.parquet
+map.html
+months.json
+paths.json
+sessions.parquet
+unreadable.json
+vaults
+vaults.json
+(exit 0 · 0.0 s)

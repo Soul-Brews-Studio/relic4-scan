@@ -1,0 +1,32 @@
+$ relic-scan tui
+ ▓▒░ RELIC·SCAN ░▒▓   144 sessions · 145 .jsonl · ~/.relic-scan
+  1 overview   2 repos   3 sessions   4 paths   5 s3   6 ops
+
+╭ sessions, newest first (enter: open) · 144 ──────────────────────────────────────────────────────╮
+│  started (BKK)      sid                  repo                  rows    text  think   calls errors│
+│▶ 2026-╔ session ═════════════════════════════════════════════════════════════════════════╗      0│
+│  2026-║● main session                                                                    ║      2│
+│  2026-║sid            2026-10-25T09-03-00-000Z_105f4e42-ab32-4fca-838b-8eeca0057739.jsonl║      4│
+│  2026-║repo           omp (no cwd in path)                                               ║      1│
+│  2026-║project                                                                           ║      0│
+│  2026-║started        2026-10-25 16:03                                                   ║      0│
+│  2026-║last           2026-10-25 16:06                                                   ║      1│
+│  2026-║rows           6                                                                  ║      5│
+│  2026-║user text      3                                                                  ║      1│
+│  2026-║assistant text 3                                                                  ║      0│
+│  2026-║thinking       0                                                                  ║      0│
+│  2026-║tool calls     0                                                                  ║      0│
+│  2026-║tool results   0                                                                  ║      2│
+│  2026-║tool errors    0                                                                  ║      2│
+│  2026-║copies         1 · 2 KB largest                                                   ║      5│
+│  2026-║                                                                                  ║      2│
+│  2026-║ c  copy `claude --resume <sid>`    o  open in the page   any other key closes    ║      3│
+│  2026-║                                                                                  ║      0│
+│  2026-╚══════════════════════════════════════════════════════════════════════════════════╝      3│
+│  2026-10-11 21:15 ● 2026-10-11T14-15-00- omp (no cwd in p         8       8      0       0      0│
+│  2026-10-11 17:16 ● 436d9d56-1e69-4777-8 kite-docs               20       8      4       4      0│
+│  2026-10-10 12:18 ● 28394ccd-82ef-43b2-8 kite-docs               44      12      6      13      0│
+│  2026-10-09 11:00 ● df42be6a-a7e5-433d-b tea-cart                35      14      7       7      1│
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+ q quit  1-6/tab view  / filter  ↑↓ jk g G move  enter open  o page  ⌫ back
+(exit 0 · screen 100x30)

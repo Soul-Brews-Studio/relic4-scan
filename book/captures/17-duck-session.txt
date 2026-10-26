@@ -1,0 +1,11 @@
+$ duckdb -c "select sid, models, model_msgs, in_tokens, out_tokens, cache_read_tokens from 'meta/sessions.parquet' where out_tokens > 0 order by out_tokens desc limit 4"
+┌──────────┬─────────────────────┬────────────┬───────────┬────────────┬───────────────────┐
+│   sid    │       models        │ model_msgs │ in_tokens │ out_tokens │ cache_read_tokens │
+│ varchar  │      varchar[]      │  int64[]   │   int64   │   int64    │       int64       │
+├──────────┼─────────────────────┼────────────┼───────────┼────────────┼───────────────────┤
+│ 95f11992 │ [claude-haiku-5-5]  │ [7]        │       121 │      11285 │            335324 │
+│ 28394ccd │ [claude-sonnet-5-5] │ [6]        │       135 │      11250 │            246245 │
+│ 99aab31b │ [claude-opus-5-5]   │ [6]        │       129 │      10476 │            298801 │
+│ a9593467 │ [claude-sonnet-5-5] │ [7]        │       171 │      10399 │            540510 │
+└──────────┴─────────────────────┴────────────┴───────────┴────────────┴───────────────────┘
+(exit 0 · 0.0 s)
