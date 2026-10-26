@@ -1,7 +1,0 @@
-$ relic-scan seals --verify
-month           rows  sealed at            resealed  status
-2026-07          819  2026-10-26T00:22:59Z        0  sealed, matches
-2026-08          762  2026-10-26T00:22:59Z        0  sealed, matches
-2026-09          845  2026-10-26T00:22:59Z        0  sealed, matches
-2026-10          747  -                           0  open
-(exit 0 · 0.0 s)
