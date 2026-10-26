@@ -1,0 +1,13 @@
+$ duckdb -c "select coalesce(nullif(kind,''), nullif(role,''), '(none)') as what, count(*) as n …
+… from '*.parquet' group by 1 order by n desc"
+┌───────────┬───────┐
+│   what    │   n   │
+│  varchar  │ int64 │
+├───────────┼───────┤
+│ result    │   705 │
+│ call      │   705 │
+│ user      │   628 │
+│ assistant │   628 │
+│ thinking  │   507 │
+└───────────┴───────┘
+(exit 0 · 0.0 s)

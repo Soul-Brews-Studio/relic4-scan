@@ -1,0 +1,14 @@
+$ relic-scan ops --help
+What the relic chain is doing right now: the pass in flight with its stages and ETA, running …
+… processes, the hu
+
+Usage: relic-scan ops [OPTIONS]
+
+Options:
+      --out <OUT>    [default: ~/.relic-scan]
+      --kind <KIND>  the --kind the run used: picks ~/.relic-scan/<kind> when --out is not given
+      --json         the snapshot as JSON (what the page and the menu-bar app read), once
+      --watch        redraw every 2 seconds until Ctrl-C
+      --no-hub       do not ask the hub (no network)
+  -h, --help         Print help
+(exit 0 · 0.0 s)
