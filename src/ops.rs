@@ -178,9 +178,27 @@ pub fn hub() -> Value {
     v
 }
 
+/// Is a loop installed that starts the chain by itself (a LaunchAgent on macOS, a systemd timer on Linux)? `RELIC_CHAIN_LOOP=on|off`
+/// overrides. Without one the chain is run by hand and there is no "next pass".
+pub fn loop_installed() -> bool {
+    match std::env::var("RELIC_CHAIN_LOOP").as_deref() {
+        Ok("on") => return true,
+        Ok("off") => return false,
+        _ => {}
+    }
+    let h = PathBuf::from(std::env::var("HOME").unwrap_or_default());
+    [h.join("Library/LaunchAgents/studio.soulbrews.relic-chain.plist"), h.join(".config/systemd/user/relic-chain.timer"),
+     PathBuf::from("/etc/systemd/system/relic-chain.timer"), PathBuf::from("/etc/systemd/user/relic-chain.timer")].iter().any(|p| p.exists())
+}
+
 pub fn snapshot(out: &Path, with_hub: bool) -> Value {
     let now = Local::now().timestamp();
-    json!({"at": now, "log": chain_log().display().to_string(), "chain": chain_view(&parse_log(&tail(&chain_log())), now), "processes": processes(),
+    let mut chain = chain_view(&parse_log(&tail(&chain_log())), now);
+    chain["loop"] = json!(loop_installed());
+    if chain["loop"] == json!(false) {
+        chain["next_in_s"] = Value::Null;
+    }
+    json!({"at": now, "log": chain_log().display().to_string(), "chain": chain, "processes": processes(),
            "hub": if with_hub { hub() } else { json!({"ok": false, "error": "off"}) }, "s3": crate::s3job::status(out)})
 }
 

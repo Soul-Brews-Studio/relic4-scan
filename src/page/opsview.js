@@ -11,7 +11,7 @@ function opsDraw(j) {
   const c = j.chain || {}, st = c.state, run = st === "running";
   const head = st === "never" ? `<span class="s3chip warn">no pass logged yet</span> <span class="muted">${esc(j.log || "")}</span>`
     : run ? `<span class="s3chip ok">RUNNING</span> <b>${opsDur(c.elapsed_s)}</b> elapsed${c.typical_total_s ? ` · typical ${opsDur(c.typical_total_s)}${c.eta_s > 0 ? ` · about <b>${opsDur(c.eta_s)}</b> left` : " · over it now"}` : ""}`
-    : `<span class="s3chip">idle</span> last pass ${esc((c.started || "").slice(11))} took ${opsDur(c.took_s || 0)} · next in about ${opsDur(c.next_in_s || 0)}`;
+    : `<span class="s3chip">idle</span> last pass ${esc((c.started || "").slice(11))} took ${opsDur(c.took_s || 0)} · ${c.next_in_s == null ? "manual (no loop)" : "next in about " + opsDur(c.next_in_s)}`;
   const pct = run && c.typical_total_s ? Math.min(100, 100 * c.elapsed_s / c.typical_total_s) : st === "idle" ? 100 : 0;
   const rows = (c.stages || []).map(s => `<div class="opsrow ${s.state}"><span class="mk">${s.state === "done" ? "✓" : s.state === "running" ? "●" : "·"}</span><b>${esc(s.name)}</b>
     <span class="z">${s.secs != null ? Math.round(s.secs) + " s" : ""}</span><span class="z muted">${s.typical_s != null ? "typical " + Math.round(s.typical_s) + " s" : ""}</span><span class="d muted">${esc(s.detail || "")}</span></div>`).join("");

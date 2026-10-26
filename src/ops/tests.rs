@@ -88,3 +88,13 @@ fn the_ops_text_links_the_hub_and_the_page_only_for_a_terminal() {
     let off = render_linked(&v2, "http://127.0.0.1:8787", "off", true);
     assert!(off.iter().any(|l| l.starts_with("HUB  load")), "no link to a hub that is switched off");
 }
+
+#[test]
+fn an_idle_chain_without_a_loop_says_manual() {
+    let mut c = chain_view(&parse_log(&LOG[..LOG.find("2026-10-24 15:03:23").unwrap()]), at("2026-10-24 14:58:21"));
+    let with_loop = render(&serde_json::json!({"at": 0, "log": "x", "chain": c, "processes": [], "hub": {"ok": false, "error": "off"}, "s3": {"running": false}})).join("\n");
+    assert!(with_loop.contains("next in about"), "{with_loop}");
+    c["next_in_s"] = serde_json::Value::Null;
+    let manual = render(&serde_json::json!({"at": 0, "log": "x", "chain": c, "processes": [], "hub": {"ok": false, "error": "off"}, "s3": {"running": false}})).join("\n");
+    assert!(manual.contains("manual (no loop)") && !manual.contains("next in"), "{manual}");
+}
