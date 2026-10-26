@@ -52,6 +52,7 @@ impl App {
                              Span::styled("/", Style::new().fg(PINK)), Span::styled(" filter  ", Style::new().fg(DIM)),
                              Span::styled("↑↓ jk g G", Style::new().fg(PINK)), Span::styled(" move  ", Style::new().fg(DIM)),
                              Span::styled("enter", Style::new().fg(PINK)), Span::styled(" open  ", Style::new().fg(DIM)),
+                             Span::styled("o", Style::new().fg(PINK)), Span::styled(" page  ", Style::new().fg(DIM)),
                              Span::styled("⌫", Style::new().fg(PINK)), Span::styled(" back", Style::new().fg(DIM))];
             if !self.filter.is_empty() {
                 s.push(Span::styled(format!("   filter: {}", self.filter), Style::new().fg(AMBER)));
@@ -152,6 +153,7 @@ impl App {
             .row_highlight_style(Style::new().add_modifier(Modifier::REVERSED))
             .highlight_symbol("▶ ")
             .block(self.frame(format!("{title} · {}", num(n as i64))));
+        self.list_area = a;
         f.render_stateful_widget(t, a, &mut self.state);
     }
 
@@ -284,7 +286,8 @@ impl App {
         lines.push(Line::raw(""));
         lines.push(Line::from(vec![Span::styled(" c ", Style::new().fg(Color::Black).bg(CYAN)),
                                    Span::styled(if s.tier == 0 { " copy `claude --resume <sid>`" } else { " copy sid" }, Style::new().fg(DIM)),
-                                   Span::styled("   any key closes", Style::new().fg(DIM))]));
+                                   Span::styled("   ", Style::new().fg(DIM)), Span::styled(" o ", Style::new().fg(Color::Black).bg(CYAN)),
+                                   Span::styled(" open in the page   any other key closes", Style::new().fg(DIM))]));
         f.render_widget(Clear, r);
         f.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }).block(
             Block::bordered().border_type(BorderType::Double).border_style(Style::new().fg(PINK))

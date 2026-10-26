@@ -21,6 +21,7 @@
 pub mod config;
 pub mod engine;
 pub mod ledger;
+pub mod links;
 pub mod export;
 pub mod export_s3;
 pub mod manifest;
@@ -123,7 +124,7 @@ pub fn num(n: u64) -> String {
     let s = n.to_string();
     let mut out = String::new();
     for (i, c) in s.chars().enumerate() {
-        if i > 0 && (s.len() - i) % 3 == 0 {
+        if i > 0 && (s.len() - i).is_multiple_of(3) {
             out.push(',');
         }
         out.push(c);

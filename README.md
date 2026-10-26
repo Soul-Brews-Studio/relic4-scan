@@ -43,6 +43,8 @@ Grown in the agent-relic-v4 lab (`lab/relic4-scan` on branch `lab-rust-scan`, hi
 
 Open source under the [GNU AGPL v3](LICENSE). Landing page: https://relic.buildwithoracle.com/scan/
 New here? [docs/TUTORIAL.md](docs/TUTORIAL.md) walks through scan, then extract, with real outputs.
+How the relic4-scan, relic5 and relic-extract agents ask each other for changes: [docs/TALK.md](docs/TALK.md).
+No loop runs the chain any more: [docs/MANUAL.md](docs/MANUAL.md) says how to run a pass by hand and how to turn the loop back on.
 AI agents: start with [AGENTS.md](AGENTS.md) (install, run, query with DuckDB, build, rules for changing the code).
 
 ## Use it
@@ -56,7 +58,7 @@ To install a branch instead of `main`, pipe to `REF=<branch> sh`. Run the same l
 ```
 relic-scan                         # the logo, what is indexed already, and the commands below
 relic-scan up --kind claude        # index Claude transcripts into ~/.relic-scan/claude, then serve http://127.0.0.1:8787
-relic-scan tui --kind claude       # the same data in the terminal
+relic-scan tui --kind claude       # the same data in the terminal; o opens the page on the selected row (--mouse: click a row, again to open)
 ```
 The first run reads everything: on an M5 Mac that is 83,673 files and 67.6 GB in about 45 s. After that a run reads only new bytes and takes about 10 s, most of it spent walking the homes. Without `--kind`, every agent is indexed into `~/.relic-scan`.
 

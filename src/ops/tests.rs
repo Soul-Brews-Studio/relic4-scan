@@ -71,3 +71,30 @@ fn the_text_view_shows_every_stage() {
     let t = render(&v).join("\n");
     assert!(t.contains("RUNNING") && t.contains("● extract") && t.contains("✓ scan") && t.contains("about 2:18 left"), "{t}");
 }
+
+#[test]
+fn the_ops_text_links_the_hub_and_the_page_only_for_a_terminal() {
+    let v = serde_json::json!({"chain": {"state": "never"}, "log": "/x", "processes": [], "hub": {"ok": false, "error": "off"}, "s3": {}});
+    let plain = render_linked(&v, "http://127.0.0.1:8787", "http://hub:1", false);
+    assert!(plain.iter().all(|l| !l.contains('\x1b')), "{plain:?}");
+    assert_eq!(plain.last().unwrap(), "page  http://127.0.0.1:8787/ops");
+    assert!(plain.iter().any(|l| l.starts_with("HUB  not read")));
+    let v2 = serde_json::json!({"chain": {"state": "never"}, "log": "/x", "processes": [], "hub": {"ok": true, "load": [1.0], "cpus": 4, "running": [], "machines": [], "warnings": []}, "s3": {}});
+    let on = render_linked(&v2, "http://127.0.0.1:8787", "http://hub:1", true);
+    assert!(on.iter().any(|l| l.starts_with("\x1b]8;;http://hub:1\x1b\\HUB\x1b]8;;\x1b\\  load")), "{on:?}");
+    let unread = render_linked(&v, "http://127.0.0.1:8787", "http://hub:1", true);
+    assert!(unread.iter().any(|l| l.starts_with("HUB  not read")), "a hub that was not read gets no link: {unread:?}");
+    assert!(on.last().unwrap().contains("\x1b]8;;http://127.0.0.1:8787/ops"));
+    let off = render_linked(&v2, "http://127.0.0.1:8787", "off", true);
+    assert!(off.iter().any(|l| l.starts_with("HUB  load")), "no link to a hub that is switched off");
+}
+
+#[test]
+fn an_idle_chain_without_a_loop_says_manual() {
+    let mut c = chain_view(&parse_log(&LOG[..LOG.find("2026-10-24 15:03:23").unwrap()]), at("2026-10-24 14:58:21"));
+    let with_loop = render(&serde_json::json!({"at": 0, "log": "x", "chain": c, "processes": [], "hub": {"ok": false, "error": "off"}, "s3": {"running": false}})).join("\n");
+    assert!(with_loop.contains("next in about"), "{with_loop}");
+    c["next_in_s"] = serde_json::Value::Null;
+    let manual = render(&serde_json::json!({"at": 0, "log": "x", "chain": c, "processes": [], "hub": {"ok": false, "error": "off"}, "s3": {"running": false}})).join("\n");
+    assert!(manual.contains("manual (no loop)") && !manual.contains("next in"), "{manual}");
+}

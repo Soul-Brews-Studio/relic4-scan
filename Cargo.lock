@@ -1437,7 +1437,7 @@ checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
 name = "relic-scan"
-version = "26.10.24-alpha.2025"
+version = "26.10.26-alpha.753"
 dependencies = [
  "arrow",
  "blake2b_simd",

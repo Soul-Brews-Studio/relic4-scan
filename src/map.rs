@@ -50,7 +50,7 @@ pub(crate) fn b<'a>(b: &'a RecordBatch, n: &str) -> &'a arrow::array::BooleanArr
     b.column_by_name(n).unwrap().as_any().downcast_ref::<arrow::array::BooleanArray>().unwrap()
 }
 
-pub(crate) fn get<'a>(a: &'a StringArray, k: usize) -> Option<&'a str> {
+pub(crate) fn get(a: &StringArray, k: usize) -> Option<&str> {
     if a.is_null(k) { None } else { Some(a.value(k)) }
 }
 
@@ -176,7 +176,7 @@ pub fn build(out: &Path, agent: &str) {
     let js = serde_json::to_string(&data).unwrap().replace("</", "<\\/");
     let page = page().replace("/*DATA*/null", &js);
     let p = dir.join("map.html");
-    fs::write(&p, page).unwrap();
+    crate::vault::write_atomic(&p, page.as_bytes());
     eprintln!("map: {} sessions · {} repos · {} homes · {:.1} MB · {} paths in {:.1}s -> {}", n, cats.words.len(), homes.len(),
               fs::metadata(&p).unwrap().len() as f64 / 1e6, np, t0.elapsed().as_secs_f64(), p.display());
 }

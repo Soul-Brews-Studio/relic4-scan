@@ -113,13 +113,12 @@ pub fn sniff(path: &str) -> Sniff {
     for line in buf.split_inclusive(|&b| b == b'\n').take(50) {
         let Some(Value::Object(o)) = engine::parse(line) else { continue };
         objects += 1;
-        if agent.is_none() {
-            if let Some((a, t)) = signature(&o, path) {
+        if agent.is_none()
+            && let Some((a, t)) = signature(&o, path) {
                 agent = Some(a);
                 shape = Some(t);
                 why = format!("type={}", o.get("type").and_then(|v| v.as_str()).unwrap_or("-"));
             }
-        }
         let x = engine::extract(&o);
         let rows = !x.text.is_empty() || engine::thinking_of(line, &o).is_some() || !engine::extract_tools(line, &o).is_empty();
         if rows && shape != Some(false) {

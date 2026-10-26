@@ -28,6 +28,7 @@ impl App {
                     let t = if s.tier == 0 { format!("claude --resume {}", s.sid) } else { s.sid.clone() };
                     self.copy(&t);
                 }
+                KeyCode::Char('o') => self.open_page(),
                 KeyCode::Char('q') if mods.is_empty() => return false,
                 _ => self.open = None,
             }
@@ -69,6 +70,7 @@ impl App {
                 Tab::Sessions => Tab::Repos,
                 Tab::Paths => Tab::Sessions,
             }),
+            KeyCode::Char('o') => self.open_page(),
             KeyCode::Char('/') => self.typing = true,
             KeyCode::Esc => {
                 self.filter.clear();

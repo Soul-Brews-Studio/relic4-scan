@@ -13,7 +13,7 @@ pub(super) struct Cand {
     pub(super) s: String, h: i64, idx: i64, engine: Option<String>, role: Option<String>, typ: Option<String>, sid: Option<String>,
     pub(super) ts: Option<String>, ts_th: Option<String>, text: Option<String>, kind: Option<String>, call_id: Option<String>,
     pub(super) name: Option<String>, body: Option<String>, err: Option<bool>, red: Option<String>,
-    model: Option<String>, msg_id: Option<String>, out_tokens: Option<i64>,
+    model: Option<String>, msg_id: Option<String>, tok: [Option<i64>; 4], // out, in, cache read, cache write
     pub(super) first: (String, i64), // the copy's (file, line): the lowest wins, so incremental == cold
 }
 
@@ -36,7 +36,8 @@ pub(super) fn cands_from(b: &RecordBatch, srcs: &mut HashMap<i64, BTreeMap<Strin
     // model, msg_id and out_tokens came later: a month written before them reads as NULL there
     let opt = |n: &str| b.column_by_name(n).map(|a| a.as_any().downcast_ref::<StringArray>().unwrap());
     let (model, msg_id) = (opt("model"), opt("msg_id"));
-    let out_tok = b.column_by_name("out_tokens").map(|a| a.as_any().downcast_ref::<Int64Array>().unwrap());
+    let tok_col = |n: &str| b.column_by_name(n).map(|a| a.as_any().downcast_ref::<Int64Array>().unwrap());
+    let toks = [tok_col("out_tokens"), tok_col("in_tokens"), tok_col("cache_read"), tok_col("cache_write")];
     let raw = b.column_by_name("file").is_some();
     let prefix = format!("{agent}:");
     for i in 0..b.num_rows() {
@@ -73,7 +74,7 @@ pub(super) fn cands_from(b: &RecordBatch, srcs: &mut HashMap<i64, BTreeMap<Strin
             sid: s_opt(sid, i), ts: s_opt(ts, i), ts_th: s_opt(tsth, i), text: s_opt(text, i), kind: s_opt(kind, i),
             call_id: s_opt(cid, i), name: s_opt(name, i), body: s_opt(body, i), err: if err.is_null(i) { None } else { Some(err.value(i)) },
             red: s_opt(red, i), model: model.and_then(|a| s_opt(a, i)), msg_id: msg_id.and_then(|a| s_opt(a, i)),
-            out_tokens: out_tok.and_then(|a| (!a.is_null(i)).then(|| a.value(i))), first,
+            tok: std::array::from_fn(|k| toks[k].and_then(|a| (!a.is_null(i)).then(|| a.value(i)))), first,
         });
     }
 }
@@ -162,14 +163,16 @@ pub fn merge_month(parts_dir: &Path, month: &str, out: &Path, agent: &str) -> (u
     });
     // one API response is several rows (one per content block, and every copy of its lines): its output tokens stay on
     // the first of them only, the largest any copy recorded, so sum(out_tokens) counts each response once
-    let mut tokens: HashMap<&str, (usize, i64)> = HashMap::new();
+    let mut tokens: HashMap<&str, (usize, [Option<i64>; 4])> = HashMap::new();
     for &i in &order {
-        if let (Some(id), Some(t)) = (cands[i].msg_id.as_deref(), cands[i].out_tokens) {
-            let e = tokens.entry(id).or_insert((i, t));
-            e.1 = e.1.max(t);
+        if let (Some(id), true) = (cands[i].msg_id.as_deref(), cands[i].tok[0].is_some()) {
+            let e = tokens.entry(id).or_insert((i, cands[i].tok));
+            for k in 0..4 {
+                e.1[k] = e.1[k].max(cands[i].tok[k]);
+            }
         }
     }
-    let first_of: HashMap<usize, i64> = tokens.into_values().collect();
+    let first_of: HashMap<usize, [Option<i64>; 4]> = tokens.into_values().collect();
     let u = |n: &str| Field::new(n, DataType::Utf8, true);
     let list = |n: &str| Field::new(n, DataType::List(Arc::new(Field::new("item", DataType::Utf8, true))), true);
     let schema = Arc::new(Schema::new(vec![
@@ -177,6 +180,7 @@ pub fn merge_month(parts_dir: &Path, month: &str, out: &Path, agent: &str) -> (u
         u("type"), u("sid"), u("ts"), u("ts_th"), u("text"), u("kind"), u("call_id"), u("name"), u("body"),
         Field::new("err", DataType::Boolean, true), u("red"), list("machines"), list("sources"),
         u("model"), u("msg_id"), Field::new("out_tokens", DataType::Int64, true),
+        Field::new("in_tokens", DataType::Int64, true), Field::new("cache_read", DataType::Int64, true), Field::new("cache_write", DataType::Int64, true),
     ]));
     fs::create_dir_all(out).unwrap();
     let tmp = out.join(format!("{month}.parquet.part"));
@@ -216,7 +220,10 @@ pub fn merge_month(parts_dir: &Path, month: &str, out: &Path, agent: &str) -> (u
             strs(&|c| c.ts_th.as_deref()), strs(&|c| c.text.as_deref()), strs(&|c| c.kind.as_deref()), strs(&|c| c.call_id.as_deref()),
             strs(&|c| c.name.as_deref()), strs(&|c| c.body.as_deref()), Arc::new(eb.finish()), strs(&|c| c.red.as_deref()),
             Arc::new(machines.finish()), Arc::new(sources.finish()), strs(&|c| c.model.as_deref()), strs(&|c| c.msg_id.as_deref()),
-            Arc::new(rows.iter().map(|i| first_of.get(i).copied()).collect::<Int64Array>()),
+            Arc::new(rows.iter().map(|i| first_of.get(i).and_then(|t| t[0])).collect::<Int64Array>()),
+            Arc::new(rows.iter().map(|i| first_of.get(i).and_then(|t| t[1])).collect::<Int64Array>()),
+            Arc::new(rows.iter().map(|i| first_of.get(i).and_then(|t| t[2])).collect::<Int64Array>()),
+            Arc::new(rows.iter().map(|i| first_of.get(i).and_then(|t| t[3])).collect::<Int64Array>()),
         ];
         w.write(&RecordBatch::try_new(schema.clone(), cols).unwrap()).unwrap();
     }

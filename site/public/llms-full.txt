@@ -17,7 +17,7 @@ Measured on one Apple-silicon Mac, October 2026, over its own agents' history. Y
 
 ## Start in the terminal
 
-`relic-scan tui` reads the index: overview, repositories, sessions and every `.jsonl`.
+`relic-scan tui` reads the index: overview, repositories, sessions and every `.jsonl`. `o` opens the page on the selected session, repo or folder.
 
 `/` filters · `Enter` opens · `⌫` goes back · no background of its own, so it reads on dark and light terminals
 
@@ -155,18 +155,22 @@ Yes. The repository's AGENTS.md (also at relic.buildwithoracle.com/scan/agents.m
 
 With DuckDB, Polars or pandas over ~/.relic-scan, starting with a count of every row by what it is. Month files (YYYY-MM.parquet) hold every message and tool call: messages and thinking have a role (user, assistant, thinking), tool rows a kind (call, result); a thinking row with empty text is a block whose text was not saved. meta/sessions.parquet has one line per session; meta/vaults.json lists every ψ vault.
 
+### Can it tell me which model answered and how many tokens it used?
+
+Yes. Each response's model and its input, output and cache tokens are in the month files, and every session in meta/sessions.parquet lists its models and its token sums. Claude Code and OMP record them; Codex has the model but no token counts.
+
 ### Is it free and open source?
 
 Yes. The source is on GitHub (github.com/Soul-Brews-Studio/relic4-scan) under the GNU AGPL v3, and every download is free.
 
 ## Download
 
-Version 26.10.24-alpha.2025, free and open source under the GNU AGPL v3. The source, the release notes and every file are on GitHub.
+Version 26.10.26-alpha.753, free and open source under the GNU AGPL v3. The source, the release notes and every file are on GitHub.
 
-- [macOS, .dmg · 6.8 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.24-alpha.2025/ARRA-Relic-Scan_26.10.24-alpha.2025_macos-arm64.dmg): Apple silicon · drag into Applications
-- [macOS, .dmg · 7.1 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.24-alpha.2025/ARRA-Relic-Scan_26.10.24-alpha.2025_macos-x64.dmg): Intel · drag into Applications
-- [Linux, .deb · 7.6 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.24-alpha.2025/ARRA-Relic-Scan_26.10.24-alpha.2025_linux-amd64.deb): x86_64 · Debian, Ubuntu
-- [Linux, .AppImage · 85 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.24-alpha.2025/ARRA-Relic-Scan_26.10.24-alpha.2025_linux-amd64.AppImage): x86_64 · any distribution
+- [macOS, .dmg · 7.6 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.26-alpha.753/ARRA-Relic-Scan_26.10.26-alpha.753_macos-arm64.dmg): Apple silicon · drag into Applications
+- [macOS, .dmg · 8.0 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.26-alpha.753/ARRA-Relic-Scan_26.10.26-alpha.753_macos-x64.dmg): Intel · drag into Applications
+- [Linux, .deb · 8.7 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.26-alpha.753/ARRA-Relic-Scan_26.10.26-alpha.753_linux-amd64.deb): x86_64 · Debian, Ubuntu
+- [Linux, .AppImage · 83 MB](https://github.com/Soul-Brews-Studio/relic4-scan/releases/download/v26.10.26-alpha.753/ARRA-Relic-Scan_26.10.26-alpha.753_linux-amd64.AppImage): x86_64 · any distribution
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Soul-Brews-Studio/relic4-scan/main/install.sh | sh

@@ -135,6 +135,9 @@ enum Cmd {
     Tui {
         #[arg(long, default_value = DEFAULT_OUT)]
         out: String,
+        /// click a row to select it and click it again to open the page (`o` does the same); the terminal then needs Shift or Option to select text
+        #[arg(long)]
+        mouse: bool,
         /// the --kind the run used: picks ~/.relic-scan/<kind> when --out is not given
         #[arg(long)]
         kind: Vec<String>,
@@ -197,7 +200,7 @@ fn main() {
     let cli = Cli::parse();
     let Some(cmd) = cli.cmd else { return banner() };
     match cmd {
-        Cmd::Tui { out, kind } => tui::tui(std::path::Path::new(&out_dir(&out, &kind))),
+        Cmd::Tui { out, kind, mouse } => tui::tui(std::path::Path::new(&out_dir(&out, &kind)), mouse),
         Cmd::Run(a) => run_cmd(a),
         Cmd::Export { out, kind, to, endpoint, region, dry_run, overwrite, verify, insecure_http, list } => {
             let o = relic_scan::export_s3::Opts { out: std::path::PathBuf::from(out_dir(&out, &kind)), to, endpoint, region, dry_run, overwrite, verify, insecure_http };
@@ -227,12 +230,13 @@ fn main() {
         }
         Cmd::Ops { out, kind, json, watch, no_hub } => {
             let out = out_dir(&out, &kind);
+            let links_on = relic_scan::links::enabled();
             loop {
                 let v = relic_scan::ops::snapshot(std::path::Path::new(&out), !no_hub);
                 let text = if json {
                     serde_json::to_string_pretty(&v).unwrap() + "\n"
                 } else {
-                    format!("{}relic ops · {}\n\n{}\n", if watch { "\x1b[2J\x1b[H" } else { "" }, chrono::Local::now().format("%H:%M:%S"), relic_scan::ops::render(&v).join("\n"))
+                    format!("{}relic ops · {}\n\n{}\n", if watch { "\x1b[2J\x1b[H" } else { "" }, chrono::Local::now().format("%H:%M:%S"), relic_scan::ops::render_linked(&v, &relic_scan::links::base(), &relic_scan::ops::hub_url(), links_on).join("\n"))
                 };
                 // a closed pipe (`| head`) ends the command quietly, it is not a panic
                 if std::io::Write::write_all(&mut std::io::stdout(), text.as_bytes()).is_err() {
@@ -312,8 +316,8 @@ fn main() {
             let mut homes = r.homes.clone();
             homes.sort_by(|a, b| b.bytes.cmp(&a.bytes));
             let w = homes.iter().map(|h| tilde(&h.path).chars().count()).max().unwrap_or(4).clamp(4, 90);
-            println!("{:<w$}  {:<7} {:<7} {:<5} {:>8} {:>8} {:>8} {:>6} {:>6} {:>8} {:>6}  {}", "HOME", "KIND", "ORIGIN", "BY", "FILES",
-                     "CHATS", "EMPTY", "NOT", "DUP", "GB", "", "NEWEST (BKK)");
+            println!("{:<w$}  {:<7} {:<7} {:<5} {:>8} {:>8} {:>8} {:>6} {:>6} {:>8} {:>6}  NEWEST (BKK)", "HOME", "KIND", "ORIGIN", "BY", "FILES",
+                     "CHATS", "EMPTY", "NOT", "DUP", "GB", "");
             for h in homes.iter().filter(|h| h.files > 0 || h.dup_files > 0) {
                 let mut p = tilde(&h.path);
                 if p.chars().count() > w {
@@ -385,8 +389,8 @@ fn log_cmd(out: &std::path::Path, n: usize, diff: Option<u64>) {
         return;
     }
     // copies, resumed and past changed: what the ledger answered for the new and rewritten paths (ledger.rs)
-    println!("{:>5}  {:<16}  {:<6} {:>7} {:>7} {:>9} {:>6} {:>10} {:>7} {:>7} {:>6} {:>9} {:>7}  {}", "#", "when", "job", "new", "grown",
-             "rewritten", "gone", "unchanged", "copies", "resumed", "past", "read", "secs", "range");
+    println!("{:>5}  {:<16}  {:<6} {:>7} {:>7} {:>9} {:>6} {:>10} {:>7} {:>7} {:>6} {:>9} {:>7}  range", "#", "when", "job", "new", "grown",
+             "rewritten", "gone", "unchanged", "copies", "resumed", "past", "read", "secs");
     for e in all.iter().rev().take(n) {
         println!("{:>5}  {:<16}  {:<6} {:>7} {:>7} {:>9} {:>6} {:>10} {:>7} {:>7} {:>6} {:>9} {:>7.1}  {}", u(e, "i"), when(e),
                  e["job"].as_str().unwrap_or(""), num(u(e, "new")), num(u(e, "grown")), num(u(e, "rewritten")), num(u(e, "gone")),
@@ -404,7 +408,7 @@ fn human(b: u64) -> String {
 fn seals_cmd(out: &std::path::Path, check: bool) {
     let months = relic_scan::manifest::build(out);
     let checked: std::collections::HashMap<String, bool> = if check { relic_scan::manifest::verify(out).into_iter().map(|v| (v.0, v.3)).collect() } else { Default::default() };
-    println!("{:<9} {:>10}  {:<20} {:>8}  {}", "month", "rows", "sealed at", "resealed", "status");
+    println!("{:<9} {:>10}  {:<20} {:>8}  status", "month", "rows", "sealed at", "resealed");
     for e in &months {
         let status = match (e.sealed_at.is_empty(), checked.get(&e.month)) {
             (true, _) => "open".to_string(),

@@ -132,7 +132,7 @@ pub fn run_inner(a: RunArgs, lock: Option<std::fs::File>, serving: bool) -> Repo
     }
     if !kind.is_empty() {
         r.files.retain(|f| kind.contains(&f.kind));
-        r.loose.retain(|f| kind.iter().any(|k| *k == f.agent));
+        r.loose.retain(|f| kind.contains(&f.agent));
     }
     let t_scan = t0.elapsed().as_secs_f64();
     let mut st = state::load(outp);

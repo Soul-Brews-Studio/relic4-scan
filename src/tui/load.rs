@@ -86,7 +86,7 @@ impl App {
         state.select(Some(0));
         App {
             out: out.display().to_string(), sess, repos, dirs, files, tab: Tab::Overview, filter: String::new(), typing: false,
-            repo_pick: None, dir_pick: None, open: None, state, toast: None, ops: None, home: std::env::var("HOME").unwrap_or_default(),
+            repo_pick: None, dir_pick: None, open: None, state, toast: None, ops: None, home: std::env::var("HOME").unwrap_or_default(), list_area: Rect::default(),
         }
     }
 
