@@ -5,8 +5,8 @@ reason about: no pass starts while you are changing a binary, and the hub only m
 
 | machine | what stays on its own | one pass by hand |
 |---|---|---|
-| m5 | nothing | `relic5-import` from the relic5 repo (`bin/relic5-import`, see its `docs/IMPORT.md`): scan, extract, push, embed, sync check, with a box at the end |
-| mba | nightly S3 export (`studio.soulbrews.relic-export`) | `~/.local/bin/relic-chain` |
+| m5 | nothing | **`relic5 import`** (the Rust `relic5` client, see relic5's `docs/IMPORT.md` and `docs/CLI.md`): scan, extract, push, index, embed, sync check, with a box at the end. Do NOT use `~/.local/bin/relic-chain` on m5: its extract after-hook (push + hub index) is commented out, so it pushes without indexing and the hub warns "parts newer than its manifest" |
+| mba | nightly S3 export (`studio.soulbrews.relic-export`) | `~/.local/bin/relic-chain` (its own after-hook still pushes and indexes) |
 | white | nightly S3 export (`relic-export.timer`) and the offsite copy (`relic5-offsite.timer`) | `~/.local/bin/relic-chain` |
 
 The pass is the same everywhere: `relic-scan run`, then `relic-extract run` (its after-hook pushes to the hub), then the sync check. It
@@ -33,3 +33,14 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/studio.soulbrews.relic-c
 ```
 
 On m5 the LaunchAgent was removed by relic5 (see its `docs/RETIRED.md`); restore it from there if you ever want it again.
+
+## A loaded job outlives its file (m5, 2026-10-26)
+
+Removing a LaunchAgent's plist does not stop the job: launchd keeps it loaded until it is booted out. On 2026-10-26 `relic-chain` (every 600 s),
+`relic-push` (every 300 s) and `relic-indexer` (every 600 s) were still firing on m5 after their plists were gone, and one of those passes ran
+beside a `relic5 import`. They were booted out by hand. After retiring a job, check that it is really gone:
+
+```sh
+launchctl list | grep -i relic          # nothing that has a run interval should be left
+launchctl bootout gui/$(id -u)/studio.soulbrews.relic-chain
+```
