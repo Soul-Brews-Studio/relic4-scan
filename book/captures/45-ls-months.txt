@@ -1,0 +1,6 @@
+$ ls -l ~/.relic-scan/*.parquet
+-r--r--r--@ 34153 ~/.relic-scan/2026-07.parquet
+-r--r--r--@ 32337 ~/.relic-scan/2026-08.parquet
+-r--r--r--@ 34805 ~/.relic-scan/2026-09.parquet
+-rw-r--r--@ 31950 ~/.relic-scan/2026-10.parquet
+(exit 0 · 0.0 s)

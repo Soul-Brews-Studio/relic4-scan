@@ -1,0 +1,8 @@
+$ duckdb -c "select count(*) as all_rows from '*.parquet'"
+┌──────────┐
+│ all_rows │
+│  int64   │
+├──────────┤
+│     3173 │
+└──────────┘
+(exit 0 · 0.0 s)

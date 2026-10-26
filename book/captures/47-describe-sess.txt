@@ -1,0 +1,46 @@
+$ duckdb -c "describe select * from 'meta/sessions.parquet'"
+┌────────────────────┬─────────────┐
+│    column_name     │ column_type │
+│      varchar       │   varchar   │
+├────────────────────┼─────────────┤
+│ base               │ VARCHAR     │
+│ tier               │ VARCHAR     │
+│ sid                │ VARCHAR     │
+│ parent_sid         │ VARCHAR     │
+│ engine             │ VARCHAR     │
+│ proj               │ VARCHAR     │
+│ cat                │ VARCHAR     │
+│ probe              │ BOOLEAN     │
+│ first_ts           │ VARCHAR     │
+│ last_ts            │ VARCHAR     │
+│ last_ms            │ BIGINT      │
+│ copies             │ BIGINT      │
+│ machines           │ BIGINT      │
+│ agents             │ VARCHAR[]   │
+│ size               │ BIGINT      │
+│ n_rows             │ BIGINT      │
+│ text_rows          │ BIGINT      │
+│ text_msgs          │ BIGINT      │
+│ months             │ VARCHAR[]   │
+│ cwd                │ VARCHAR     │
+│ title              │ VARCHAR     │
+│ branch             │ VARCHAR     │
+│ version            │ VARCHAR     │
+│ via                │ VARCHAR     │
+│ chat               │ VARCHAR     │
+│ from_user          │ VARCHAR     │
+│ models             │ VARCHAR[]   │
+│ model_msgs         │ BIGINT[]    │
+│ in_tokens          │ BIGINT      │
+│ out_tokens         │ BIGINT      │
+│ cache_read_tokens  │ BIGINT      │
+│ cache_write_tokens │ BIGINT      │
+│ user_text          │ BIGINT      │
+│ assistant_text     │ BIGINT      │
+│ thinking           │ BIGINT      │
+│ tool_calls         │ BIGINT      │
+│ tool_results       │ BIGINT      │
+│ tool_errors        │ BIGINT      │
+└────────────────────┴─────────────┘
+  38 rows                2 columns
+(exit 0 · 0.0 s)

@@ -1,0 +1,6 @@
+$ head -4 ~/.relic-scan/_ledger.tsv | cut -f2,3,5,9
+lines	bytes	session	how
+17	7856	6bfabfe8-a9cf-4a90-92e7-07dc3b9129bd	read
+28	12970	722a64f7-1181-4bf4-bda3-7179a981e3ea	read
+19	8751	e2ad789b-36bb-4baa-83c2-cfc1d8d0e166	read
+(exit 0 · 0.0 s)

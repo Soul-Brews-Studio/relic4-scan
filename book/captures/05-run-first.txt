@@ -1,0 +1,22 @@
+$ relic-scan run
+run: scan 0.2s · new 144 · grown 0 · rewritten 0 · unchanged 0 · gone 0 · 0.00 GB to read
+
+parse: 144 files · 0.00 GB · 3244 lines (0 not JSON) · 3171 raw rows · 0 stuck at a >8 MB line · 1.0s (1 MB/s) · 18 threads
+  2026-07: 819 rows (819 new copies merged) -> ~/.relic-scan/2026-07.parquet
+  2026-08: 762 rows (762 new copies merged) -> ~/.relic-scan/2026-08.parquet
+  2026-09: 845 rows (845 new copies merged) -> ~/.relic-scan/2026-09.parquet
+  2026-10: 745 rows (745 new copies merged) -> ~/.relic-scan/2026-10.parquet
+merge: 4 months in 0.0s · total 1.0s
+meta: jsonl 145 (home 144 · ψ vault 0 in 0 vaults · other 1) in 0.0s -> ~/.relic-scan/meta/jsonl.parquet
+vaults: 2 ψ vaults · 5 notes · 0.0 GB (+ 0 worktree copies) in 0.0s -> ~/.relic-scan/meta/vaults.json
+meta: 4 months (4 re-aggregated) in 0.0s · 144 files · 144 sessions (0 probe) · 0.0s -> ~/.relic-scan/meta/
+map: 144 sessions · 8 repos · 3 homes · 0.2 MB · 145 paths in 0.0s -> ~/.relic-scan/meta/map.html
+run: done in 1.3s · state 144 files -> ~/.relic-scan/_state.tsv
+╭─ ▓▒░ RELIC·SCAN ░▒▓ ─────────────────────────────────────────────╮
+│ 144 sessions · 3,171 rows · 144 files · 0.0 GB read              │
+│ new 144 · grown 0 · rewritten 0 · unchanged 0                    │
+│ scan 0.2s · parse+merge 1.1s · meta 0.0s · map 0.0s · total 1.3s │
+│ → ~/.relic-scan                                                  │
+│ ▸ relic-scan serve   ▸ relic-scan tui                            │
+╰──────────────────────────────────────────────────────────────────╯
+(exit 0 · 1.3 s)

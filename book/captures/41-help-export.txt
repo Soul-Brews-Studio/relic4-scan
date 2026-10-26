@@ -1,0 +1,18 @@
+$ relic-scan export --help
+Copy the sealed months and their seals to an S3-compatible store (AWS S3, Garage, MinIO); re-runnable, nothing
+
+Usage: relic-scan export [OPTIONS] --to <TO>
+
+Options:
+      --out <OUT>            [default: ~/.relic-scan]
+      --kind <KIND>          the --kind the run used: picks ~/.relic-scan/<kind> when --out is not given
+      --to <TO>              where to: s3://bucket/prefix. Endpoint and keys come from RELIC_S3_ENDPOINT, AWS_
+      --endpoint <ENDPOINT>  the S3 endpoint (default: RELIC_S3_ENDPOINT, else AWS S3)
+      --region <REGION>      
+      --dry-run              only look (HEAD): say what would be sent, send nothing
+      --overwrite            replace a sealed month that differs in the store (it was sealed again after a lat
+      --verify               compare the store with the local files; send nothing; exit 1 when they differ
+      --insecure-http        allow plain http to a host that is neither this machine nor on the tailnet
+      --list                 say what the store holds, one line per month (reads meta/months.json and export-m
+  -h, --help                 Print help
+(exit 0 · 0.0 s)

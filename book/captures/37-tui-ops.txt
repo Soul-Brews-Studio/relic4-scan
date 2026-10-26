@@ -1,0 +1,32 @@
+$ relic-scan tui
+ ▓▒░ RELIC·SCAN ░▒▓   144 sessions · 145 .jsonl · ~/.relic-scan
+  1 overview   2 repos   3 sessions   4 paths   5 s3   6 ops
+
+╭ operations · refreshes every 2 s ────────────────────────────────────────────────────────────────╮
+│CHAIN m5  idle  last pass 06:50:15 took 1:31 · next in about 0:00                                 │
+│  ✓ scan                  31 s (typical 31 s)     scan 0.2s · new 0 · grown 3 · rewritten 0 · unch│
+│  ✓ extract               14 s (typical 14 s)     337 chunks · 12 messages cleaned out            │
+│  ✓ push to the hub        5 s (typical 5 s)                                                      │
+│  ✓ hub index + embed                                                                             │
+│  ✓ sync check                                    SYNC OK  text|1256 thinking|507 tools|1410      │
+│                                                                                                  │
+│PROCESSES  none running                                                                           │
+│                                                                                                  │
+│HUB  not read (off)                                                                               │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+ q quit  1-6/tab view  / filter  ↑↓ jk g G move  enter open  o page  ⌫ back
+(exit 0 · screen 100x30)

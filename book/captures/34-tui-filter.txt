@@ -1,0 +1,32 @@
+$ relic-scan tui
+ ▓▒░ RELIC·SCAN ░▒▓   144 sessions · 145 .jsonl · ~/.relic-scan
+  1 overview   2 repos   3 sessions   4 paths   5 s3   6 ops
+
+╭ sessions, newest first (enter: open) · 16 ───────────────────────────────────────────────────────╮
+│  started (BKK)      sid                  repo                  rows    text  think   calls errors│
+│▶ 2026-10-23 10:38 ● 24c5d760-3ea4-4b50-8 starfish-api            26       8      4       7      1│
+│  2026-10-16 18:56 ● 36e27299-5362-495d-b starfish-api            28      12      6       5      2│
+│  2026-10-03 11:40 ● 503803f6-8abb-4baa-b starfish-api            37      14      7       8      1│
+│  2026-09-14 20:08 ● 0af4d28e-a79c-4ad8-b starfish-api            17       8      3       3      0│
+│  2026-09-11 15:03 ● a8c80f6b-fc83-45c5-9 starfish-api            43      14      7      11      4│
+│  2026-09-04 18:18 ● 300c256a-5f98-41a7-8 starfish-api            29      10      5       7      0│
+│  2026-08-27 12:40 ● f8f2c781-e237-4375-b starfish-api            12       4      2       3      0│
+│  2026-08-23 16:23 ● 2cd6025e-6578-460c-a starfish-api            18       8      4       3      0│
+│  2026-08-22 16:45 ● 1bdcb90a-8cb2-4336-b starfish-api            14       4      2       4      1│
+│  2026-08-17 19:35 ● 6a0ff5e6-1976-4506-a starfish-api            37      10      5      11      3│
+│  2026-08-11 10:52 ● 8f4890d2-a3d4-46ee-8 starfish-api            19       6      3       5      1│
+│  2026-08-03 15:27 ● 95f11992-b028-4a4d-b starfish-api            37      14      7       8      1│
+│  2026-07-18 20:48 ● 33aee8a4-8a77-4ef8-9 starfish-api            41      14      7      10      3│
+│  2026-07-15 13:07 ● fdc5d500-c12e-45c4-b starfish-api            47      14      7      13      4│
+│  2026-07-11 20:28 ● fe3ae0e4-474b-4b49-8 starfish-api            47      14      7      13      7│
+│  2026-07-05 19:04 ● ad8eea7c-8bda-456d-9 starfish-api            40      12      6      11      4│
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+ q quit  1-6/tab view  / filter  ↑↓ jk g G move  enter open  o page  ⌫ back   filter: starfish
+(exit 0 · screen 100x30)

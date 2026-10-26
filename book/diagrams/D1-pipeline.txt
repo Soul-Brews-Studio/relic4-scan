@@ -1,0 +1,24 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║  RELIC SCAN — WHERE THE DATA GOES                  demo home, 2026-10-26 ║
+║  145 .jsonl seen · 144 indexed · 3,173 rows · 4 months · 8 repos         ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+   agent homes (read only)            relic-scan run                  ~/.relic-scan
+   ┌───────────────────────┐        ┌──────────────────┐        ┌──────────────────────┐
+   │ ~/.claude/projects    │        │ 1 scan   (find)  │        │ 2026-07.parquet  r-- │
+   │ ~/.codex/sessions     │ ─────► │ 2 parse  (rows)  │ ─────► │ 2026-08.parquet  r-- │
+   │ ~/.omp/agent/sessions │        │ 3 merge  (fold)  │        │ 2026-09.parquet  r-- │
+   │ ~/Code/*/ψ  (vaults)  │        │ 4 meta   (count) │        │ 2026-10.parquet  rw- │
+   └───────────────────────┘        │ 5 map    (page)  │        │ meta/  sessions,     │
+        never changed               └──────────────────┘        │        files, vaults │
+                                           │                    │ _state.tsv  _ledger  │
+                                           │ only new bytes     │ _scans.jsonl         │
+                                           └─ next run reads    └──────────────────────┘
+                                              what grew
+
+                          ┌─ page   relic-scan serve   http://127.0.0.1:8787
+   ~/.relic-scan ───────► ├─ tui    relic-scan tui
+                          ├─ SQL    duckdb -c "select … from '*.parquet'"
+                          └─ S3     relic-scan export --to s3://…   (sealed months only)
+
+   Sealed = a month before the current one: its file is read-only (r--).
