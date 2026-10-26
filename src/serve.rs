@@ -151,7 +151,7 @@ fn reveal_target(out: &Path, q: &std::collections::HashMap<String, String>) -> O
         return None;
     }
     let seen = seen_paths(out);
-    if st.contains_key(&p) || seen.iter().any(|k| *k == p) {
+    if st.contains_key(&p) || seen.contains(&p) {
         return Some((p, true));
     }
     let dir = format!("{p}/");

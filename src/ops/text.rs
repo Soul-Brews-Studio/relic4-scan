@@ -19,7 +19,7 @@ pub fn render(v: &Value) -> Vec<String> {
                     _ => String::new() }));
         }
         Some("idle") => o.push(format!("CHAIN {}  idle  last pass {} took {} · {}", c["machine"].as_str().unwrap_or(""),
-            c["started"].as_str().unwrap_or("")[11..].to_string(), dur(c["took_s"].as_i64().unwrap_or(0)),
+            &c["started"].as_str().unwrap_or("")[11..], dur(c["took_s"].as_i64().unwrap_or(0)),
             c["next_in_s"].as_i64().map_or("manual (no loop)".to_string(), |n| format!("next in about {}", dur(n))))),
         _ => o.push("CHAIN  no pass logged yet (".to_string() + v["log"].as_str().unwrap_or("") + ")"),
     }
@@ -63,11 +63,10 @@ pub fn render(v: &Value) -> Vec<String> {
 pub fn render_linked(v: &Value, base: &str, hub: &str, on: bool) -> Vec<String> {
     use crate::links::{link, view_url};
     let mut o = render(v);
-    if hub != "off" && v["hub"]["ok"].as_bool() == Some(true) {
-        if let Some(l) = o.iter_mut().find(|l| l.starts_with("HUB")) {
+    if hub != "off" && v["hub"]["ok"].as_bool() == Some(true)
+        && let Some(l) = o.iter_mut().find(|l| l.starts_with("HUB")) {
             *l = format!("{}{}", link(on, hub, "HUB"), &l[3..]);
         }
-    }
     let page = view_url(base, "ops");
     o.push(String::new());
     o.push(format!("page  {}", link(on, &page, &page)));

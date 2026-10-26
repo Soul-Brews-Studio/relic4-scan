@@ -15,7 +15,7 @@ pub(super) fn raw_schema() -> Arc<Schema> {
 }
 
 pub(super) fn raw_batch(rows: &[Raw]) -> RecordBatch {
-    let st = |f: &dyn Fn(&Raw) -> Option<&str>| -> ArrayRef { Arc::new(rows.iter().map(|r| f(r)).collect::<StringArray>()) };
+    let st = |f: &dyn Fn(&Raw) -> Option<&str>| -> ArrayRef { Arc::new(rows.iter().map(f).collect::<StringArray>()) };
     let cols: Vec<ArrayRef> = vec![
         st(&|r| Some(r.s)), Arc::new(rows.iter().map(|r| r.h).collect::<Int64Array>()),
         Arc::new(rows.iter().map(|r| r.idx).collect::<Int64Array>()), st(&|r| Some(r.engine)), st(&|r| r.role.as_deref()),
