@@ -6,8 +6,8 @@ reason about: no pass starts while you are changing a binary, and the hub only m
 | machine | what stays on its own | one pass by hand |
 |---|---|---|
 | m5 | nothing | **`relic5 import`** (the Rust `relic5` client, see relic5's `docs/IMPORT.md` and `docs/CLI.md`): scan, extract, push, index, embed, sync check, with a box at the end. Do NOT use `~/.local/bin/relic-chain` on m5: its extract after-hook (push + hub index) is commented out, so it pushes without indexing and the hub warns "parts newer than its manifest" |
-| mba | nightly S3 export (`studio.soulbrews.relic-export`) | `~/.local/bin/relic-chain` (its own after-hook still pushes and indexes) |
-| white | nightly S3 export (`relic-export.timer`) and the offsite copy (`relic5-offsite.timer`) | `~/.local/bin/relic-chain` |
+| mba | nightly S3 export (`studio.soulbrews.relic-export`) | `~/.local/bin/relic-chain` with the plist's env: `RELIC5_MACHINE=mba RELIC5_HUB_URL=http://white.follow-rankine.ts.net:8795 RELIC5_PUSH="RELIC5_MACHINE=mba $HOME/.local/bin/relic5-push" ~/.local/bin/relic-chain` (bare, it stops with "set RELIC5_MACHINE"; its after-hook still pushes and indexes) |
+| white | nightly S3 export (`relic-export.timer`) and the offsite copy (`relic5-offsite.timer`) | `systemctl --user start relic-chain.service` (the unit carries the env; bare `relic-chain` stops with "set RELIC5_MACHINE") |
 
 The pass is the same everywhere: `relic-scan run`, then `relic-extract run` (its after-hook pushes to the hub), then the sync check. It
 writes its stage lines to the chain log; `relic-scan ops` reads them and says "manual (no loop)" when no loop is installed.
