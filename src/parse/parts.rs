@@ -61,7 +61,17 @@ impl Spiller {
         self.n += 1;
         let f = fs::File::create(&p).unwrap();
         let mut w = FileWriter::try_new(f, &raw_schema()).unwrap();
-        w.write(&raw_batch(rows)).unwrap();
+        // byte-capped batches: SPILL_ROWS rows of big tool output can pass Arrow's 2 GiB per string array
+        let len = |o: &Option<String>| o.as_ref().map_or(0, |x| x.len());
+        let size = |i: usize| {
+            let r = &rows[i];
+            r.s.len() + r.engine.len() + len(&r.role) + len(&r.typ) + r.sid.len() + r.ts.len() + r.ts_th.len() + len(&r.text)
+                + r.kind.map_or(0, |k| k.len()) + len(&r.call_id) + len(&r.name) + len(&r.body) + len(&r.red) + r.file.len()
+                + len(&r.model) + len(&r.msg_id)
+        };
+        for c in super::merge::byte_chunks(rows.len(), size, usize::MAX, super::merge::batch_bytes()) {
+            w.write(&raw_batch(&rows[c])).unwrap();
+        }
         w.finish().unwrap();
     }
     pub(super) fn flush(&mut self) {

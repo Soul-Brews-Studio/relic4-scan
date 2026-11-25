@@ -7,6 +7,34 @@ fn batch_rows() -> usize {
     std::env::var("RELIC_SCAN_BATCH_ROWS").ok().and_then(|v| v.parse().ok()).filter(|&n| n > 0).unwrap_or(50_000)
 }
 
+/// Text bytes per Arrow batch (all string columns of a row added up). One Arrow string array holds at most 2 GiB
+/// (i32 offsets); 50,000 rows of big tool output passed that on m5 on 2026-11-23 ("byte array offset overflow"),
+/// so a batch is cut at whichever comes first: batch_rows() rows or batch_bytes() bytes.
+/// RELIC_SCAN_BATCH_BYTES changes it (tests).
+pub(super) fn batch_bytes() -> usize {
+    std::env::var("RELIC_SCAN_BATCH_BYTES").ok().and_then(|v| v.parse().ok()).filter(|&n| n > 0).unwrap_or(512 << 20)
+}
+
+/// Split 0..n into ranges of at most `max_rows` rows and at most `max_bytes` bytes (by `size(i)`); a single row larger
+/// than `max_bytes` gets a range of its own.
+pub(super) fn byte_chunks(n: usize, size: impl Fn(usize) -> usize, max_rows: usize, max_bytes: usize) -> Vec<std::ops::Range<usize>> {
+    let mut out = vec![];
+    let (mut start, mut bytes) = (0, 0usize);
+    for i in 0..n {
+        let b = size(i);
+        if i > start && (i - start >= max_rows || bytes + b > max_bytes) {
+            out.push(start..i);
+            start = i;
+            bytes = 0;
+        }
+        bytes += b;
+    }
+    if start < n {
+        out.push(start..n);
+    }
+    out
+}
+
 
 /// One candidate copy of a truth row, from the existing month file or from a new raw part.
 pub(super) struct Cand {
@@ -186,9 +214,16 @@ pub fn merge_month(parts_dir: &Path, month: &str, out: &Path, agent: &str) -> (u
     let tmp = out.join(format!("{month}.parquet.part"));
     let props = WriterProperties::builder().set_compression(Compression::ZSTD(ZstdLevel::try_new(1).unwrap())).build();
     let mut w = ArrowWriter::try_new(fs::File::create(&tmp).unwrap(), schema.clone(), Some(props)).unwrap();
-    // The month goes out in batches of BATCH_ROWS: one Arrow string array holds at most 2 GiB of text, and a month of
-    // tool output (Codex archives made one) is larger than that.
-    for rows in order.chunks(batch_rows()) {
+    // The month goes out in batches of at most batch_rows() rows AND batch_bytes() bytes: one Arrow string array holds
+    // at most 2 GiB of text, and a month of tool output (Codex archives made one) is larger than that; so are 50,000
+    // rows of big tool output (m5, 2026-11-23).
+    let len = |o: &Option<String>| o.as_ref().map_or(0, |x| x.len());
+    let row_bytes = |c: &Cand| {
+        c.s.len() + len(&c.engine) + len(&c.role) + len(&c.typ) + len(&c.sid) + len(&c.ts) + len(&c.ts_th) + len(&c.text)
+            + len(&c.kind) + len(&c.call_id) + len(&c.name) + len(&c.body) + len(&c.red) + len(&c.model) + len(&c.msg_id)
+    };
+    for r in byte_chunks(order.len(), |k| row_bytes(&cands[order[k]]), batch_rows(), batch_bytes()) {
+        let rows = &order[r];
         let strs = |f: &dyn Fn(&Cand) -> Option<&str>| -> ArrayRef { Arc::new(rows.iter().map(|&i| f(&cands[i])).collect::<StringArray>()) };
         let mut hb = Int64Builder::new();
         let mut ib = Int64Builder::new();

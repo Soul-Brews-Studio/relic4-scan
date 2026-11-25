@@ -320,6 +320,44 @@ fn a_month_written_in_small_batches_holds_the_same_rows() {
 }
 
 #[test]
+fn byte_chunks_cut_at_rows_or_bytes_whichever_first() {
+    use super::merge::byte_chunks;
+    // rows only
+    assert_eq!(byte_chunks(5, |_| 1, 2, usize::MAX), vec![0..2, 2..4, 4..5]);
+    // bytes only: 10-byte rows, at most 25 bytes a batch -> 2 rows each
+    assert_eq!(byte_chunks(5, |_| 10, usize::MAX, 25), vec![0..2, 2..4, 4..5]);
+    // a row bigger than the cap gets a batch of its own, never an empty batch
+    assert_eq!(byte_chunks(3, |i| if i == 1 { 100 } else { 1 }, usize::MAX, 10), vec![0..1, 1..2, 2..3]);
+    assert!(byte_chunks(0, |_| 1, 10, 10).is_empty());
+    // every row lands in exactly one range, in order
+    let r = byte_chunks(1000, |i| i % 37, 64, 500);
+    assert_eq!(r.first().unwrap().start, 0);
+    assert_eq!(r.last().unwrap().end, 1000);
+    assert!(r.windows(2).all(|w| w[0].end == w[1].start));
+}
+
+#[test]
+fn a_month_written_in_byte_capped_batches_holds_the_same_rows() {
+    // 50,000 rows of big tool output passed 2 GiB in one Arrow string array on m5 (2026-11-23): batches are also cut
+    // by bytes (RELIC_SCAN_BATCH_BYTES); the spill parts and the month file both use it
+    let d = tmp("batchbytes");
+    let src = d.join("s.jsonl");
+    fs::write(&src, lines(2, 40)).unwrap();
+    let sp = src.to_str().unwrap().to_string();
+    let job = || Job { path: sp.clone(), size: fs::metadata(&src).unwrap().len(), verdict: String::new(), ctx: Ctx::default() };
+    let (big, small) = (d.join("big"), d.join("small"));
+    run(vec![job()], &big, "t@x", 2, false, false, None);
+    // safe here: the other tests read the variable too, and any batch size gives the same rows
+    unsafe { std::env::set_var("RELIC_SCAN_BATCH_BYTES", "300") };
+    run(vec![job()], &small, "t@x", 2, false, false, None);
+    unsafe { std::env::remove_var("RELIC_SCAN_BATCH_BYTES") };
+    let (a, b) = (month_rows(&big.join("2026-07.parquet")), month_rows(&small.join("2026-07.parquet")));
+    assert!(a.len() > 100, "{}", a.len());
+    assert_eq!(a, b);
+    let _ = fs::remove_dir_all(&d);
+}
+
+#[test]
 fn a_channel_message_names_the_sessions_channel() {
     let m = engine::channel_of(r#"<channel source="plugin:discord:discord" chat_id="1551543230984757350" message_id="1" user="emraccoon" user_id="2" ts="2026-10-01T05:44:15.702Z"> hello </channel>"#);
     assert_eq!((m.via.as_str(), m.chat.as_str(), m.from_user.as_str()), ("plugin:discord:discord", "1551543230984757350", "emraccoon"));
